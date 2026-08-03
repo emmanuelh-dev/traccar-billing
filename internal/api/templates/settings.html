@@ -21,6 +21,47 @@
   {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
   {{if .Saved}}<div class="form-ok">{{.T.SettingsSaved}}</div>{{end}}
 
+  <section class="settings-form modal-form">
+    <h2>{{.T.ConnectionSection}}</h2>
+    <p class="field-hint">{{.T.TokenIntro}}</p>
+
+    {{if .HasAPIToken}}
+      <div class="token-state ok">
+        <strong>{{.T.TokenActiveLabel}}</strong>
+        <code>{{.TokenHint}}</code>
+      </div>
+      <div class="modal-actions">
+        <form method="post" action="/settings/token/generate">
+          <button type="submit">{{.T.TokenGenerateBtn}}</button>
+        </form>
+        <form method="post" action="/settings/token/delete">
+          <button class="danger" type="submit">{{.T.TokenRemoveBtn}}</button>
+        </form>
+      </div>
+    {{else}}
+      <div class="token-state warn">
+        <strong>{{.T.TokenMissingLabel}}</strong>
+        <span>{{.T.TokenMissingHint}}</span>
+      </div>
+      <div class="modal-actions">
+        <form method="post" action="/settings/token/generate">
+          <button class="primary" type="submit">{{.T.TokenGenerateBtn}}</button>
+        </form>
+      </div>
+    {{end}}
+
+    <form method="post" action="/settings/token">
+      <div class="field">
+        <label for="settings-token">{{.T.TokenPasteLabel}}</label>
+        <input id="settings-token" name="api_token" type="password" autocomplete="off" spellcheck="false">
+        <p class="field-hint">{{.T.TokenPasteHint}}</p>
+      </div>
+      <div class="modal-actions">
+        <button type="submit">{{.T.TokenSaveBtn}}</button>
+      </div>
+    </form>
+  </section>
+
   <form class="settings-form modal-form" method="post" action="/settings">
     <p class="field-hint">{{.T.SettingsIntro}}</p>
 

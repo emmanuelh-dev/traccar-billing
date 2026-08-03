@@ -53,11 +53,59 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 		if err := s.SyncTenant(tenantCtx, t); err != nil {
 			s.logger.Error("scheduler: sync tenant failed", "tenant_id", t.ID, "error", err)
 		}
+		if _, err := s.GenerateRemissions(tenantCtx, t, time.Now()); err != nil {
+			s.logger.Error("scheduler: generate remissions failed", "tenant_id", t.ID, "error", err)
+		}
 		if err := s.checkOverdue(tenantCtx, t); err != nil {
 			s.logger.Error("scheduler: check overdue failed", "tenant_id", t.ID, "error", err)
 		}
 		cancel()
 	}
+}
+
+// GenerateRemissions issues one pending remission per calendar-billed
+// subscription for the period containing now. It is safe to call repeatedly:
+// the unique index on (subscription_id, period_start) makes a second run for
+// the same month a no-op.
+func (s *Scheduler) GenerateRemissions(ctx context.Context, t billing.Tenant, now time.Time) (int, error) {
+	accounts, err := s.repo.ListAccountsByTenant(ctx, t.ID)
+	if err != nil {
+		return 0, fmt.Errorf("list accounts to generate remissions: %w", err)
+	}
+
+	createdCount := 0
+	for _, acc := range accounts {
+		if acc.Archived() {
+			continue
+		}
+		// Skip temporary device-share users to avoid double-charging shared devices.
+		if acc.Mirror() {
+			continue
+		}
+		sub, err := s.repo.GetSubscriptionByAccountID(ctx, acc.ID)
+		if errors.Is(err, billing.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			s.logger.Error("scheduler: get subscription for remission", "tenant_id", t.ID, "account_id", acc.ID, "error", err)
+			continue
+		}
+		if !billing.ShouldBill(sub) {
+			continue
+		}
+
+		rem := billing.BuildRemission(sub, acc, now)
+		_, err = s.repo.CreateRemission(ctx, rem)
+		if err != nil {
+			if errors.Is(err, billing.ErrConflict) {
+				continue
+			}
+			s.logger.Error("scheduler: create remission failed", "tenant_id", t.ID, "account_id", acc.ID, "error", err)
+			continue
+		}
+		createdCount++
+	}
+	return createdCount, nil
 }
 
 func (s *Scheduler) SyncTenant(ctx context.Context, t billing.Tenant) error {
@@ -70,7 +118,7 @@ func (s *Scheduler) SyncTenant(ctx context.Context, t billing.Tenant) error {
 	if err != nil {
 		return fmt.Errorf("parse base url: %w", err)
 	}
-	session := billing.Session{Cookie: t.SessionCookie, ExpiresAt: t.SessionExpiresAt}
+	session := t.TraccarSession()
 
 	users, err := s.client.FetchUsers(ctx, baseURL, session)
 	if err != nil {
@@ -186,7 +234,7 @@ func (s *Scheduler) pauseTraccarUser(ctx context.Context, t billing.Tenant, acco
 		s.logger.Error("scheduler: parse base url to pause user", "error", err)
 		return
 	}
-	session := billing.Session{Cookie: t.SessionCookie, ExpiresAt: t.SessionExpiresAt}
+	session := t.TraccarSession()
 
 	if err := s.client.SetUserDisabled(ctx, baseURL, session, account.TraccarUserID, true); err != nil {
 		s.logger.Error("scheduler: pause traccar user", "account_id", accountID, "traccar_user_id", account.TraccarUserID, "error", err)

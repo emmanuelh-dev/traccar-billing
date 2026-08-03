@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+	"modernc.org/sqlite"
+
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
 
@@ -78,12 +81,12 @@ func scanTime(nt sql.NullTime) time.Time {
 	return nt.Time
 }
 
-const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at`
+const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, api_token, session_expires_at, admin_traccar_user_id, created_at, updated_at`
 
 func scanTenantInto(sc scanner) (billing.Tenant, error) {
 	var t billing.Tenant
 	var sessionExpiresAt sql.NullTime
-	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &t.APIToken, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return billing.Tenant{}, err
 	}
 	t.SessionExpiresAt = scanTime(sessionExpiresAt)
@@ -93,9 +96,9 @@ func scanTenantInto(sc scanner) (billing.Tenant, error) {
 func (r *sqlRepository) CreateTenant(ctx context.Context, t billing.Tenant) (billing.Tenant, error) {
 	now := time.Now().UTC()
 	res, err := r.q().ExecContext(ctx,
-		`INSERT INTO tenants (name, base_url, traccar_user_id, owner_email, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		t.Name, t.BaseURL, t.TraccarUserID, t.OwnerEmail, t.SessionCookie, nullTime(t.SessionExpiresAt), t.AdminTraccarUserID, now, now)
+		`INSERT INTO tenants (name, base_url, traccar_user_id, owner_email, session_cookie, api_token, session_expires_at, admin_traccar_user_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.Name, t.BaseURL, t.TraccarUserID, t.OwnerEmail, t.SessionCookie, t.APIToken, nullTime(t.SessionExpiresAt), t.AdminTraccarUserID, now, now)
 	if err != nil {
 		return billing.Tenant{}, fmt.Errorf("storage: create tenant: %w", err)
 	}
@@ -156,6 +159,16 @@ func (r *sqlRepository) UpdateTenantOwner(ctx context.Context, tenantID int64, t
 		traccarUserID, email, time.Now().UTC(), tenantID)
 	if err != nil {
 		return fmt.Errorf("storage: update tenant owner: %w", err)
+	}
+	return nil
+}
+
+func (r *sqlRepository) UpdateTenantAPIToken(ctx context.Context, tenantID int64, token string) error {
+	_, err := r.q().ExecContext(ctx,
+		`UPDATE tenants SET api_token = ?, updated_at = ? WHERE id = ?`,
+		token, time.Now().UTC(), tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: update tenant api token: %w", err)
 	}
 	return nil
 }
@@ -1164,6 +1177,173 @@ func (r *sqlRepository) DeleteAppointment(ctx context.Context, tenantID, appoint
 		`DELETE FROM appointments WHERE id = ? AND tenant_id = ?`, appointmentID, tenantID)
 	if err != nil {
 		return fmt.Errorf("storage: delete appointment: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.ErrNotFound
+	}
+	return nil
+}
+
+// isUniqueViolation reports whether the driver rejected a write because it
+// duplicates a unique key, which callers turn into billing.ErrConflict.
+//
+// modernc.org/sqlite reports extended codes (2067 for UNIQUE, 1299 for NOT
+// NULL, 1555 for a primary key), so the SQLite arm matches 2067 alone. The
+// bare 19 is deliberately not accepted: it is the whole SQLITE_CONSTRAINT
+// class, and a caller that reads a NOT NULL failure as a duplicate would skip
+// the row as work already done.
+func isUniqueViolation(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == 1062
+	}
+	var sqliteErr *sqlite.Error
+	if errors.As(err, &sqliteErr) {
+		return sqliteErr.Code() == 2067
+	}
+	return false
+}
+
+const remissionColumns = `id, tenant_id, account_id, subscription_id, period_start, period_end, device_count, amount_cents, currency, status, note, payment_id, issued_at, paid_at, canceled_at, created_at, updated_at`
+
+func scanRemissionInto(sc scanner) (billing.Remission, error) {
+	var r billing.Remission
+	var paymentID sql.NullInt64
+	var paidAt, canceledAt sql.NullTime
+	var status string
+	if err := sc.Scan(
+		&r.ID, &r.TenantID, &r.AccountID, &r.SubscriptionID,
+		&r.PeriodStart, &r.PeriodEnd, &r.DeviceCount, &r.AmountCents,
+		&r.Currency, &status, &r.Note, &paymentID,
+		&r.IssuedAt, &paidAt, &canceledAt, &r.CreatedAt, &r.UpdatedAt,
+	); err != nil {
+		return billing.Remission{}, err
+	}
+	r.PaymentID = paymentID.Int64
+	r.PaidAt = scanTime(paidAt)
+	r.CanceledAt = scanTime(canceledAt)
+	r.Status = billing.RemissionStatus(status)
+	return r, nil
+}
+
+func (r *sqlRepository) CreateRemission(ctx context.Context, rem billing.Remission) (billing.Remission, error) {
+	now := time.Now().UTC()
+	if rem.IssuedAt.IsZero() {
+		rem.IssuedAt = rem.PeriodStart
+	}
+	if rem.Status == "" {
+		rem.Status = billing.RemissionPending
+	}
+	res, err := r.q().ExecContext(ctx,
+		`INSERT INTO remissions (tenant_id, account_id, subscription_id, period_start, period_end, device_count, amount_cents, currency, status, note, payment_id, issued_at, paid_at, canceled_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rem.TenantID, rem.AccountID, rem.SubscriptionID, rem.PeriodStart, rem.PeriodEnd, rem.DeviceCount, rem.AmountCents, rem.Currency, string(rem.Status), rem.Note, nullInt64(rem.PaymentID), rem.IssuedAt, nullTime(rem.PaidAt), nullTime(rem.CanceledAt), now, now)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return billing.Remission{}, billing.ErrConflict
+		}
+		return billing.Remission{}, fmt.Errorf("storage: create remission: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return billing.Remission{}, fmt.Errorf("storage: create remission: %w", err)
+	}
+	return r.GetRemission(ctx, rem.TenantID, id)
+}
+
+func (r *sqlRepository) GetRemission(ctx context.Context, tenantID, remissionID int64) (billing.Remission, error) {
+	rem, err := scanRemissionInto(r.q().QueryRowContext(ctx,
+		`SELECT `+remissionColumns+` FROM remissions WHERE tenant_id = ? AND id = ?`, tenantID, remissionID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return billing.Remission{}, billing.ErrNotFound
+	}
+	if err != nil {
+		return billing.Remission{}, fmt.Errorf("storage: get remission: %w", err)
+	}
+	return rem, nil
+}
+
+func (r *sqlRepository) ListRemissions(ctx context.Context, tenantID int64, filter billing.RemissionFilter) ([]billing.TenantRemission, error) {
+	query := `SELECT r.id, r.tenant_id, r.account_id, r.subscription_id, r.period_start, r.period_end, r.device_count, r.amount_cents, r.currency, r.status, r.note, r.payment_id, r.issued_at, r.paid_at, r.canceled_at, r.created_at, r.updated_at, a.name
+		 FROM remissions r
+		 JOIN accounts a ON a.id = r.account_id
+		 WHERE r.tenant_id = ?`
+	args := []any{tenantID}
+
+	if !filter.From.IsZero() {
+		query += ` AND r.period_start >= ?`
+		args = append(args, filter.From.UTC())
+	}
+	if !filter.To.IsZero() {
+		query += ` AND r.period_start <= ?`
+		args = append(args, filter.To.UTC())
+	}
+	if filter.AccountID > 0 {
+		query += ` AND r.account_id = ?`
+		args = append(args, filter.AccountID)
+	}
+	if filter.Status != "" {
+		query += ` AND r.status = ?`
+		args = append(args, string(filter.Status))
+	}
+	query += ` ORDER BY r.period_start DESC, r.id DESC`
+
+	rows, err := r.q().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list remissions: %w", err)
+	}
+	defer rows.Close()
+
+	var remissions []billing.TenantRemission
+	for rows.Next() {
+		var tr billing.TenantRemission
+		var paymentID sql.NullInt64
+		var paidAt, canceledAt sql.NullTime
+		var status string
+		if err := rows.Scan(
+			&tr.ID, &tr.TenantID, &tr.AccountID, &tr.SubscriptionID,
+			&tr.PeriodStart, &tr.PeriodEnd, &tr.DeviceCount, &tr.AmountCents,
+			&tr.Currency, &status, &tr.Note, &paymentID,
+			&tr.IssuedAt, &paidAt, &canceledAt, &tr.CreatedAt, &tr.UpdatedAt,
+			&tr.AccountName,
+		); err != nil {
+			return nil, fmt.Errorf("storage: scan remission: %w", err)
+		}
+		tr.PaymentID = paymentID.Int64
+		tr.PaidAt = scanTime(paidAt)
+		tr.CanceledAt = scanTime(canceledAt)
+		tr.Status = billing.RemissionStatus(status)
+		remissions = append(remissions, tr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("storage: list remissions: %w", err)
+	}
+	return remissions, nil
+}
+
+func (r *sqlRepository) SettleRemission(ctx context.Context, tenantID, remissionID, paymentID int64, paidAt time.Time) (billing.Remission, error) {
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE remissions SET status = ?, payment_id = ?, paid_at = ?, updated_at = ?
+		 WHERE id = ? AND tenant_id = ?`,
+		string(billing.RemissionPaid), paymentID, paidAt, now, remissionID, tenantID)
+	if err != nil {
+		return billing.Remission{}, fmt.Errorf("storage: settle remission: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.Remission{}, billing.ErrNotFound
+	}
+	return r.GetRemission(ctx, tenantID, remissionID)
+}
+
+func (r *sqlRepository) CancelRemission(ctx context.Context, tenantID, remissionID int64, canceledAt time.Time) error {
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE remissions SET status = ?, canceled_at = ?, updated_at = ?
+		 WHERE id = ? AND tenant_id = ?`,
+		string(billing.RemissionCanceled), canceledAt, now, remissionID, tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: cancel remission: %w", err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return billing.ErrNotFound

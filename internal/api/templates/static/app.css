@@ -1469,3 +1469,21 @@ body.hide-emails small.account-email:hover {
 .wa-button:hover {
   filter: brightness(1.05);
 }
+
+/* Whether the tenant can still reach Traccar once its login cookie dies.
+   Stated plainly because the failure it prevents is silent: billing keeps
+   running while suspension quietly stops. */
+.token-state { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; }
+.token-state.ok { background: var(--color-ok-bg, #edf7ed); color: var(--color-ok, #1e6b28); }
+.token-state.warn { background: var(--color-warn-bg, #fdf3e3); color: var(--color-warn, #8a5a12); }
+.token-state code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.5px; }
+.token-state span { opacity: 0.85; }
+
+/* Accounts the month-end run skipped because nobody priced them. Stated on the
+   remissions page because it is the one screen where their absence is the
+   thing you are looking at. */
+.unbilled-note { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; background: var(--color-warn-bg, #fdf3e3); color: var(--color-warn, #8a5a12); }
+.pill.pending { background: #fdf3e3; color: #8a5a12; }
+.pill.paid { background: #edf7ed; color: #1e6b28; }
+.pill.canceled { background: #eee; color: #666; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }

@@ -150,7 +150,7 @@ func (s *Server) syncTraccarAccess(ctx context.Context, tenant billing.Tenant, a
 		s.logger.Error("api: parse base url to sync traccar access", "error", err)
 		return
 	}
-	session := billing.Session{Cookie: tenant.SessionCookie, ExpiresAt: tenant.SessionExpiresAt}
+	session := tenant.TraccarSession()
 
 	if err := s.client.SetUserDisabled(ctx, baseURL, session, account.TraccarUserID, disabled); err != nil {
 		s.logger.Error("api: sync traccar user access", "account_id", account.ID, "traccar_user_id", account.TraccarUserID, "disabled", disabled, "error", err)

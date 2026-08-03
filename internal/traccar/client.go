@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -149,7 +150,7 @@ func (c *Client) SetUserDisabled(ctx context.Context, baseURL *url.URL, session 
 		return fmt.Errorf("traccar: build disable request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Cookie", session.Cookie)
+	authorize(req, session)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -169,7 +170,7 @@ func (c *Client) DeleteUser(ctx context.Context, baseURL *url.URL, session billi
 	if err != nil {
 		return fmt.Errorf("traccar: build delete request: %w", err)
 	}
-	req.Header.Set("Cookie", session.Cookie)
+	authorize(req, session)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -187,7 +188,7 @@ func (c *Client) getJSON(ctx context.Context, endpoint *url.URL, session billing
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Cookie", session.Cookie)
+	authorize(req, session)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -203,6 +204,57 @@ func (c *Client) getJSON(ctx context.Context, endpoint *url.URL, session billing
 		return fmt.Errorf("decode response: %w", err)
 	}
 	return nil
+}
+
+// authorize is the single place that decides how a request proves who it is.
+// A token is preferred because it survives the login cookie, and it is sent as
+// a Bearer header rather than a ?token= query parameter so it stays out of
+// access logs and out of the Referer of anything Traccar redirects to.
+func authorize(req *http.Request, session billing.Session) {
+	if session.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+session.Token)
+		return
+	}
+	req.Header.Set("Cookie", session.Cookie)
+}
+
+// CreateToken asks Traccar for an API token for the session's own user.
+//
+// Traccar caps how far out the expiration may sit and silently shortens
+// anything beyond it, so the caller gets back whatever the server agreed to
+// rather than what it asked for. The response body is the bare token, though
+// some versions quote it as a JSON string.
+func (c *Client) CreateToken(ctx context.Context, baseURL *url.URL, session billing.Session, expiresAt time.Time) (string, error) {
+	form := url.Values{"expiration": {expiresAt.UTC().Format(time.RFC3339)}}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL.JoinPath("session", "token").String(), strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("traccar: build token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	authorize(req, session)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("traccar: create token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := checkStatus(resp); err != nil {
+		return "", fmt.Errorf("traccar: create token: %w", err)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return "", fmt.Errorf("traccar: read token: %w", err)
+	}
+
+	token := strings.TrimSpace(string(body))
+	token = strings.Trim(token, `"`)
+	if token == "" {
+		return "", fmt.Errorf("traccar: server returned an empty token")
+	}
+	return token, nil
 }
 
 func checkStatus(resp *http.Response) error {
