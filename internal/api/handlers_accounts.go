@@ -592,7 +592,7 @@ func (s *Server) deleteTraccarUser(ctx context.Context, tenant billing.Tenant, a
 	if err != nil {
 		return fmt.Errorf("parse base url: %w", err)
 	}
-	session := billing.Session{Cookie: tenant.SessionCookie, ExpiresAt: tenant.SessionExpiresAt}
+	session := tenant.TraccarSession()
 	return s.client.DeleteUser(ctx, baseURL, session, account.TraccarUserID)
 }
 

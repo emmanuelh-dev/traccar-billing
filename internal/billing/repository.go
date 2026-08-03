@@ -23,6 +23,9 @@ type Repository interface {
 	// just signed in: their Traccar user id, which SetUserDisabled refuses to
 	// pause, and the email shown in the header.
 	UpdateTenantOwner(ctx context.Context, tenantID int64, traccarUserID int64, email string) error
+	// UpdateTenantAPIToken stores (or clears, with an empty string) the
+	// Traccar token the tenant authenticates with once its cookie is gone.
+	UpdateTenantAPIToken(ctx context.Context, tenantID int64, token string) error
 	ListTenants(ctx context.Context) ([]Tenant, error)
 
 	UpsertAccount(ctx context.Context, a Account) (Account, error)

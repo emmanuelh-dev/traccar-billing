@@ -81,12 +81,12 @@ func scanTime(nt sql.NullTime) time.Time {
 	return nt.Time
 }
 
-const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at`
+const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, api_token, session_expires_at, admin_traccar_user_id, created_at, updated_at`
 
 func scanTenantInto(sc scanner) (billing.Tenant, error) {
 	var t billing.Tenant
 	var sessionExpiresAt sql.NullTime
-	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &t.APIToken, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return billing.Tenant{}, err
 	}
 	t.SessionExpiresAt = scanTime(sessionExpiresAt)
@@ -96,9 +96,9 @@ func scanTenantInto(sc scanner) (billing.Tenant, error) {
 func (r *sqlRepository) CreateTenant(ctx context.Context, t billing.Tenant) (billing.Tenant, error) {
 	now := time.Now().UTC()
 	res, err := r.q().ExecContext(ctx,
-		`INSERT INTO tenants (name, base_url, traccar_user_id, owner_email, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		t.Name, t.BaseURL, t.TraccarUserID, t.OwnerEmail, t.SessionCookie, nullTime(t.SessionExpiresAt), t.AdminTraccarUserID, now, now)
+		`INSERT INTO tenants (name, base_url, traccar_user_id, owner_email, session_cookie, api_token, session_expires_at, admin_traccar_user_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.Name, t.BaseURL, t.TraccarUserID, t.OwnerEmail, t.SessionCookie, t.APIToken, nullTime(t.SessionExpiresAt), t.AdminTraccarUserID, now, now)
 	if err != nil {
 		return billing.Tenant{}, fmt.Errorf("storage: create tenant: %w", err)
 	}
@@ -159,6 +159,16 @@ func (r *sqlRepository) UpdateTenantOwner(ctx context.Context, tenantID int64, t
 		traccarUserID, email, time.Now().UTC(), tenantID)
 	if err != nil {
 		return fmt.Errorf("storage: update tenant owner: %w", err)
+	}
+	return nil
+}
+
+func (r *sqlRepository) UpdateTenantAPIToken(ctx context.Context, tenantID int64, token string) error {
+	_, err := r.q().ExecContext(ctx,
+		`UPDATE tenants SET api_token = ?, updated_at = ? WHERE id = ?`,
+		token, time.Now().UTC(), tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: update tenant api token: %w", err)
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"net/url"
+	"time"
 )
 
 // TraccarClient is stateless: every method takes the target server's base
@@ -13,6 +14,11 @@ type TraccarClient interface {
 	// remember which Traccar user "owns" the tenant's session, and never
 	// auto-pause that specific user later (see SetUserDisabled).
 	Login(ctx context.Context, baseURL *url.URL, email, password string) (Session, TraccarUser, error)
+	// CreateToken mints a long-lived API token for the session's own user, so
+	// the scheduler can keep working after the login cookie expires. Traccar
+	// may shorten the requested expiry, so the token is the return value and
+	// the requested date is only a hint.
+	CreateToken(ctx context.Context, baseURL *url.URL, session Session, expiresAt time.Time) (string, error)
 	FetchUsers(ctx context.Context, baseURL *url.URL, session Session) ([]TraccarUser, error)
 	FetchDevices(ctx context.Context, baseURL *url.URL, session Session) ([]TraccarDevice, error)
 	// FetchDevicesForUser returns only the devices owned by traccarUserID.

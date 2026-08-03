@@ -29,6 +29,10 @@ func (*stubTraccarClient) Login(context.Context, *url.URL, string, string) (bill
 	return billing.Session{}, billing.TraccarUser{}, nil
 }
 
+func (*stubTraccarClient) CreateToken(context.Context, *url.URL, billing.Session, time.Time) (string, error) {
+	return "stub-token", nil
+}
+
 func (*stubTraccarClient) FetchUsers(context.Context, *url.URL, billing.Session) ([]billing.TraccarUser, error) {
 	return nil, nil
 }

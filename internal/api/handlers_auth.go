@@ -98,6 +98,8 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		tenant.OwnerEmail = loggedInUser.Email
 	}
 
+	s.ensureAPIToken(r.Context(), &tenant, baseURL, session)
+
 	cookieExpiresAt := session.ExpiresAt
 	if maxExpiry := time.Now().Add(browserSessionTTL); maxExpiry.Before(cookieExpiresAt) {
 		cookieExpiresAt = maxExpiry
@@ -114,6 +116,37 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	s.syncNow(r.Context(), tenant)
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}
+
+// apiTokenTTL is how long a minted Traccar token is asked to live. Traccar
+// enforces its own ceiling and quietly shortens anything above it, so this is
+// an upper bound rather than a promise.
+const apiTokenTTL = 365 * 24 * time.Hour
+
+// ensureAPIToken gives a tenant a Traccar token the first time it logs in
+// without one, so the scheduler can still suspend overdue accounts during the
+// weeks nobody opens the web UI.
+//
+// Failing to mint one is not a login failure: older Traccar versions have no
+// token endpoint and some users lack the permission. The tenant simply keeps
+// working off the cookie, which is what it did before tokens existed.
+func (s *Server) ensureAPIToken(ctx context.Context, tenant *billing.Tenant, baseURL *url.URL, session billing.Session) {
+	if tenant.APIToken != "" {
+		return
+	}
+
+	token, err := s.client.CreateToken(ctx, baseURL, session, time.Now().Add(apiTokenTTL))
+	if err != nil {
+		s.logger.Warn("api: could not mint traccar token, falling back to the login cookie", "tenant_id", tenant.ID, "error", err)
+		return
+	}
+	if err := s.repo.UpdateTenantAPIToken(ctx, tenant.ID, token); err != nil {
+		s.logger.Error("api: store traccar token", "tenant_id", tenant.ID, "error", err)
+		return
+	}
+
+	tenant.APIToken = token
+	s.logger.Info("api: minted traccar token for tenant", "tenant_id", tenant.ID)
 }
 
 // syncNow pulls the tenant's accounts before the dashboard renders, so a

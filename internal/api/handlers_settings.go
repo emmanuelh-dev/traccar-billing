@@ -2,6 +2,9 @@ package api
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
@@ -19,7 +22,25 @@ type settingsView struct {
 	UnitPriceValue string
 	FlatFeeValue   string
 
+	// HasAPIToken and TokenHint describe the stored Traccar token without
+	// ever putting it back on screen: it authenticates as the operator, so
+	// rendering it would leak it into browser history and screenshots.
+	HasAPIToken bool
+	TokenHint   string
+
 	SessionExpired bool
+}
+
+// tokenHint shows just enough of a token for the operator to tell two apart,
+// and never enough to use one.
+func tokenHint(token string) string {
+	if token == "" {
+		return ""
+	}
+	if len(token) <= 6 {
+		return "……"
+	}
+	return token[:3] + "……" + token[len(token)-3:]
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +65,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		Redirect:       "/settings",
 		UnitPriceValue: centsValue(settings.UnitPriceCents),
 		FlatFeeValue:   centsValue(settings.FlatFeeCents),
+
+		HasAPIToken: tenant.APIToken != "",
+		TokenHint:   tokenHint(tenant.APIToken),
 
 		SessionExpired: !tenant.HasValidSession(s.now()),
 	})
@@ -89,6 +113,91 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := s.repo.SaveSettings(r.Context(), current); err != nil {
 		s.logger.Error("api: save settings", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
+}
+
+// handleSaveAPIToken stores a token the operator pasted in by hand, which is
+// the way out when Traccar refuses to mint one (an older version, or a user
+// without the permission).
+//
+// The token is validated against the tenant's own Traccar before being saved:
+// storing a bad one would look like success and then quietly break the
+// scheduler, which is the exact failure this whole feature exists to remove.
+func (s *Server) handleSaveAPIToken(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		redirectPageError(w, r, "invalid form")
+		return
+	}
+	token := strings.TrimSpace(r.FormValue("api_token"))
+	if token == "" {
+		redirectPageError(w, r, "empty token")
+		return
+	}
+
+	baseURL, err := url.Parse(tenant.BaseURL)
+	if err != nil {
+		s.logger.Error("api: parse base url to verify token", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+	if _, err := s.client.FetchServerInfo(r.Context(), baseURL, billing.Session{Token: token}); err != nil {
+		s.logger.Warn("api: rejected pasted traccar token", "tenant_id", tenant.ID, "error", err)
+		redirectPageError(w, r, "traccar rejected that token")
+		return
+	}
+
+	if err := s.repo.UpdateTenantAPIToken(r.Context(), tenant.ID, token); err != nil {
+		s.logger.Error("api: save traccar token", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
+}
+
+// handleGenerateAPIToken mints a token on demand, for the tenant that logged
+// in before this existed or whose token was revoked in Traccar.
+func (s *Server) handleGenerateAPIToken(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+
+	baseURL, err := url.Parse(tenant.BaseURL)
+	if err != nil {
+		s.logger.Error("api: parse base url to mint token", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	// Minting needs the login cookie: a token cannot be used to issue its own
+	// replacement once Traccar has stopped honouring it.
+	token, err := s.client.CreateToken(r.Context(), baseURL, billing.Session{Cookie: tenant.SessionCookie}, time.Now().Add(apiTokenTTL))
+	if err != nil {
+		s.logger.Warn("api: mint traccar token on demand", "tenant_id", tenant.ID, "error", err)
+		redirectPageError(w, r, "traccar would not issue a token, sign in again or paste one")
+		return
+	}
+
+	if err := s.repo.UpdateTenantAPIToken(r.Context(), tenant.ID, token); err != nil {
+		s.logger.Error("api: store minted traccar token", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
+}
+
+// handleDeleteAPIToken forgets the token here. It does not revoke it in
+// Traccar, which is done from Traccar itself.
+func (s *Server) handleDeleteAPIToken(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+
+	if err := s.repo.UpdateTenantAPIToken(r.Context(), tenant.ID, ""); err != nil {
+		s.logger.Error("api: clear traccar token", "error", err)
 		redirectPageError(w, r, "internal error")
 		return
 	}

@@ -82,6 +82,9 @@ func (s *Server) Router() http.Handler {
 	r.Post("/concepts/{id}/delete", s.requireTenant(s.handleDeleteConcept))
 	r.Get("/settings", s.requireTenant(s.handleSettings))
 	r.Post("/settings", s.requireTenant(s.handleSaveSettings))
+	r.Post("/settings/token", s.requireTenant(s.handleSaveAPIToken))
+	r.Post("/settings/token/generate", s.requireTenant(s.handleGenerateAPIToken))
+	r.Post("/settings/token/delete", s.requireTenant(s.handleDeleteAPIToken))
 
 	r.Get("/accounts", s.requireTenant(s.handleListAccounts))
 	r.Get("/accounts/{id}", s.requireTenant(s.handleGetAccount))

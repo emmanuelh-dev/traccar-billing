@@ -118,7 +118,7 @@ func (s *Scheduler) SyncTenant(ctx context.Context, t billing.Tenant) error {
 	if err != nil {
 		return fmt.Errorf("parse base url: %w", err)
 	}
-	session := billing.Session{Cookie: t.SessionCookie, ExpiresAt: t.SessionExpiresAt}
+	session := t.TraccarSession()
 
 	users, err := s.client.FetchUsers(ctx, baseURL, session)
 	if err != nil {
@@ -234,7 +234,7 @@ func (s *Scheduler) pauseTraccarUser(ctx context.Context, t billing.Tenant, acco
 		s.logger.Error("scheduler: parse base url to pause user", "error", err)
 		return
 	}
-	session := billing.Session{Cookie: t.SessionCookie, ExpiresAt: t.SessionExpiresAt}
+	session := t.TraccarSession()
 
 	if err := s.client.SetUserDisabled(ctx, baseURL, session, account.TraccarUserID, true); err != nil {
 		s.logger.Error("scheduler: pause traccar user", "account_id", accountID, "traccar_user_id", account.TraccarUserID, "error", err)

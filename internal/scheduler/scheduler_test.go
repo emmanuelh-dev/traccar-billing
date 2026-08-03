@@ -63,6 +63,15 @@ func (r *fakeRepo) UpdateTenantOwner(ctx context.Context, tenantID int64, tracca
 	return nil
 }
 
+func (r *fakeRepo) UpdateTenantAPIToken(ctx context.Context, tenantID int64, token string) error {
+	for i, t := range r.tenants {
+		if t.ID == tenantID {
+			r.tenants[i].APIToken = token
+		}
+	}
+	return nil
+}
+
 func (r *fakeRepo) ListTenants(ctx context.Context) ([]billing.Tenant, error) {
 	return r.tenants, nil
 }
@@ -375,6 +384,10 @@ func (c *fakeClient) FetchDevicesForUser(ctx context.Context, baseURL *url.URL, 
 		return nil, c.fetchErr
 	}
 	return c.devices, nil
+}
+
+func (c *fakeClient) CreateToken(ctx context.Context, baseURL *url.URL, session billing.Session, expiresAt time.Time) (string, error) {
+	return "fake-token", nil
 }
 
 func (c *fakeClient) FetchServerInfo(ctx context.Context, baseURL *url.URL, session billing.Session) (billing.TraccarServerInfo, error) {
