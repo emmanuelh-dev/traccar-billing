@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
@@ -557,7 +558,52 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 		tp.ConceptRecurring = conceptRecurring != 0
 		payments = append(payments, tp)
 	}
-	return payments, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("storage: list tenant payments: %w", err)
+	}
+
+	ids := make([]int64, len(payments))
+	for i, p := range payments {
+		ids[i] = p.ID
+	}
+	itemsByPayment, err := r.paymentItemsFor(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range payments {
+		payments[i].Items = itemsByPayment[payments[i].ID]
+	}
+	return payments, nil
+}
+
+// paymentItemsFor loads the lines of a whole page of payments in one query, so
+// listing them does not turn into a query per row.
+func (r *sqlRepository) paymentItemsFor(ctx context.Context, paymentIDs []int64) (map[int64][]billing.PaymentItem, error) {
+	if len(paymentIDs) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(paymentIDs)), ",")
+	args := make([]any, len(paymentIDs))
+	for i, id := range paymentIDs {
+		args[i] = id
+	}
+
+	rows, err := r.q().QueryContext(ctx,
+		`SELECT `+paymentItemColumns+` FROM payment_items WHERE payment_id IN (`+placeholders+`) ORDER BY payment_id ASC, position ASC, id ASC`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list payment items: %w", err)
+	}
+	defer rows.Close()
+
+	byPayment := make(map[int64][]billing.PaymentItem)
+	for rows.Next() {
+		item, err := scanPaymentItemInto(rows)
+		if err != nil {
+			return nil, fmt.Errorf("storage: scan payment item: %w", err)
+		}
+		byPayment[item.PaymentID] = append(byPayment[item.PaymentID], item)
+	}
+	return byPayment, rows.Err()
 }
 
 const settingsColumns = `tenant_id, billing_mode, anchor_day, due_day, period_days, grace_days, currency, unit_price_cents, flat_fee_cents, min_devices, hide_mirror_accounts, created_at, updated_at`

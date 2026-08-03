@@ -711,6 +711,96 @@ td.row-actions button.danger-link:hover {
   min-height: 20px;
 }
 
+.charge-lines {
+  margin-bottom: 14px;
+}
+
+.charge-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 68px 96px 84px 32px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.charge-line-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.charge-line input,
+.charge-line select {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.charge-line .line-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-size: 13px;
+}
+
+.charge-total-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+
+.charge-total-row select {
+  margin: 0;
+  width: auto;
+}
+
+.charge-total-label {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.charge-total-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent-text);
+  cursor: pointer;
+}
+
+.payment-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.payment-lines li {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .charge-line {
+    grid-template-columns: minmax(0, 1fr) 56px 80px 32px;
+  }
+
+  .charge-line-head span:nth-child(4),
+  .charge-line .line-amount {
+    display: none;
+  }
+}
+
 .filter-bar {
   display: flex;
   align-items: center;
@@ -819,6 +909,48 @@ a.btn-icon.view-toggle {
 a.btn-icon.view-toggle:hover {
   color: var(--color-text);
   border-color: var(--color-text-muted);
+}
+
+.view-switch {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.view-switch .switch-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.view-switch .switch-option + .switch-option {
+  border-left: 1px solid var(--color-border);
+}
+
+.view-switch .switch-option svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.view-switch .switch-option:hover {
+  color: var(--color-text);
+}
+
+.view-switch .switch-option.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
 .card-grid {

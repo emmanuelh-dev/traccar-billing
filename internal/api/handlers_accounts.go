@@ -79,6 +79,11 @@ func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 type payAccountRequest struct {
+	// Items carries the charge's lines. An installation or an equipment sale
+	// is several things at once, so the browser posts one row per line and
+	// the total is the sum; the single-concept fields below stay for the
+	// JSON API and for editing an already recorded payment.
+	Items          []billing.PaymentItem
 	ConceptID      *int64     `json:"concept_id"`
 	AmountCents    *int64     `json:"amount_cents"`
 	UnitPriceCents *int64     `json:"unit_price_cents"`
@@ -140,11 +145,61 @@ func (s *Server) parsePayForm(r *http.Request) (payAccountRequest, error) {
 		req.PaidAt = &paidAt
 	}
 
+	items, err := parseItemLines(r)
+	if err != nil {
+		return req, err
+	}
+	req.Items = items
+
 	req.Currency = r.FormValue("currency")
 	req.Method = r.FormValue("method")
 	req.Reference = r.FormValue("reference")
 	req.Note = r.FormValue("note")
 	return req, nil
+}
+
+// parseItemLines reads the charge lines the modal posts as three parallel
+// arrays. A row with no concept and no amount is one the operator added and
+// left blank, so it is dropped instead of rejected.
+func parseItemLines(r *http.Request) ([]billing.PaymentItem, error) {
+	concepts := r.Form["item_concept_id"]
+	if len(concepts) == 0 {
+		return nil, nil
+	}
+	quantities := r.Form["item_qty"]
+	prices := r.Form["item_price"]
+
+	var items []billing.PaymentItem
+	for i, raw := range concepts {
+		var item billing.PaymentItem
+		if raw != "" && raw != "0" {
+			id, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid concept")
+			}
+			item.ConceptID = id
+		}
+		item.Quantity = 1
+		if i < len(quantities) && quantities[i] != "" {
+			n, err := strconv.Atoi(quantities[i])
+			if err != nil || n < 0 {
+				return nil, fmt.Errorf("invalid quantity")
+			}
+			item.Quantity = n
+		}
+		if i < len(prices) && prices[i] != "" {
+			cents, err := parseAmountCents(prices[i])
+			if err != nil {
+				return nil, fmt.Errorf("invalid line price")
+			}
+			item.UnitPriceCents = cents
+		}
+		if item.ConceptID == 0 && item.UnitPriceCents == 0 {
+			continue
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 // handlePayAccount records a payment against an account's subscription and
@@ -225,14 +280,14 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		paidAt = *req.PaidAt
 	}
 
+	if len(req.Items) > 0 {
+		s.recordItemizedCharge(w, r, isJSON, tenant, account, sub, hasSub, req, paidAt)
+		return
+	}
+
 	// One-off non-recurring charges (e.g. installation/uninstallation) do not
 	// advance the billing cycle or alter subscription state.
 	if conceptID > 0 && !concept.Recurring {
-		if !hasSub {
-			s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "account has no billing set up yet")
-			return
-		}
-
 		amountCents := concept.AmountCents
 		if req.AmountCents != nil {
 			amountCents = *req.AmountCents
@@ -242,11 +297,13 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		if req.Currency != "" {
 			currency = req.Currency
 		}
+		currency = currencyOrDefault(currency)
 
 		var payment billing.Payment
 		err = s.repo.WithTx(r.Context(), func(tx billing.Repository) error {
 			var txErr error
 			payment, txErr = tx.RecordPayment(r.Context(), billing.Payment{
+				AccountID:      account.ID,
 				SubscriptionID: sub.ID,
 				ConceptID:      conceptID,
 				AmountCents:    amountCents,
@@ -326,6 +383,7 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 			return txErr
 		}
 		payment, txErr = tx.RecordPayment(r.Context(), billing.Payment{
+			AccountID:      account.ID,
 			SubscriptionID: updatedSub.ID,
 			ConceptID:      conceptID,
 			AmountCents:    amountCents,
@@ -356,6 +414,115 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		Subscription: &updatedSub,
 		Payments:     []billing.Payment{payment},
 	})
+}
+
+// recordItemizedCharge books a charge made of several lines. Only a line
+// whose concept is recurring settles the monthly bill, so a payment that is
+// pure installation or equipment leaves the billing cycle and the Traccar
+// access exactly where they were, and does not even need a subscription.
+func (s *Server) recordItemizedCharge(w http.ResponseWriter, r *http.Request, isJSON bool, tenant billing.Tenant, account billing.Account, sub billing.Subscription, hasSub bool, req payAccountRequest, paidAt time.Time) {
+	items := req.Items
+	renews := false
+	var recurringLine billing.PaymentItem
+	for i := range items {
+		recurring := false
+		if items[i].ConceptID > 0 {
+			concept, err := s.repo.GetConcept(r.Context(), tenant.ID, items[i].ConceptID)
+			if errors.Is(err, billing.ErrNotFound) {
+				s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "concept not found")
+				return
+			}
+			if err != nil {
+				s.logger.Error("api: get concept for charge line", "error", err)
+				s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "internal error")
+				return
+			}
+			items[i].Description = concept.Name
+			recurring = concept.Recurring
+		} else {
+			// A line with no concept is the plain monthly fee, which is how the
+			// dashboard has always recorded a renewal.
+			recurring = true
+		}
+		items[i].AmountCents = int64(items[i].Quantity) * items[i].UnitPriceCents
+		if recurring && !renews {
+			renews = true
+			recurringLine = items[i]
+		}
+	}
+
+	total := billing.ItemsTotal(items)
+	if total <= 0 {
+		s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "the charge has no amount")
+		return
+	}
+	if renews && !hasSub {
+		s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "account has no billing set up yet")
+		return
+	}
+
+	currency := currencyOrDefault(firstNonEmpty(req.Currency, sub.Currency))
+	payment := billing.Payment{
+		AccountID:   account.ID,
+		AmountCents: total,
+		Currency:    currency,
+		Method:      req.Method,
+		Reference:   req.Reference,
+		PaidAt:      paidAt,
+		Note:        req.Note,
+	}
+	if renews {
+		// The recurring line is what the per-device breakdown on the payments
+		// page describes, so it is the one that lands on the payment row.
+		payment.ConceptID = recurringLine.ConceptID
+		payment.DeviceCount = recurringLine.Quantity
+		payment.UnitPriceCents = recurringLine.UnitPriceCents
+	}
+
+	var updatedSub billing.Subscription
+	err := s.repo.WithTx(r.Context(), func(tx billing.Repository) error {
+		if renews {
+			var txErr error
+			updatedSub, txErr = tx.UpsertSubscription(r.Context(), billing.ApplyPayment(sub, paidAt))
+			if txErr != nil {
+				return txErr
+			}
+			payment.SubscriptionID = updatedSub.ID
+		}
+		recorded, txErr := tx.RecordPayment(r.Context(), payment)
+		if txErr != nil {
+			return txErr
+		}
+		payment = recorded
+		payment.Items, txErr = tx.ReplacePaymentItems(r.Context(), recorded.ID, items)
+		return txErr
+	})
+	if err != nil {
+		s.logger.Error("api: record itemized payment", "error", err)
+		s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "failed to record payment")
+		return
+	}
+
+	detail := accountDetail{Account: account, Payments: []billing.Payment{payment}}
+	if renews {
+		s.syncTraccarAccess(r.Context(), tenant, account, false)
+		detail.Subscription = &updatedSub
+	}
+
+	if !isJSON {
+		http.Redirect(w, r, redirectTarget(r, "/dashboard"), http.StatusSeeOther)
+		return
+	}
+	writeJSON(w, http.StatusOK, detail)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (s *Server) respondPayFailure(w http.ResponseWriter, r *http.Request, isJSON bool, status int, message string) {

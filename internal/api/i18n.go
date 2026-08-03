@@ -127,6 +127,11 @@ type uiStrings struct {
 	DevicesLabel       string
 	UnitPriceLabel     string
 	TotalLabel         string
+	QuantityLabel      string
+	LineAmountLabel    string
+	AddLineButton      string
+	RemoveLineButton   string
+	MonthlyLineOption  string
 	FixedAmountLabel   string
 	FlatFeeLabel       string
 	MinDevicesLabel    string
@@ -315,6 +320,11 @@ var translations = map[string]uiStrings{
 		DevicesLabel:       "Dispositivos a cobrar",
 		UnitPriceLabel:     "Precio por dispositivo",
 		TotalLabel:         "Total",
+		QuantityLabel:      "Cant.",
+		LineAmountLabel:    "Importe",
+		AddLineButton:      "+ agregar línea",
+		RemoveLineButton:   "Quitar línea",
+		MonthlyLineOption:  "— mensualidad —",
 		FixedAmountLabel:   "Monto fijo",
 		FlatFeeLabel:       "Cargo base",
 		MinDevicesLabel:    "Mínimo facturable",
@@ -500,6 +510,11 @@ var translations = map[string]uiStrings{
 		DevicesLabel:       "Devices to charge",
 		UnitPriceLabel:     "Price per device",
 		TotalLabel:         "Total",
+		QuantityLabel:      "Qty",
+		LineAmountLabel:    "Amount",
+		AddLineButton:      "+ add line",
+		RemoveLineButton:   "Remove line",
+		MonthlyLineOption:  "— monthly fee —",
 		FixedAmountLabel:   "Flat amount",
 		FlatFeeLabel:       "Base fee",
 		MinDevicesLabel:    "Minimum billable",

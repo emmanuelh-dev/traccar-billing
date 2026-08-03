@@ -92,7 +92,11 @@
         <td>{{.DateDisplay}}</td>
         <td>{{.AccountName}}</td>
         <td class="muted">{{.ConceptName}}{{if and .ConceptName (not .ConceptRecurring)}} <span class="badge badge-mirror">{{$.T.OneOffBadge}}</span>{{end}}</td>
-        <td class="muted">{{.Breakdown}}</td>
+        <td class="muted">
+          {{if .Lines}}
+          <ul class="payment-lines">{{range .Lines}}<li>{{.}}</li>{{end}}</ul>
+          {{else}}{{.Breakdown}}{{end}}
+        </td>
         <td class="num">{{.AmountDisplay}}</td>
         <td class="muted">{{.Method}}</td>
         <td class="muted">

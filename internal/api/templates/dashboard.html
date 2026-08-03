@@ -134,16 +134,12 @@
       <div class="tenant-url">{{.Tenant.BaseURL}}</div>
     </div>
     <div class="header-actions">
-      {{if .Grouped}}
-      <a class="btn-icon view-toggle active" href="/dashboard?group=0" title="{{.T.GroupNone}}" aria-label="{{.T.GroupNone}}">{{template "icon_seller"}}</a>
-      {{else}}
-      <a class="btn-icon view-toggle" href="/dashboard?group=1" title="{{.T.GroupBySeller}}" aria-label="{{.T.GroupBySeller}}">{{template "icon_seller"}}</a>
-      {{end}}
-      {{if eq .View "cards"}}
-      <a class="btn-icon view-toggle" href="/dashboard?view=table" title="{{.T.ViewTable}}" aria-label="{{.T.ViewTable}}">{{template "icon_table"}}</a>
-      {{else}}
-      <a class="btn-icon view-toggle" href="/dashboard?view=cards" title="{{.T.ViewCards}}" aria-label="{{.T.ViewCards}}">{{template "icon_cards"}}</a>
-      {{end}}
+      <div class="view-switch">
+        <a class="switch-option {{if .Grouped}}active{{end}}" href="/dashboard?group={{if .Grouped}}0{{else}}1{{end}}"
+           title="{{if .Grouped}}{{.T.GroupNone}}{{else}}{{.T.GroupBySeller}}{{end}}">{{template "icon_seller"}}<span>{{.T.GroupBySeller}}</span></a>
+        <a class="switch-option {{if eq .View "cards"}}active{{end}}" href="/dashboard?view={{if eq .View "cards"}}table{{else}}cards{{end}}"
+           title="{{if eq .View "cards"}}{{.T.ViewTable}}{{else}}{{.T.ViewCards}}{{end}}">{{template "icon_cards"}}<span>{{.T.ViewCards}}</span></a>
+      </div>
       <button id="toggle-emails-btn" class="btn-icon view-toggle" type="button" title="{{.T.ToggleEmails}}" aria-label="{{.T.ToggleEmails}}">{{template "icon_eye"}}</button>
       <button class="primary" type="button" data-modal="charge">{{.T.PayButton}}</button>
       <form class="logout-form" method="post" action="/logout">

@@ -18,42 +18,43 @@
       </select>
     </div>
 
-    <div class="field">
-      <label for="charge-concept">{{.T.ConceptLabel}}</label>
-      <select id="charge-concept" name="concept_id">
-        <option value="0" data-recurring="true">{{.T.NoConceptOption}}</option>
-        {{range .Concepts}}
-        <option value="{{.ID}}" data-amount="{{.AmountValue}}" data-currency="{{.Currency}}" data-recurring="{{.Recurring}}">{{.Name}}</option>
-        {{end}}
-      </select>
-    </div>
-
     <p class="modal-warning" id="charge-nosub" hidden>{{.T.NoSubscriptionWarn}}</p>
 
-    <div class="field-row">
-      <div class="field">
-        <label for="charge-devices">{{.T.DevicesLabel}}</label>
-        <input id="charge-devices" name="device_count" type="number" min="0" step="1">
+    <div class="charge-lines">
+      <div class="charge-line charge-line-head">
+        <span>{{.T.ConceptLabel}}</span>
+        <span>{{.T.QuantityLabel}}</span>
+        <span>{{.T.UnitPriceLabel}}</span>
+        <span class="num">{{.T.LineAmountLabel}}</span>
+        <span></span>
       </div>
-      <div class="field">
-        <label for="charge-unit">{{.T.UnitPriceLabel}}</label>
-        <input id="charge-unit" name="unit_price" type="number" min="0" step="0.01">
-      </div>
+      <div id="charge-lines-body"></div>
+      <button type="button" id="charge-add-line" class="link-button">{{.T.AddLineButton}}</button>
     </div>
 
-    <div class="field-row">
-      <div class="field">
-        <label for="charge-amount">{{.T.TotalLabel}}</label>
-        <input id="charge-amount" name="amount" type="number" min="0" step="0.01" required>
-      </div>
-      <div class="field">
-        <label for="charge-currency">{{.T.CurrencyLabel}}</label>
-        <select id="charge-currency" name="currency">
-          <option value="MXN">MXN</option>
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
+    <template id="charge-line-template">
+      <div class="charge-line">
+        <select name="item_concept_id" class="line-concept">
+          <option value="0" data-recurring="true">{{.T.MonthlyLineOption}}</option>
+          {{range .Concepts}}
+          <option value="{{.ID}}" data-amount="{{.AmountValue}}" data-currency="{{.Currency}}" data-recurring="{{.Recurring}}">{{.Name}}</option>
+          {{end}}
         </select>
+        <input name="item_qty" class="line-qty" type="number" min="0" step="1" value="1" aria-label="{{.T.QuantityLabel}}">
+        <input name="item_price" class="line-price" type="number" min="0" step="0.01" value="0.00" aria-label="{{.T.UnitPriceLabel}}">
+        <span class="line-amount num">0.00</span>
+        <button type="button" class="btn-icon line-remove" title="{{.T.RemoveLineButton}}" aria-label="{{.T.RemoveLineButton}}">{{template "icon_delete"}}</button>
       </div>
+    </template>
+
+    <div class="charge-total-row">
+      <select id="charge-currency" name="currency" aria-label="{{.T.CurrencyLabel}}">
+        <option value="MXN">MXN</option>
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+      </select>
+      <span class="charge-total-label">{{.T.TotalLabel}}</span>
+      <span class="charge-total-value" id="charge-total">0.00</span>
     </div>
 
     <p class="modal-total" id="charge-summary"></p>
@@ -593,75 +594,79 @@
   const chargeDialog = $("charge-dialog");
   const chargeForm = $("charge-form");
   const chargeAccount = $("charge-account");
-  const chargeConcept = $("charge-concept");
-  const chargeDevices = $("charge-devices");
-  const chargeUnit = $("charge-unit");
-  const chargeAmount = $("charge-amount");
   const chargeCurrency = $("charge-currency");
   const chargeNoSub = $("charge-nosub");
+  const chargeLines = $("charge-lines-body");
+  const chargeLineTemplate = $("charge-line-template");
 
   function isConceptNonRecurring(selectEl) {
     const opt = selectEl ? selectEl.selectedOptions[0] : null;
     return opt && opt.value !== "0" && opt.dataset.recurring === "false";
   }
 
-  function refreshChargeSummary() {
-    const opt = chargeConcept ? chargeConcept.selectedOptions[0] : null;
-    if (isConceptNonRecurring(chargeConcept)) {
-      const conceptName = opt ? opt.textContent.trim() : "";
-      const totalStr = money(chargeAmount.value) + " " + chargeCurrency.value;
-      $("charge-summary").textContent = formatOneOff(conceptName, totalStr);
+  function lineTotal(row) {
+    const qty = parseFloat(row.querySelector(".line-qty").value);
+    const price = parseFloat(row.querySelector(".line-price").value);
+    if (isNaN(qty) || isNaN(price)) return 0;
+    return qty * price;
+  }
+
+  function refreshChargeTotal() {
+    let total = 0;
+    chargeLines.querySelectorAll(".charge-line").forEach((row) => {
+      const amount = lineTotal(row);
+      row.querySelector(".line-amount").textContent = money(amount);
+      total += amount;
+    });
+    $("charge-total").textContent = money(total) + " " + chargeCurrency.value;
+
+    // The one-off note only makes sense while the whole charge is one line;
+    // with several lines the total row already says what is being charged.
+    const rows = chargeLines.querySelectorAll(".charge-line");
+    const summary = $("charge-summary");
+    if (rows.length === 1 && isConceptNonRecurring(rows[0].querySelector(".line-concept"))) {
+      const opt = rows[0].querySelector(".line-concept").selectedOptions[0];
+      summary.textContent = formatOneOff(opt.textContent.trim(), money(total) + " " + chargeCurrency.value);
     } else {
-      $("charge-summary").textContent = breakdown(chargeDevices, chargeUnit, chargeAmount, chargeCurrency.value);
+      summary.textContent = "";
     }
   }
 
-  function updateChargeConceptState() {
-    const opt = chargeConcept ? chargeConcept.selectedOptions[0] : null;
-    if (isConceptNonRecurring(chargeConcept)) {
-      chargeDevices.disabled = true;
-      chargeDevices.classList.add("is-off");
-      chargeDevices.value = "";
-      chargeUnit.disabled = true;
-      chargeUnit.classList.add("is-off");
-      chargeUnit.value = "";
+  // seedRecurringLine fills a monthly line with what the account already bills,
+  // so the common case — collecting the mensualidad — is one click away.
+  function seedRecurringLine(row) {
+    const accOpt = chargeAccount ? chargeAccount.selectedOptions[0] : null;
+    if (!accOpt) return;
+    row.querySelector(".line-qty").value = accOpt.dataset.devices || "1";
+    row.querySelector(".line-price").value = accOpt.dataset.unit || "0.00";
+    if (accOpt.dataset.currency) chargeCurrency.value = accOpt.dataset.currency;
+  }
+
+  function applyLineConcept(row) {
+    const select = row.querySelector(".line-concept");
+    const opt = select.selectedOptions[0];
+    if (!opt) return;
+    if (opt.value === "0") {
+      seedRecurringLine(row);
+    } else {
       const amt = parseFloat(opt.dataset.amount);
-      if (!isNaN(amt)) {
-        chargeAmount.value = opt.dataset.amount;
-      }
+      if (!isNaN(amt) && amt > 0) row.querySelector(".line-price").value = opt.dataset.amount;
+      if (isConceptNonRecurring(select)) row.querySelector(".line-qty").value = "1";
       if (opt.dataset.currency) chargeCurrency.value = opt.dataset.currency;
-    } else {
-      chargeDevices.disabled = false;
-      chargeDevices.classList.remove("is-off");
-      chargeUnit.disabled = false;
-      chargeUnit.classList.remove("is-off");
-      const accOpt = chargeAccount ? chargeAccount.selectedOptions[0] : null;
-      if (accOpt) {
-        chargeDevices.value = accOpt.dataset.devices;
-        chargeUnit.value = accOpt.dataset.unit;
-        if (opt && opt.value !== "0") {
-          const amt = parseFloat(opt.dataset.amount);
-          if (!isNaN(amt) && amt > 0) {
-            chargeAmount.value = opt.dataset.amount;
-            if (opt.dataset.currency) chargeCurrency.value = opt.dataset.currency;
-          }
-        } else {
-          chargeAmount.value = accOpt.dataset.amount;
-          chargeCurrency.value = accOpt.dataset.currency;
-        }
-      }
     }
-    refreshChargeSummary();
+    refreshChargeTotal();
   }
 
-  function recomputeCharge() {
-    if (isConceptNonRecurring(chargeConcept)) return;
-    const devices = parseFloat(chargeDevices.value);
-    const unit = parseFloat(chargeUnit.value);
-    if (!isNaN(devices) && !isNaN(unit) && unit > 0) {
-      chargeAmount.value = (devices * unit).toFixed(2);
-    }
-    refreshChargeSummary();
+  function addChargeLine(seed) {
+    const row = chargeLineTemplate.content.firstElementChild.cloneNode(true);
+    chargeLines.appendChild(row);
+    if (seed) applyLineConcept(row);
+    return row;
+  }
+
+  function resetChargeLines() {
+    chargeLines.textContent = "";
+    addChargeLine(true);
   }
 
   function applyChargeAccount() {
@@ -669,31 +674,37 @@
     if (!option) return;
     chargeForm.action = "/accounts/" + option.value + "/pay";
     chargeNoSub.hidden = option.dataset.hassub === "true";
-    if (chargeConcept) chargeConcept.value = "0";
-    updateChargeConceptState();
+    resetChargeLines();
+  }
+
+  if (chargeLines) {
+    chargeLines.addEventListener("input", (event) => {
+      if (event.target.closest(".charge-line")) refreshChargeTotal();
+    });
+    chargeLines.addEventListener("change", (event) => {
+      const select = event.target.closest(".line-concept");
+      if (select) applyLineConcept(select.closest(".charge-line"));
+    });
+    chargeLines.addEventListener("click", (event) => {
+      const remove = event.target.closest(".line-remove");
+      if (!remove) return;
+      const rows = chargeLines.querySelectorAll(".charge-line");
+      // Keeping the last row spares the operator from a form with nothing to
+      // fill in; clearing it is enough to start over.
+      if (rows.length > 1) remove.closest(".charge-line").remove();
+      refreshChargeTotal();
+    });
+  }
+
+  if ($("charge-add-line")) {
+    $("charge-add-line").addEventListener("click", () => {
+      addChargeLine(false).querySelector(".line-concept").focus();
+    });
   }
 
   if (chargeAccount) {
     chargeAccount.addEventListener("change", applyChargeAccount);
-    chargeDevices.addEventListener("input", recomputeCharge);
-    chargeUnit.addEventListener("input", recomputeCharge);
-    chargeAmount.addEventListener("input", refreshChargeSummary);
-    chargeCurrency.addEventListener("change", refreshChargeSummary);
-  }
-
-  if (chargeConcept) {
-    chargeConcept.addEventListener("change", updateChargeConceptState);
-  }
-
-  if (chargeForm) {
-    chargeForm.addEventListener("submit", () => {
-      if (isConceptNonRecurring(chargeConcept)) {
-        chargeDevices.disabled = false;
-        chargeDevices.value = "0";
-        chargeUnit.disabled = false;
-        chargeUnit.value = "0.00";
-      }
-    });
+    chargeCurrency.addEventListener("change", refreshChargeTotal);
   }
 
   const payDevices = $("payment-devices");

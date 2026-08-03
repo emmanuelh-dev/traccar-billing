@@ -35,6 +35,7 @@ type tenantPaymentRow struct {
 	UnitPriceVal     string
 	Currency         string
 	Breakdown        string
+	Lines            []string
 	Devices          int
 	Method           string
 	Reference        string
@@ -202,6 +203,7 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 			UnitPriceVal:     centsValue(p.UnitPriceCents),
 			Currency:         p.Currency,
 			Breakdown:        breakdownLabel(t, p.DeviceCount, p.UnitPriceCents, p.Currency),
+			Lines:            itemLabels(t, p.Items, p.Currency),
 			Devices:          p.DeviceCount,
 			Method:           p.Method,
 			Reference:        p.Reference,
@@ -410,4 +412,21 @@ func breakdownLabel(t uiStrings, devices int, unitPriceCents int64, currency str
 		return ""
 	}
 	return fmt.Sprintf("%d %s x %s %s %s", devices, t.DevicesWord, currency, centsValue(unitPriceCents), t.EachWord)
+}
+
+// itemLabels spells out a charge made of several lines. A single line adds
+// nothing the concept column does not already say, so it is left out.
+func itemLabels(t uiStrings, items []billing.PaymentItem, currency string) []string {
+	if len(items) < 2 {
+		return nil
+	}
+	labels := make([]string, 0, len(items))
+	for _, item := range items {
+		name := item.Description
+		if name == "" {
+			name = t.MonthlyLineOption
+		}
+		labels = append(labels, fmt.Sprintf("%d x %s = %s %s", item.Quantity, name, currency, centsValue(item.Total())))
+	}
+	return labels
 }

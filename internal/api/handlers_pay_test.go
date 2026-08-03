@@ -257,3 +257,242 @@ func TestPayAccountRecurringConcept(t *testing.T) {
 		t.Errorf("a recurring payment restored Traccar access %d time(s), want 1", client.enabled)
 	}
 }
+
+// postCharge submits the charge modal's form for an account and returns the
+// recorder, so a test only has to describe the lines it cares about.
+func postCharge(t *testing.T, srv *Server, tenantID, accountID int64, form url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest("POST", "/accounts/"+strconv.FormatInt(accountID, 10)+"/pay", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	cookieVal, err := srv.signer.encode(tenantID, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("encode session cookie error = %v", err)
+	}
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: cookieVal})
+
+	w := httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+	return w
+}
+
+func TestPayAccountItemizedOneOffLines(t *testing.T) {
+	srv, repo, client := newTestServer(t)
+	ctx := context.Background()
+	tenant, account, initialSub := setupTestTenantAndAccount(t, repo)
+
+	concepts, err := repo.ListConcepts(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListConcepts error = %v", err)
+	}
+	var oneOff billing.Concept
+	for _, c := range concepts {
+		if !c.Recurring {
+			oneOff = c
+			break
+		}
+	}
+	if oneOff.ID == 0 {
+		t.Fatal("no non-recurring concept found")
+	}
+
+	form := url.Values{}
+	form.Add("item_concept_id", strconv.FormatInt(oneOff.ID, 10))
+	form.Add("item_qty", "3")
+	form.Add("item_price", "500.00")
+	form.Add("item_concept_id", strconv.FormatInt(oneOff.ID, 10))
+	form.Add("item_qty", "3")
+	form.Add("item_price", "900.00")
+	form.Set("currency", "MXN")
+	form.Set("paid_at", "2026-08-02")
+	form.Set("method", "cash")
+
+	if w := postCharge(t, srv, tenant.ID, account.ID, form); w.Code != http.StatusSeeOther {
+		t.Fatalf("response status = %d, want %d (body %s)", w.Code, http.StatusSeeOther, w.Body.String())
+	}
+
+	payments, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant error = %v", err)
+	}
+	if len(payments) != 1 {
+		t.Fatalf("payments count = %d, want 1", len(payments))
+	}
+	p := payments[0]
+	if p.AmountCents != 420000 {
+		t.Errorf("Payment.AmountCents = %d, want 420000", p.AmountCents)
+	}
+	if len(p.Items) != 2 {
+		t.Fatalf("Payment.Items count = %d, want 2", len(p.Items))
+	}
+	if p.Items[0].AmountCents != 150000 || p.Items[1].AmountCents != 270000 {
+		t.Errorf("line amounts = %d, %d, want 150000, 270000", p.Items[0].AmountCents, p.Items[1].AmountCents)
+	}
+	if p.Items[0].Description != oneOff.Name {
+		t.Errorf("line description = %q, want %q", p.Items[0].Description, oneOff.Name)
+	}
+
+	subAfter, err := repo.GetSubscriptionByAccountID(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("GetSubscriptionByAccountID error = %v", err)
+	}
+	if !subAfter.NextDueAt.Equal(initialSub.NextDueAt) {
+		t.Errorf("NextDueAt = %v, want unchanged %v", subAfter.NextDueAt, initialSub.NextDueAt)
+	}
+	if client.enabled != 0 {
+		t.Errorf("a one-off itemized charge restored Traccar access %d time(s), want 0", client.enabled)
+	}
+}
+
+func TestPayAccountItemizedRenewsOnRecurringLine(t *testing.T) {
+	srv, repo, client := newTestServer(t)
+	ctx := context.Background()
+	tenant, account, initialSub := setupTestTenantAndAccount(t, repo)
+
+	concepts, err := repo.ListConcepts(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListConcepts error = %v", err)
+	}
+	var oneOff billing.Concept
+	for _, c := range concepts {
+		if !c.Recurring {
+			oneOff = c
+			break
+		}
+	}
+
+	form := url.Values{}
+	// An empty concept is the monthly fee, the same as before payment lines.
+	form.Add("item_concept_id", "0")
+	form.Add("item_qty", "2")
+	form.Add("item_price", "200.00")
+	form.Add("item_concept_id", strconv.FormatInt(oneOff.ID, 10))
+	form.Add("item_qty", "1")
+	form.Add("item_price", "500.00")
+	form.Set("currency", "MXN")
+	form.Set("paid_at", "2026-08-02")
+	form.Set("method", "cash")
+
+	if w := postCharge(t, srv, tenant.ID, account.ID, form); w.Code != http.StatusSeeOther {
+		t.Fatalf("response status = %d, want %d (body %s)", w.Code, http.StatusSeeOther, w.Body.String())
+	}
+
+	subAfter, err := repo.GetSubscriptionByAccountID(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("GetSubscriptionByAccountID error = %v", err)
+	}
+	if !subAfter.NextDueAt.After(initialSub.NextDueAt) {
+		t.Errorf("NextDueAt = %v, want later than %v", subAfter.NextDueAt, initialSub.NextDueAt)
+	}
+	if client.enabled != 1 {
+		t.Errorf("a charge with a monthly line restored Traccar access %d time(s), want 1", client.enabled)
+	}
+
+	payments, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant error = %v", err)
+	}
+	if len(payments) != 1 {
+		t.Fatalf("payments count = %d, want 1", len(payments))
+	}
+	if payments[0].AmountCents != 90000 {
+		t.Errorf("Payment.AmountCents = %d, want 90000", payments[0].AmountCents)
+	}
+	if payments[0].DeviceCount != 2 {
+		t.Errorf("Payment.DeviceCount = %d, want 2 (from the monthly line)", payments[0].DeviceCount)
+	}
+	if payments[0].SubscriptionID != subAfter.ID {
+		t.Errorf("Payment.SubscriptionID = %d, want %d", payments[0].SubscriptionID, subAfter.ID)
+	}
+}
+
+func TestPayAccountItemizedWithoutSubscriptionRejectsMonthlyLine(t *testing.T) {
+	srv, repo, _ := newTestServer(t)
+	ctx := context.Background()
+	tenant, _, _ := setupTestTenantAndAccount(t, repo)
+
+	account, err := repo.UpsertAccount(ctx, billing.Account{
+		TenantID:      tenant.ID,
+		TraccarUserID: 99,
+		Name:          "Sin cobro",
+		Email:         "sincobro@example.com",
+		DeviceCount:   1,
+	})
+	if err != nil {
+		t.Fatalf("UpsertAccount error = %v", err)
+	}
+
+	form := url.Values{}
+	form.Add("item_concept_id", "0")
+	form.Add("item_qty", "1")
+	form.Add("item_price", "200.00")
+	form.Set("paid_at", "2026-08-02")
+
+	w := postCharge(t, srv, tenant.ID, account.ID, form)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("response status = %d, want a redirect carrying the error", w.Code)
+	}
+	if loc := w.Header().Get("Location"); !strings.Contains(loc, "error=") {
+		t.Errorf("Location = %q, want an error param", loc)
+	}
+}
+
+func TestPayAccountItemizedWithoutSubscriptionAllowsOneOff(t *testing.T) {
+	srv, repo, client := newTestServer(t)
+	ctx := context.Background()
+	tenant, _, _ := setupTestTenantAndAccount(t, repo)
+
+	concepts, err := repo.ListConcepts(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListConcepts error = %v", err)
+	}
+	var oneOff billing.Concept
+	for _, c := range concepts {
+		if !c.Recurring {
+			oneOff = c
+			break
+		}
+	}
+
+	account, err := repo.UpsertAccount(ctx, billing.Account{
+		TenantID:      tenant.ID,
+		TraccarUserID: 98,
+		Name:          "Solo instalacion",
+		Email:         "instalacion@example.com",
+		DeviceCount:   1,
+	})
+	if err != nil {
+		t.Fatalf("UpsertAccount error = %v", err)
+	}
+
+	form := url.Values{}
+	form.Add("item_concept_id", strconv.FormatInt(oneOff.ID, 10))
+	form.Add("item_qty", "1")
+	form.Add("item_price", "2500.00")
+	form.Set("paid_at", "2026-08-02")
+
+	w := postCharge(t, srv, tenant.ID, account.ID, form)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("response status = %d, want %d (body %s)", w.Code, http.StatusSeeOther, w.Body.String())
+	}
+	if loc := w.Header().Get("Location"); strings.Contains(loc, "error=") {
+		t.Fatalf("Location = %q, want no error", loc)
+	}
+
+	payments, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{AccountID: account.ID})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant error = %v", err)
+	}
+	if len(payments) != 1 {
+		t.Fatalf("payments count = %d, want 1", len(payments))
+	}
+	if payments[0].AmountCents != 250000 {
+		t.Errorf("Payment.AmountCents = %d, want 250000", payments[0].AmountCents)
+	}
+	if payments[0].SubscriptionID != 0 {
+		t.Errorf("Payment.SubscriptionID = %d, want 0", payments[0].SubscriptionID)
+	}
+	if client.enabled != 0 {
+		t.Errorf("a one-off charge restored Traccar access %d time(s), want 0", client.enabled)
+	}
+}
