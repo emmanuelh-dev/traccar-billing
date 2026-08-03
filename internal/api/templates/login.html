@@ -27,5 +27,37 @@
     <p class="login-note">{{.T.LoginNote}}</p>
   </div>
 </div>
+<script>
+(function () {
+  var KEY = 'traccar-billing:base_url';
+  var form = document.querySelector('.login-card form');
+  var baseURL = document.getElementById('base_url');
+  if (!form || !baseURL) { return; }
+
+  // Private browsing and blocked storage throw on access, and a login form
+  // that cannot remember a server still has to work.
+  var store = null;
+  try { store = window.localStorage; } catch (e) { store = null; }
+
+  if (store && !baseURL.value) {
+    var saved = store.getItem(KEY);
+    if (saved) {
+      baseURL.value = saved;
+      // The server is already filled in, so the operator only has to type
+      // credentials.
+      var email = document.getElementById('email');
+      if (email && !email.value) { email.focus(); }
+    }
+  }
+
+  form.addEventListener('submit', function () {
+    if (!store) { return; }
+    try {
+      var value = baseURL.value.trim();
+      if (value) { store.setItem(KEY, value); } else { store.removeItem(KEY); }
+    } catch (e) { /* storage full or denied: not worth failing the login over */ }
+  });
+})();
+</script>
 {{template "footer" .}}
 {{end}}

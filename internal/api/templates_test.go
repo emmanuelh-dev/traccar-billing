@@ -475,3 +475,24 @@ func TestRenderAppointments(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderLoginRemembersServer(t *testing.T) {
+	view := loginView{T: stringsFor("es"), Title: "Entrar"}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "login", view); err != nil {
+		t.Fatalf("render login: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{
+		"traccar-billing:base_url",
+		"localStorage",
+		"getItem(KEY)",
+		"setItem(KEY",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("login page missing %q", want)
+		}
+	}
+}
