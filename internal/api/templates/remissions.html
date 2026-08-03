@@ -1,0 +1,94 @@
+{{define "remissions"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.RemissionsPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <div class="header-actions">
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  <p class="field-hint">{{.T.RemissionIntro}}</p>
+
+  {{if .UnbilledCount}}<div class="unbilled-note">{{.UnbilledNote}}</div>{{end}}
+
+  <div class="filter-bar">
+    <div class="filter-chips">
+      <a href="/remissions?status=pending" {{if eq .Status "pending"}}class="active"{{end}}>{{.T.RemissionPendingLbl}}</a>
+      <a href="/remissions?status=paid" {{if eq .Status "paid"}}class="active"{{end}}>{{.T.RemissionPaidLabel}}</a>
+      <a href="/remissions?status=canceled" {{if eq .Status "canceled"}}class="active"{{end}}>{{.T.RemissionCanceledLbl}}</a>
+      <a href="/remissions?status=all" {{if eq .Status "all"}}class="active"{{end}}>{{.T.FilterAll}}</a>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="value">{{.PendingCount}}</div>
+      <div class="label">{{.T.RemissionPendingLbl}}</div>
+    </div>
+    <div class="stat">
+      <div class="value">{{.PendingAmount}}</div>
+      <div class="label">{{.T.RemissionPendingSum}}</div>
+    </div>
+    <div class="stat">
+      <div class="value">{{.Total}}</div>
+      <div class="label">{{.T.ColMonthly}}</div>
+    </div>
+  </div>
+
+  {{if .Rows}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>{{.T.RemissionAccountCol}}</th>
+          <th>{{.T.RemissionPeriodCol}}</th>
+          <th class="num">{{.T.RemissionDevicesCol}}</th>
+          <th class="num">{{.T.RemissionAmountCol}}</th>
+          <th>{{.T.RemissionStatusCol}}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Rows}}
+        <tr>
+          <td>{{.AccountName}}</td>
+          <td>{{.PeriodDisplay}}</td>
+          <td class="num">{{.Remission.DeviceCount}}</td>
+          <td class="num">{{.AmountDisplay}}</td>
+          <td><span class="pill {{.Remission.Status}}">{{.StatusLabel}}</span></td>
+          <td class="row-actions">
+            {{if .Pending}}
+            <form method="post" action="/remissions/{{.Remission.ID}}/pay">
+              <button class="primary" type="submit">{{$.T.RemissionMarkPaidBtn}}</button>
+            </form>
+            <form method="post" action="/remissions/{{.Remission.ID}}/cancel">
+              <button type="submit">{{$.T.RemissionCancelBtn}}</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="empty-state">{{.T.RemissionEmpty}}</p>
+  {{end}}
+</div>
+</main>
+</div>
+{{template "footer" .}}
+{{end}}

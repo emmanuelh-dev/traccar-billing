@@ -245,6 +245,24 @@ type uiStrings struct {
 	HideMirrorLabel string
 	HideMirrorHint  string
 
+	RemissionsPageTtl    string
+	NavRemissions        string
+	RemissionPendingLbl  string
+	RemissionPaidLabel   string
+	RemissionCanceledLbl string
+	RemissionAccountCol  string
+	RemissionPeriodCol   string
+	RemissionDevicesCol  string
+	RemissionAmountCol   string
+	RemissionStatusCol   string
+	RemissionMarkPaidBtn string
+	RemissionCancelBtn   string
+	RemissionEmpty       string
+	RemissionPendingSum  string
+	RemissionUnbilledFmt string
+	RemissionIntro       string
+	FilterAll            string
+
 	ConnectionSection string
 	TokenIntro        string
 	TokenActiveLabel  string
@@ -510,6 +528,24 @@ var translations = map[string]uiStrings{
 		HideMirrorLabel: "Ocultar cuentas espejo",
 		HideMirrorHint:  "Traccar crea usuarios temporales al compartir un equipo (su correo lleva dos puntos y el ID del equipo). No son clientes y no se cobran.",
 
+		RemissionsPageTtl:    "Remisiones",
+		NavRemissions:        "Remisiones",
+		RemissionPendingLbl:  "Pendiente",
+		RemissionPaidLabel:   "Pagada",
+		RemissionCanceledLbl: "Cancelada",
+		RemissionAccountCol:  "Cliente",
+		RemissionPeriodCol:   "Periodo",
+		RemissionDevicesCol:  "Equipos",
+		RemissionAmountCol:   "Importe",
+		RemissionStatusCol:   "Estado",
+		RemissionMarkPaidBtn: "Marcar pagada",
+		RemissionCancelBtn:   "Cancelar",
+		RemissionEmpty:       "No hay remisiones con este filtro.",
+		RemissionPendingSum:  "Por cobrar",
+		RemissionUnbilledFmt: "%d cuenta(s) activa(s) sin suscripción: no se les generó remisión.",
+		RemissionIntro:       "Se generan al inicio de cada periodo con los equipos que tenía la cuenta ese día. El importe queda congelado.",
+		FilterAll:            "Todas",
+
 		ConnectionSection: "Conexión con Traccar",
 		TokenIntro:        "La cookie de tu sesión caduca. Sin un token, el sistema deja de poder suspender morosos en cuanto eso pasa, y no avisa.",
 		TokenActiveLabel:  "Token activo",
@@ -758,6 +794,24 @@ var translations = map[string]uiStrings{
 		DisplaySection:  "Display",
 		HideMirrorLabel: "Hide mirror accounts",
 		HideMirrorHint:  "Traccar creates temporary users when a device is shared (their email carries a colon and the device ID). They are not customers and are never billed.",
+
+		RemissionsPageTtl:    "Remissions",
+		NavRemissions:        "Remissions",
+		RemissionPendingLbl:  "Pending",
+		RemissionPaidLabel:   "Paid",
+		RemissionCanceledLbl: "Canceled",
+		RemissionAccountCol:  "Customer",
+		RemissionPeriodCol:   "Period",
+		RemissionDevicesCol:  "Devices",
+		RemissionAmountCol:   "Amount",
+		RemissionStatusCol:   "Status",
+		RemissionMarkPaidBtn: "Mark paid",
+		RemissionCancelBtn:   "Cancel",
+		RemissionEmpty:       "No remissions match this filter.",
+		RemissionPendingSum:  "Outstanding",
+		RemissionUnbilledFmt: "%d active account(s) with no subscription: no remission was issued for them.",
+		RemissionIntro:       "Issued at the start of each period from the devices the account had that day. The amount is frozen.",
+		FilterAll:            "All",
 
 		ConnectionSection: "Traccar connection",
 		TokenIntro:        "Your login cookie expires. Without a token, the system stops being able to suspend overdue accounts the moment it does, and says nothing.",
