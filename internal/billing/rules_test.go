@@ -87,3 +87,72 @@ func TestApplyPayment(t *testing.T) {
 		t.Errorf("ApplyPayment() NextDueAt = %v, want %v", got.NextDueAt, wantNextDue)
 	}
 }
+
+func TestChargeCents(t *testing.T) {
+	tests := []struct {
+		name    string
+		sub     Subscription
+		devices int
+		want    int64
+	}{
+		{
+			name:    "flat amount when no unit price",
+			sub:     Subscription{AmountCents: 20000},
+			devices: 11,
+			want:    20000,
+		},
+		{
+			name:    "per device",
+			sub:     Subscription{UnitPriceCents: 20000},
+			devices: 11,
+			want:    220000,
+		},
+		{
+			name:    "per device with base fee",
+			sub:     Subscription{UnitPriceCents: 20000, FlatFeeCents: 5000},
+			devices: 3,
+			want:    65000,
+		},
+		{
+			name:    "minimum billable applies",
+			sub:     Subscription{UnitPriceCents: 20000, MinDevices: 5},
+			devices: 2,
+			want:    100000,
+		},
+		{
+			name:    "minimum ignored above it",
+			sub:     Subscription{UnitPriceCents: 20000, MinDevices: 5},
+			devices: 7,
+			want:    140000,
+		},
+		{
+			name:    "zero devices",
+			sub:     Subscription{UnitPriceCents: 20000},
+			devices: 0,
+			want:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ChargeCents(tt.sub, tt.devices); got != tt.want {
+				t.Errorf("ChargeCents() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsOverdueWithGrace(t *testing.T) {
+	due := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	sub := Subscription{Status: StatusActive, NextDueAt: due, GraceDays: 5}
+
+	if IsOverdue(sub, due.AddDate(0, 0, 3)) {
+		t.Error("IsOverdue() inside the grace period = true, want false")
+	}
+	if IsOverdue(sub, due.AddDate(0, 0, 5)) {
+		t.Error("IsOverdue() on the last grace day = true, want false")
+	}
+	if !IsOverdue(sub, due.AddDate(0, 0, 6)) {
+		t.Error("IsOverdue() past the grace period = false, want true")
+	}
+}

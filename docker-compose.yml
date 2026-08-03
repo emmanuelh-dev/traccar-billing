@@ -8,6 +8,7 @@ services:
       DB_DRIVER: mysql
       DATABASE_URL: "billing:billing@tcp(mysql:3306)/traccar_billing?parseTime=true"
       SYNC_INTERVAL: "15m"
+      TIMEZONE: "UTC"
       SESSION_SECRET: "change-me-to-a-real-random-32-byte-hex-value"
     depends_on:
       mysql:

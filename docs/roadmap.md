@@ -1,6 +1,6 @@
 # Plan
 
-Estado: `[ ]` pendiente · `[~]` en progreso · `[x]` hecho
+Estado: `[ ]` pendiente · `[~]` parcial · `[x]` hecho
 
 El orden importa. Las fases 0 y 1 son las que hacen que el sistema cuadre y
 que cobrar deje de ser tedioso; automatizar (Fase 2) sobre una base que
@@ -12,21 +12,21 @@ descuadra solo multiplica el error.
 
 Bugs de dinero y de operación. Es lo más barato y lo que más duele hoy.
 
-- [ ] **Cobro atómico.** `UpsertSubscription` y `RecordPayment` son dos
+- [x] **Cobro atómico.** `UpsertSubscription` y `RecordPayment` son dos
       llamadas separadas en `api/handlers_accounts.go`; si la segunda falla,
       la cuenta queda al corriente sin pago registrado. Agregar `WithTx` al
       repositorio y envolver el cobro completo.
-- [ ] **Pagos parciales.** Hoy el pago se registra siempre por el monto de la
+- [x] **Pagos parciales.** Hoy el pago se registra siempre por el monto de la
       suscripción (`AmountCents: updatedSub.AmountCents`), ignorando lo que
       capturaste. Debe guardarse el monto real y aplicarse contra el saldo.
-- [ ] **Periodo de gracia.** `grace_days` en la suscripción; `IsOverdue` corta
+- [x] **Periodo de gracia.** `grace_days` en la suscripción; `IsOverdue` corta
       un segundo después del vencimiento, sin margen.
 - [ ] **Bajas en el sync.** `scheduler.syncTenant` solo hace upsert: si borras
       un usuario en Traccar, la cuenta sigue viva y cobrable. Marcar
       `archived_at` cuando el usuario ya no aparece.
-- [ ] **Zona horaria por tenant.** `time.Parse("2006-01-02", …)` da medianoche
+- [~] **Zona horaria.** Hecho a medias: variable `TIMEZONE` global (`America/Mexico_City` en producción). Falta que sea por tenant, que es lo que necesita un producto multi-cliente. Antes: `time.Parse("2006-01-02", …)` da medianoche
       UTC; en México corta ~6 h antes de tiempo.
-- [ ] **Moneda consistente.** Default `MXN` en `handlers_subscription.go:71`
+- [x] **Moneda consistente.** Default `MXN` en `handlers_subscription.go:71`
       pero `USD` en `currencyOrDefault` y en el esquema. Una sola fuente:
       moneda por tenant.
 - [ ] **Aviso de sesión de Traccar vencida.** Hoy solo hay un `Warn` en el log
@@ -42,11 +42,11 @@ Bugs de dinero y de operación. Es lo más barato y lo que más duele hoy.
 
 Lo que hace que registrar un pago deje de ser adivinar.
 
-- [ ] **Precio por dispositivo.** `unit_price_cents` configurable por cuenta,
+- [x] **Precio por dispositivo.** `unit_price_cents` configurable por cuenta,
       con `flat_fee_cents` y `min_devices` opcionales. Es el modelo natural
       de un GPS y ya sincronizas `device_count` sin usarlo.
       `total = max(dispositivos, min_devices) × unitario + base`.
-- [ ] **Modal de cobro.** Al registrar un pago, un `<dialog>` con:
+- [x] **Modal de cobro.** Al registrar un pago, un `<dialog>` con:
       - dispositivos a cobrar, **precargado con los que tiene la cuenta**, editable
       - precio unitario (de la suscripción, editable para ese cobro)
       - **total calculado en vivo** al cambiar cualquiera de los dos
@@ -63,7 +63,7 @@ Lo que hace que registrar un pago deje de ser adivinar.
       Traccar nuevo, las cuentas no aparecen hasta el siguiente tick del
       scheduler (hasta 15 min de "lag"). Correr `syncTenant` en el momento del
       login, con timeout, y mostrar el estado mientras corre.
-- [ ] **Rediseño del dashboard.** El listado actual mete formulario de
+- [~] **Rediseño del dashboard.** Hechos los modales, la fila compacta y el scroll horizontal; faltan el buscador, el filtro por estado, la página de detalle por cuenta y los totales de arriba. El listado actual mete formulario de
       configuración, botón de pago y el historial completo dentro de cada fila
       con `<details>`. Con 50 cuentas es inmanejable. Propuesta:
       - fila compacta: cuenta · dispositivos · monto · estado · vence · acciones
@@ -71,9 +71,9 @@ Lo que hace que registrar un pago deje de ser adivinar.
       - configurar y cobrar en modal, no expandiendo la fila
       - página de detalle por cuenta con su historial completo
       - totales arriba: por cobrar del mes, cobrado, vencido
-- [ ] **Mejorar `/payments`.** Filtro por rango de fechas y por cuenta,
+- [~] **Mejorar `/payments`.** Hechos el total cobrado, editar y anular; faltan el filtro por rango de fechas y por cuenta, y el export CSV. Filtro por rango de fechas y por cuenta,
       total del periodo, y exportar CSV.
-- [ ] **Anular pagos.** Un pago mal capturado hoy es permanente. `voided_at`
+- [x] **Anular pagos.** Un pago mal capturado hoy es permanente. `voided_at`
       + motivo, y el saldo se recalcula.
 
 ---

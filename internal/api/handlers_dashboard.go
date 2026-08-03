@@ -15,12 +15,6 @@ type dashboardStats struct {
 	Overdue int
 }
 
-type paymentRow struct {
-	DateDisplay   string
-	AmountDisplay string
-	Note          string
-}
-
 type accountRow struct {
 	Account         billing.Account
 	Subscription    billing.Subscription
@@ -28,20 +22,29 @@ type accountRow struct {
 	StatusLabel     string
 	AmountDisplay   string
 	AmountValue     string
+	UnitPriceValue  string
+	FlatFeeValue    string
+	ChargeValue     string
+	MinDevices      int
+	GraceDays       int
 	DaysLeftLabel   string
 	DefaultDueDate  string
 	DefaultPeriod   int
-	Payments        []paymentRow
+	Currency        string
+	PaymentCount    int
 }
 
 type dashboardView struct {
-	T      uiStrings
-	Title  string
-	Active string
-	Error  string
-	Tenant billing.Tenant
-	Stats  dashboardStats
-	Rows   []accountRow
+	T        uiStrings
+	Title    string
+	Active   string
+	Error    string
+	Tenant   billing.Tenant
+	Stats    dashboardStats
+	Rows     []accountRow
+	Accounts []chargeAccount
+	Today    string
+	Redirect string
 }
 
 const defaultPeriodDays = 30
@@ -49,7 +52,7 @@ const defaultPeriodDays = 30
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	tenant := tenantFromContext(r.Context())
 	t := stringsFor(resolveLang(w, r))
-	now := time.Now()
+	now := s.now()
 
 	accounts, err := s.repo.ListAccountsByTenant(r.Context(), tenant.ID)
 	if err != nil {
@@ -58,31 +61,52 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view := dashboardView{T: t, Title: t.DashboardTitle, Active: "dashboard", Tenant: tenant, Error: r.URL.Query().Get("error")}
+	view := dashboardView{
+		T:        t,
+		Title:    t.DashboardTitle,
+		Active:   "dashboard",
+		Tenant:   tenant,
+		Error:    r.URL.Query().Get("error"),
+		Today:    now.Format(dueDateFormat),
+		Redirect: "/dashboard",
+	}
+
 	for _, account := range accounts {
 		row := accountRow{
 			Account:        account,
 			DefaultDueDate: now.AddDate(0, 0, defaultPeriodDays).Format(dueDateFormat),
 			DefaultPeriod:  defaultPeriodDays,
+			Currency:       defaultCurrency,
+			UnitPriceValue: "0.00",
+			FlatFeeValue:   "0.00",
+			AmountValue:    "0.00",
+			ChargeValue:    "0.00",
 		}
 		view.Stats.Total++
 
 		sub, err := s.repo.GetSubscriptionByAccountID(r.Context(), account.ID)
 		switch {
 		case errors.Is(err, billing.ErrNotFound):
-			// no subscription yet, row.HasSubscription stays false
 		case err != nil:
 			s.logger.Error("api: get subscription for dashboard", "error", err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		default:
+			chargeCents := billing.ChargeCents(sub, account.DeviceCount)
+
 			row.Subscription = sub
 			row.HasSubscription = true
 			row.StatusLabel = t.statusLabel(sub.Status)
-			row.AmountDisplay = formatAmount(sub.AmountCents, sub.Currency)
-			row.AmountValue = fmt.Sprintf("%.2f", float64(sub.AmountCents)/100)
+			row.AmountDisplay = formatAmount(chargeCents, sub.Currency)
+			row.AmountValue = centsValue(sub.AmountCents)
+			row.UnitPriceValue = centsValue(sub.UnitPriceCents)
+			row.FlatFeeValue = centsValue(sub.FlatFeeCents)
+			row.ChargeValue = centsValue(chargeCents)
+			row.MinDevices = sub.MinDevices
+			row.GraceDays = sub.GraceDays
+			row.Currency = sub.Currency
 			row.DaysLeftLabel = t.daysLeftLabel(daysUntil(sub.NextDueAt, now))
-			row.DefaultDueDate = sub.NextDueAt.Format(dueDateFormat)
+			row.DefaultDueDate = sub.NextDueAt.In(s.loc).Format(dueDateFormat)
 			row.DefaultPeriod = sub.PeriodDays
 
 			payments, err := s.repo.ListPaymentsBySubscription(r.Context(), sub.ID)
@@ -91,13 +115,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
-			for _, p := range payments {
-				row.Payments = append(row.Payments, paymentRow{
-					DateDisplay:   p.PaidAt.Format(dueDateFormat),
-					AmountDisplay: formatAmount(p.AmountCents, p.Currency),
-					Note:          p.Note,
-				})
-			}
+			row.PaymentCount = len(payments)
 
 			if sub.Status == billing.StatusOverdue {
 				view.Stats.Overdue++
@@ -107,6 +125,16 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		view.Rows = append(view.Rows, row)
+		view.Accounts = append(view.Accounts, chargeAccount{
+			ID:              account.ID,
+			Name:            account.Name,
+			Devices:         account.DeviceCount,
+			UnitPriceValue:  row.UnitPriceValue,
+			AmountValue:     row.ChargeValue,
+			Currency:        row.Currency,
+			PeriodDays:      row.DefaultPeriod,
+			HasSubscription: row.HasSubscription,
+		})
 	}
 
 	render(w, http.StatusOK, "dashboard", view)

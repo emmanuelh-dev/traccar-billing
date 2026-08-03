@@ -8,12 +8,16 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
 
-const dueDateFormat = "2006-01-02"
+const (
+	dueDateFormat   = "2006-01-02"
+	defaultCurrency = "MXN"
+)
 
 // handleConfigureSubscription creates or edits a subscription's billing
 // terms (amount, currency, period, next due date) from the dashboard form.
@@ -25,59 +29,76 @@ func (s *Server) handleConfigureSubscription(w http.ResponseWriter, r *http.Requ
 
 	accountID, err := parseIDParam(r, "id")
 	if err != nil {
-		redirectDashboardError(w, r, "invalid account id")
+		redirectPageError(w, r, "invalid account id")
 		return
 	}
 
 	account, err := s.repo.GetAccount(r.Context(), tenant.ID, accountID)
 	if errors.Is(err, billing.ErrNotFound) {
-		redirectDashboardError(w, r, "account not found")
+		redirectPageError(w, r, "account not found")
 		return
 	}
 	if err != nil {
 		s.logger.Error("api: get account for subscription config", "error", err)
-		redirectDashboardError(w, r, "internal error")
+		redirectPageError(w, r, "internal error")
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		redirectDashboardError(w, r, "invalid form")
+		redirectPageError(w, r, "invalid form")
 		return
 	}
 
-	amountCents, err := parseAmountCents(r.FormValue("amount"))
+	unitPriceCents, err := parseAmountCents(orZero(r.FormValue("unit_price")))
 	if err != nil {
-		redirectDashboardError(w, r, "invalid amount")
+		redirectPageError(w, r, "invalid unit price")
+		return
+	}
+	amountCents, err := parseAmountCents(orZero(r.FormValue("amount")))
+	if err != nil {
+		redirectPageError(w, r, "invalid amount")
+		return
+	}
+	flatFeeCents, err := parseAmountCents(orZero(r.FormValue("flat_fee")))
+	if err != nil {
+		redirectPageError(w, r, "invalid flat fee")
+		return
+	}
+	if unitPriceCents == 0 && amountCents == 0 {
+		redirectPageError(w, r, "set a unit price or a flat amount")
 		return
 	}
 	periodDays, err := strconv.Atoi(r.FormValue("period_days"))
 	if err != nil || periodDays <= 0 {
-		redirectDashboardError(w, r, "invalid billing period")
+		redirectPageError(w, r, "invalid billing period")
 		return
 	}
-	nextDueAt, err := time.Parse(dueDateFormat, r.FormValue("next_due_at"))
+	minDevices := optionalInt(r.FormValue("min_devices"), 0)
+	graceDays := optionalInt(r.FormValue("grace_days"), 0)
+	nextDueAt, err := time.ParseInLocation(dueDateFormat, r.FormValue("next_due_at"), s.loc)
 	if err != nil {
-		redirectDashboardError(w, r, "invalid due date")
+		redirectPageError(w, r, "invalid due date")
 		return
 	}
-	currency := r.FormValue("currency")
-	if currency == "" {
-		currency = "MXN"
-	}
+	currency := currencyOrDefault(r.FormValue("currency"))
 
 	sub, err := s.repo.GetSubscriptionByAccountID(r.Context(), account.ID)
 	if err != nil && !errors.Is(err, billing.ErrNotFound) {
 		s.logger.Error("api: get subscription for config", "error", err)
-		redirectDashboardError(w, r, "internal error")
+		redirectPageError(w, r, "internal error")
 		return
 	}
 
 	sub.AccountID = account.ID
 	sub.AmountCents = amountCents
+	sub.UnitPriceCents = unitPriceCents
+	sub.FlatFeeCents = flatFeeCents
+	sub.MinDevices = minDevices
+	sub.GraceDays = graceDays
 	sub.Currency = currency
 	sub.PeriodDays = periodDays
 	sub.NextDueAt = nextDueAt
-	if billing.IsOverdue(sub, time.Now()) {
+	if billing.IsOverdue(sub, s.now()) {
 		sub.Status = billing.StatusOverdue
 	} else {
 		sub.Status = billing.StatusActive
@@ -85,13 +106,13 @@ func (s *Server) handleConfigureSubscription(w http.ResponseWriter, r *http.Requ
 
 	if _, err := s.repo.UpsertSubscription(r.Context(), sub); err != nil {
 		s.logger.Error("api: upsert subscription config", "error", err)
-		redirectDashboardError(w, r, "internal error")
+		redirectPageError(w, r, "internal error")
 		return
 	}
 
 	s.syncTraccarAccess(r.Context(), tenant, account, sub.Status == billing.StatusOverdue)
 
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	http.Redirect(w, r, redirectTarget(r, "/dashboard"), http.StatusSeeOther)
 }
 
 // syncTraccarAccess mirrors a subscription's status onto the Traccar user's
@@ -128,6 +149,26 @@ func parseAmountCents(raw string) (int64, error) {
 	return int64(math.Round(amount * 100)), nil
 }
 
-func redirectDashboardError(w http.ResponseWriter, r *http.Request, message string) {
-	http.Redirect(w, r, "/dashboard?error="+url.QueryEscape(message), http.StatusSeeOther)
+func orZero(raw string) string {
+	if raw == "" {
+		return "0"
+	}
+	return raw
+}
+
+func optionalInt(raw string, fallback int) int {
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return fallback
+	}
+	return n
+}
+
+func redirectPageError(w http.ResponseWriter, r *http.Request, message string) {
+	target := redirectTarget(r, "/dashboard")
+	sep := "?"
+	if strings.Contains(target, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, target+sep+"error="+url.QueryEscape(message), http.StatusSeeOther)
 }

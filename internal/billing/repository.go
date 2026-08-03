@@ -10,6 +10,8 @@ import (
 // session: used by the scheduler on a Traccar 401 and by the auth
 // middleware when a browser session outlives it.
 type Repository interface {
+	WithTx(ctx context.Context, fn func(Repository) error) error
+
 	CreateTenant(ctx context.Context, t Tenant) (Tenant, error)
 	GetTenantByID(ctx context.Context, id int64) (Tenant, error)
 	GetTenantByBaseURL(ctx context.Context, baseURL string) (Tenant, error)
@@ -27,5 +29,15 @@ type Repository interface {
 	ListSubscriptionsDueBefore(ctx context.Context, tenantID int64, cutoff time.Time) ([]Subscription, error)
 
 	RecordPayment(ctx context.Context, p Payment) (Payment, error)
+	GetPayment(ctx context.Context, tenantID, paymentID int64) (Payment, error)
+	UpdatePayment(ctx context.Context, p Payment) (Payment, error)
+	VoidPayment(ctx context.Context, paymentID int64, voidedAt time.Time, reason string) error
 	ListPaymentsBySubscription(ctx context.Context, subscriptionID int64) ([]Payment, error)
+	ListPaymentsByTenant(ctx context.Context, tenantID int64) ([]TenantPayment, error)
+}
+
+type TenantPayment struct {
+	Payment
+	AccountID   int64
+	AccountName string
 }

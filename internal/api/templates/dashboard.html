@@ -9,9 +9,12 @@
       <h1>{{.Tenant.Name}}</h1>
       <div class="tenant-url">{{.Tenant.BaseURL}}</div>
     </div>
-    <form class="logout-form" method="post" action="/logout">
-      <button type="submit">{{.T.LogoutButton}}</button>
-    </form>
+    <div class="header-actions">
+      <button class="primary" type="button" data-modal="charge">{{.T.PayButton}}</button>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
   </div>
 
   {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
@@ -32,13 +35,14 @@
   </div>
 
   {{if .Rows}}
+  <div class="table-scroll">
   <table class="accounts">
     <thead>
       <tr>
         <th>{{.T.ColAccount}}</th>
         <th>{{.T.ColEmail}}</th>
-        <th>{{.T.ColDevices}}</th>
-        <th>{{.T.ColAmount}}</th>
+        <th class="num">{{.T.ColDevices}}</th>
+        <th class="num">{{.T.ColAmount}}</th>
         <th>{{.T.ColStatus}}</th>
         <th>{{.T.ColNextDue}}</th>
         <th>{{.T.ColDaysLeft}}</th>
@@ -49,7 +53,7 @@
       {{range .Rows}}
       <tr>
         <td>{{.Account.Name}}</td>
-        <td>{{.Account.Email}}</td>
+        <td class="muted">{{.Account.Email}}</td>
         <td class="num">{{.Account.DeviceCount}}</td>
         <td class="num">{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</td>
         <td>
@@ -59,79 +63,40 @@
             <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
           {{end}}
         </td>
-        <td>{{if .HasSubscription}}{{.Subscription.NextDueAt.Format "2006-01-02"}}{{end}}</td>
-        <td>{{if .HasSubscription}}{{.DaysLeftLabel}}{{end}}</td>
+        <td>{{if .HasSubscription}}{{.DefaultDueDate}}{{end}}</td>
+        <td class="muted">{{if .HasSubscription}}{{.DaysLeftLabel}}{{end}}</td>
         <td class="row-actions">
-          <details class="configure">
-            <summary>{{$.T.ConfigureLabel}}</summary>
-            <form class="configure-form" method="post" action="/accounts/{{.Account.ID}}/subscription">
-              <div class="field">
-                <label for="amount-{{.Account.ID}}">{{$.T.AmountLabel}}</label>
-                <input id="amount-{{.Account.ID}}" name="amount" type="number" step="0.01" min="0"
-                  value="{{.AmountValue}}" required>
-              </div>
-              <div class="field">
-                <label for="currency-{{.Account.ID}}">{{$.T.CurrencyLabel}}</label>
-                <select id="currency-{{.Account.ID}}" name="currency">
-                  {{$currency := "MXN"}}{{if .HasSubscription}}{{$currency = .Subscription.Currency}}{{end}}
-                  <option value="MXN" {{if eq $currency "MXN"}}selected{{end}}>MXN</option>
-                  <option value="USD" {{if eq $currency "USD"}}selected{{end}}>USD</option>
-                  <option value="EUR" {{if eq $currency "EUR"}}selected{{end}}>EUR</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="period-{{.Account.ID}}">{{$.T.PeriodLabel}}</label>
-                <input id="period-{{.Account.ID}}" name="period_days" type="number" min="1" value="{{.DefaultPeriod}}" required>
-              </div>
-              <div class="field">
-                <label for="due-{{.Account.ID}}">{{$.T.DueDateLabel}}</label>
-                <input id="due-{{.Account.ID}}" name="next_due_at" type="date" value="{{.DefaultDueDate}}" required>
-              </div>
-              <button class="primary" type="submit">{{$.T.SaveButton}}</button>
-            </form>
-          </details>
+          <button type="button"
+            data-modal="configure"
+            data-account="{{.Account.ID}}"
+            data-name="{{.Account.Name}}"
+            data-unit="{{.UnitPriceValue}}"
+            data-amount="{{.AmountValue}}"
+            data-flat="{{.FlatFeeValue}}"
+            data-min="{{.MinDevices}}"
+            data-grace="{{.GraceDays}}"
+            data-currency="{{.Currency}}"
+            data-period="{{.DefaultPeriod}}"
+            data-due="{{.DefaultDueDate}}">{{$.T.ConfigureLabel}}</button>
           {{if .HasSubscription}}
-          <form class="pay-form" method="post" action="/accounts/{{.Account.ID}}/pay">
-            <button type="submit">{{$.T.PayButton}}</button>
-          </form>
-          <details class="configure payments">
-            <summary>{{$.T.PaymentsLabel}} ({{len .Payments}})</summary>
-            <div class="payments-panel">
-              {{if .Payments}}
-              <table class="payments-table">
-                <thead>
-                  <tr>
-                    <th>{{$.T.PaymentsColDate}}</th>
-                    <th>{{$.T.PaymentsColAmnt}}</th>
-                    <th>{{$.T.PaymentsColNote}}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {{range .Payments}}
-                  <tr>
-                    <td>{{.DateDisplay}}</td>
-                    <td class="num">{{.AmountDisplay}}</td>
-                    <td>{{.Note}}</td>
-                  </tr>
-                  {{end}}
-                </tbody>
-              </table>
-              {{else}}
-              <p class="payments-empty">{{$.T.PaymentsEmpty}}</p>
-              {{end}}
-            </div>
-          </details>
+          <button class="primary" type="button"
+            data-modal="charge"
+            data-account="{{.Account.ID}}">{{$.T.PayButton}}</button>
           {{end}}
         </td>
       </tr>
       {{end}}
     </tbody>
   </table>
+  </div>
   {{else}}
   <div class="empty-state">{{.T.EmptyState}}</div>
   {{end}}
 </div>
 </main>
 </div>
+{{template "charge_dialog" .}}
+{{template "configure_dialog" .}}
+{{template "modal_script" .}}
 {{template "footer" .}}
 {{end}}

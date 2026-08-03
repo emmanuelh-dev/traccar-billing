@@ -1,0 +1,9 @@
+ALTER TABLE payments ADD COLUMN device_count INT NOT NULL DEFAULT 0;
+ALTER TABLE payments ADD COLUMN unit_price_cents BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE payments ADD COLUMN method VARCHAR(32) NOT NULL DEFAULT '';
+ALTER TABLE payments ADD COLUMN reference VARCHAR(191) NOT NULL DEFAULT '';
+ALTER TABLE payments ADD COLUMN voided_at DATETIME NULL;
+ALTER TABLE payments ADD COLUMN void_reason VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE payments ADD COLUMN updated_at DATETIME NULL;
+
+CREATE INDEX idx_payments_paid_at ON payments(paid_at);

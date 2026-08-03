@@ -9,37 +9,87 @@
       <h1>{{.T.PaymentsPageTtl}}</h1>
       <div class="tenant-url">{{.Tenant.Name}}</div>
     </div>
-    <form class="logout-form" method="post" action="/logout">
-      <button type="submit">{{.T.LogoutButton}}</button>
-    </form>
+    <div class="header-actions">
+      <button class="primary" type="button" data-modal="charge">{{.T.PayButton}}</button>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="value">{{len .Rows}}</div>
+      <div class="label">{{.T.PaymentsPageTtl}}</div>
+    </div>
+    <div class="stat">
+      <div class="value">{{.Total}}</div>
+      <div class="label">{{.T.TotalCollected}}</div>
+    </div>
   </div>
 
   {{if .Rows}}
+  <div class="table-scroll">
   <table class="accounts">
     <thead>
       <tr>
         <th>{{.T.PaymentsColDate}}</th>
         <th>{{.T.PaymentsColAccnt}}</th>
-        <th>{{.T.PaymentsColAmnt}}</th>
+        <th class="num">{{.T.ColDevices}}</th>
+        <th class="num">{{.T.PaymentsColAmnt}}</th>
+        <th>{{.T.MethodLabel}}</th>
         <th>{{.T.PaymentsColNote}}</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
       {{range .Rows}}
-      <tr>
+      <tr {{if .Voided}}class="voided"{{end}}>
         <td>{{.DateDisplay}}</td>
         <td>{{.AccountName}}</td>
+        <td class="num">{{if .Devices}}{{.Devices}}{{end}}</td>
         <td class="num">{{.AmountDisplay}}</td>
-        <td>{{.Note}}</td>
+        <td class="muted">{{.Method}}</td>
+        <td class="muted">
+          {{.Note}}
+          {{if .Voided}}<span class="badge badge-suspended">{{$.T.VoidedLabel}}</span> {{.VoidReason}}{{end}}
+        </td>
+        <td class="row-actions">
+          {{if not .Voided}}
+          <button type="button"
+            data-modal="payment"
+            data-payment="{{.ID}}"
+            data-name="{{.AccountName}}"
+            data-devices="{{.Devices}}"
+            data-unit="{{.UnitPriceVal}}"
+            data-amount="{{.AmountValue}}"
+            data-date="{{.DateValue}}"
+            data-method="{{.Method}}"
+            data-reference="{{.Reference}}"
+            data-note="{{.Note}}">{{$.T.EditButton}}</button>
+          <button type="button"
+            data-modal="void"
+            data-payment="{{.ID}}"
+            data-name="{{.AccountName}}"
+            data-amount="{{.AmountDisplay}}">{{$.T.VoidButton}}</button>
+          {{end}}
+        </td>
       </tr>
       {{end}}
     </tbody>
   </table>
+  </div>
   {{else}}
   <div class="empty-state">{{.T.PaymentsEmpty}}</div>
   {{end}}
 </div>
 </main>
 </div>
+{{template "charge_dialog" .}}
+{{template "payment_dialog" .}}
+{{template "void_dialog" .}}
+{{template "modal_script" .}}
 {{template "footer" .}}
 {{end}}

@@ -85,6 +85,34 @@ type uiStrings struct {
 	StatusOverdue   string
 	StatusSuspended string
 	StatusCanceled  string
+
+	ChargeTitle        string
+	DevicesLabel       string
+	UnitPriceLabel     string
+	TotalLabel         string
+	FixedAmountLabel   string
+	FlatFeeLabel       string
+	MinDevicesLabel    string
+	GraceDaysLabel     string
+	PricingHint        string
+	NoSubscriptionWarn string
+	PaidAtLabel        string
+	MethodLabel        string
+	MethodCash         string
+	MethodTransfer     string
+	MethodCard         string
+	MethodOther        string
+	ReferenceLabel     string
+	NoteLabel          string
+	CancelButton       string
+	EditButton         string
+	EditPaymentTitle   string
+	VoidButton         string
+	VoidedLabel        string
+	VoidPaymentTitle   string
+	VoidReasonLabel    string
+	VoidWarning        string
+	TotalCollected     string
 }
 
 var translations = map[string]uiStrings{
@@ -142,6 +170,34 @@ var translations = map[string]uiStrings{
 		StatusOverdue:   "vencida",
 		StatusSuspended: "suspendida",
 		StatusCanceled:  "cancelada",
+
+		ChargeTitle:        "Registrar pago",
+		DevicesLabel:       "Dispositivos a cobrar",
+		UnitPriceLabel:     "Precio por dispositivo",
+		TotalLabel:         "Total",
+		FixedAmountLabel:   "Monto fijo",
+		FlatFeeLabel:       "Cargo base",
+		MinDevicesLabel:    "Mínimo facturable",
+		GraceDaysLabel:     "Días de gracia",
+		PricingHint:        "Usa el precio por dispositivo para cobrar según cuántos GPS tenga la cuenta, o el monto fijo para cobrar siempre lo mismo.",
+		NoSubscriptionWarn: "Esta cuenta todavía no tiene cobro configurado.",
+		PaidAtLabel:        "Fecha de pago",
+		MethodLabel:        "Método",
+		MethodCash:         "Efectivo",
+		MethodTransfer:     "Transferencia",
+		MethodCard:         "Tarjeta",
+		MethodOther:        "Otro",
+		ReferenceLabel:     "Referencia",
+		NoteLabel:          "Nota",
+		CancelButton:       "Cancelar",
+		EditButton:         "Editar",
+		EditPaymentTitle:   "Editar pago",
+		VoidButton:         "Anular",
+		VoidedLabel:        "anulado",
+		VoidPaymentTitle:   "Anular pago",
+		VoidReasonLabel:    "Motivo",
+		VoidWarning:        "El pago se conserva en el historial marcado como anulado. Si ya había movido la fecha de corte, ajústala en Configurar cobro.",
+		TotalCollected:     "Total cobrado",
 	},
 	"en": {
 		Lang:               "en",
@@ -197,6 +253,34 @@ var translations = map[string]uiStrings{
 		StatusOverdue:   "overdue",
 		StatusSuspended: "suspended",
 		StatusCanceled:  "canceled",
+
+		ChargeTitle:        "Record payment",
+		DevicesLabel:       "Devices to charge",
+		UnitPriceLabel:     "Price per device",
+		TotalLabel:         "Total",
+		FixedAmountLabel:   "Flat amount",
+		FlatFeeLabel:       "Base fee",
+		MinDevicesLabel:    "Minimum billable",
+		GraceDaysLabel:     "Grace days",
+		PricingHint:        "Use price per device to bill by how many GPS units the account has, or the flat amount to always charge the same.",
+		NoSubscriptionWarn: "This account has no billing set up yet.",
+		PaidAtLabel:        "Payment date",
+		MethodLabel:        "Method",
+		MethodCash:         "Cash",
+		MethodTransfer:     "Transfer",
+		MethodCard:         "Card",
+		MethodOther:        "Other",
+		ReferenceLabel:     "Reference",
+		NoteLabel:          "Note",
+		CancelButton:       "Cancel",
+		EditButton:         "Edit",
+		EditPaymentTitle:   "Edit payment",
+		VoidButton:         "Void",
+		VoidedLabel:        "voided",
+		VoidPaymentTitle:   "Void payment",
+		VoidReasonLabel:    "Reason",
+		VoidWarning:        "The payment stays in the history marked as voided. If it already moved the due date, adjust it in Set up billing.",
+		TotalCollected:     "Total collected",
 	},
 }
 

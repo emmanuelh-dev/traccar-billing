@@ -118,6 +118,26 @@ func (r *fakeRepo) ListPaymentsBySubscription(ctx context.Context, subscriptionI
 	return nil, errors.New("not implemented")
 }
 
+func (r *fakeRepo) WithTx(ctx context.Context, fn func(billing.Repository) error) error {
+	return fn(r)
+}
+
+func (r *fakeRepo) GetPayment(ctx context.Context, tenantID, paymentID int64) (billing.Payment, error) {
+	return billing.Payment{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) UpdatePayment(ctx context.Context, p billing.Payment) (billing.Payment, error) {
+	return billing.Payment{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) VoidPayment(ctx context.Context, paymentID int64, voidedAt time.Time, reason string) error {
+	return errors.New("not implemented")
+}
+
+func (r *fakeRepo) ListPaymentsByTenant(ctx context.Context, tenantID int64) ([]billing.TenantPayment, error) {
+	return nil, errors.New("not implemented")
+}
+
 type fakeClient struct {
 	users         []billing.TraccarUser
 	devices       []billing.TraccarDevice

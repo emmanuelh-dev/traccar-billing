@@ -1,0 +1,331 @@
+{{define "charge_dialog"}}
+<dialog id="charge-dialog" class="modal">
+  <form id="charge-form" class="modal-form" method="post">
+    <h2 id="charge-title">{{.T.ChargeTitle}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+
+    <div class="field">
+      <label for="charge-account">{{.T.ColAccount}}</label>
+      <select id="charge-account">
+        {{range .Accounts}}
+        <option value="{{.ID}}"
+          data-devices="{{.Devices}}"
+          data-unit="{{.UnitPriceValue}}"
+          data-amount="{{.AmountValue}}"
+          data-currency="{{.Currency}}"
+          data-hassub="{{.HasSubscription}}">{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+
+    <p class="modal-warning" id="charge-nosub" hidden>{{.T.NoSubscriptionWarn}}</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="charge-devices">{{.T.DevicesLabel}}</label>
+        <input id="charge-devices" name="device_count" type="number" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="charge-unit">{{.T.UnitPriceLabel}}</label>
+        <input id="charge-unit" name="unit_price" type="number" min="0" step="0.01">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="charge-amount">{{.T.TotalLabel}}</label>
+        <input id="charge-amount" name="amount" type="number" min="0" step="0.01" required>
+      </div>
+      <div class="field">
+        <label for="charge-currency">{{.T.CurrencyLabel}}</label>
+        <select id="charge-currency" name="currency">
+          <option value="MXN">MXN</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="charge-date">{{.T.PaidAtLabel}}</label>
+        <input id="charge-date" name="paid_at" type="date" value="{{.Today}}" required>
+      </div>
+      <div class="field">
+        <label for="charge-method">{{.T.MethodLabel}}</label>
+        <select id="charge-method" name="method">
+          <option value="cash">{{.T.MethodCash}}</option>
+          <option value="transfer">{{.T.MethodTransfer}}</option>
+          <option value="card">{{.T.MethodCard}}</option>
+          <option value="other">{{.T.MethodOther}}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="charge-reference">{{.T.ReferenceLabel}}</label>
+        <input id="charge-reference" name="reference" type="text" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="charge-note">{{.T.NoteLabel}}</label>
+        <input id="charge-note" name="note" type="text" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="primary" type="submit">{{.T.PayButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "payment_dialog"}}
+<dialog id="payment-dialog" class="modal">
+  <form id="payment-form" class="modal-form" method="post">
+    <h2>{{.T.EditPaymentTitle}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="payment-account"></p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="payment-devices">{{.T.DevicesLabel}}</label>
+        <input id="payment-devices" name="device_count" type="number" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="payment-unit">{{.T.UnitPriceLabel}}</label>
+        <input id="payment-unit" name="unit_price" type="number" min="0" step="0.01">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="payment-amount">{{.T.TotalLabel}}</label>
+        <input id="payment-amount" name="amount" type="number" min="0" step="0.01" required>
+      </div>
+      <div class="field">
+        <label for="payment-date">{{.T.PaidAtLabel}}</label>
+        <input id="payment-date" name="paid_at" type="date" required>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="payment-method">{{.T.MethodLabel}}</label>
+        <select id="payment-method" name="method">
+          <option value="cash">{{.T.MethodCash}}</option>
+          <option value="transfer">{{.T.MethodTransfer}}</option>
+          <option value="card">{{.T.MethodCard}}</option>
+          <option value="other">{{.T.MethodOther}}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="payment-reference">{{.T.ReferenceLabel}}</label>
+        <input id="payment-reference" name="reference" type="text" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="payment-note">{{.T.NoteLabel}}</label>
+      <input id="payment-note" name="note" type="text" autocomplete="off">
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="primary" type="submit">{{.T.SaveButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "void_dialog"}}
+<dialog id="void-dialog" class="modal">
+  <form id="void-form" class="modal-form" method="post">
+    <h2>{{.T.VoidPaymentTitle}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="void-account"></p>
+    <p class="modal-warning">{{.T.VoidWarning}}</p>
+
+    <div class="field">
+      <label for="void-reason">{{.T.VoidReasonLabel}}</label>
+      <input id="void-reason" name="void_reason" type="text" autocomplete="off" required>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="danger" type="submit">{{.T.VoidButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "configure_dialog"}}
+<dialog id="configure-dialog" class="modal">
+  <form id="configure-form" class="modal-form" method="post">
+    <h2>{{.T.ConfigureLabel}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="configure-account"></p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="configure-unit">{{.T.UnitPriceLabel}}</label>
+        <input id="configure-unit" name="unit_price" type="number" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="configure-amount">{{.T.FixedAmountLabel}}</label>
+        <input id="configure-amount" name="amount" type="number" min="0" step="0.01">
+      </div>
+    </div>
+    <p class="field-hint">{{.T.PricingHint}}</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="configure-flat">{{.T.FlatFeeLabel}}</label>
+        <input id="configure-flat" name="flat_fee" type="number" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="configure-min">{{.T.MinDevicesLabel}}</label>
+        <input id="configure-min" name="min_devices" type="number" min="0" step="1">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="configure-currency">{{.T.CurrencyLabel}}</label>
+        <select id="configure-currency" name="currency">
+          <option value="MXN">MXN</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="configure-period">{{.T.PeriodLabel}}</label>
+        <input id="configure-period" name="period_days" type="number" min="1" required>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="configure-due">{{.T.DueDateLabel}}</label>
+        <input id="configure-due" name="next_due_at" type="date" required>
+      </div>
+      <div class="field">
+        <label for="configure-grace">{{.T.GraceDaysLabel}}</label>
+        <input id="configure-grace" name="grace_days" type="number" min="0" step="1">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="primary" type="submit">{{.T.SaveButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "modal_script"}}
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+
+  function openModal(dialog) {
+    if (dialog && typeof dialog.showModal === "function") dialog.showModal();
+  }
+
+  document.addEventListener("click", (event) => {
+    const closer = event.target.closest("[data-close-modal]");
+    if (closer) {
+      closer.closest("dialog").close();
+      return;
+    }
+    const trigger = event.target.closest("[data-modal]");
+    if (trigger) fillAndOpen(trigger);
+  });
+
+  const chargeDialog = $("charge-dialog");
+  const chargeForm = $("charge-form");
+  const chargeAccount = $("charge-account");
+  const chargeDevices = $("charge-devices");
+  const chargeUnit = $("charge-unit");
+  const chargeAmount = $("charge-amount");
+  const chargeCurrency = $("charge-currency");
+  const chargeNoSub = $("charge-nosub");
+
+  function recomputeCharge() {
+    const devices = parseFloat(chargeDevices.value);
+    const unit = parseFloat(chargeUnit.value);
+    if (isNaN(devices) || isNaN(unit) || unit <= 0) return;
+    chargeAmount.value = (devices * unit).toFixed(2);
+  }
+
+  function applyChargeAccount() {
+    const option = chargeAccount.selectedOptions[0];
+    if (!option) return;
+    chargeForm.action = "/accounts/" + option.value + "/pay";
+    chargeDevices.value = option.dataset.devices;
+    chargeUnit.value = option.dataset.unit;
+    chargeAmount.value = option.dataset.amount;
+    chargeCurrency.value = option.dataset.currency;
+    chargeNoSub.hidden = option.dataset.hassub === "true";
+  }
+
+  if (chargeAccount) {
+    chargeAccount.addEventListener("change", applyChargeAccount);
+    chargeDevices.addEventListener("input", recomputeCharge);
+    chargeUnit.addEventListener("input", recomputeCharge);
+  }
+
+  function fillAndOpen(trigger) {
+    const kind = trigger.dataset.modal;
+    const data = trigger.dataset;
+
+    if (kind === "charge") {
+      if (data.account) chargeAccount.value = data.account;
+      applyChargeAccount();
+      openModal(chargeDialog);
+      return;
+    }
+
+    if (kind === "payment") {
+      const form = $("payment-form");
+      form.action = "/payments/" + data.payment;
+      $("payment-account").textContent = data.name || "";
+      $("payment-devices").value = data.devices || 0;
+      $("payment-unit").value = data.unit || "0.00";
+      $("payment-amount").value = data.amount || "0.00";
+      $("payment-date").value = data.date || "";
+      $("payment-method").value = data.method || "cash";
+      $("payment-reference").value = data.reference || "";
+      $("payment-note").value = data.note || "";
+      openModal($("payment-dialog"));
+      return;
+    }
+
+    if (kind === "void") {
+      const form = $("void-form");
+      form.action = "/payments/" + data.payment + "/void";
+      $("void-account").textContent = (data.name || "") + " — " + (data.amount || "");
+      $("void-reason").value = "";
+      openModal($("void-dialog"));
+      return;
+    }
+
+    if (kind === "configure") {
+      const form = $("configure-form");
+      form.action = "/accounts/" + data.account + "/subscription";
+      $("configure-account").textContent = data.name || "";
+      $("configure-unit").value = data.unit || "0.00";
+      $("configure-amount").value = data.amount || "0.00";
+      $("configure-flat").value = data.flat || "0.00";
+      $("configure-min").value = data.min || 0;
+      $("configure-currency").value = data.currency || "MXN";
+      $("configure-period").value = data.period || 30;
+      $("configure-due").value = data.due || "";
+      $("configure-grace").value = data.grace || 0;
+      openModal($("configure-dialog"));
+    }
+  }
+})();
+</script>
+{{end}}

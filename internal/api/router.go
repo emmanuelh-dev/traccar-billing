@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -15,15 +16,24 @@ type Server struct {
 	client billing.TraccarClient
 	signer sessionSigner
 	logger *slog.Logger
+	loc    *time.Location
 }
 
-func NewServer(repo billing.Repository, client billing.TraccarClient, sessionSecret string, logger *slog.Logger) *Server {
+func NewServer(repo billing.Repository, client billing.TraccarClient, sessionSecret string, loc *time.Location, logger *slog.Logger) *Server {
+	if loc == nil {
+		loc = time.UTC
+	}
 	return &Server{
 		repo:   repo,
 		client: client,
 		signer: newSessionSigner(sessionSecret),
 		logger: logger,
+		loc:    loc,
 	}
+}
+
+func (s *Server) now() time.Time {
+	return time.Now().In(s.loc)
 }
 
 func (s *Server) Router() http.Handler {
@@ -44,6 +54,9 @@ func (s *Server) Router() http.Handler {
 	r.Get("/accounts/{id}", s.requireTenant(s.handleGetAccount))
 	r.Post("/accounts/{id}/pay", s.requireTenant(s.handlePayAccount))
 	r.Post("/accounts/{id}/subscription", s.requireTenant(s.handleConfigureSubscription))
+
+	r.Post("/payments/{id}", s.requireTenant(s.handleEditPayment))
+	r.Post("/payments/{id}/void", s.requireTenant(s.handleVoidPayment))
 
 	r.Handle("/static/*", staticHandler())
 

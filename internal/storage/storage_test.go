@@ -228,3 +228,148 @@ func TestSubscriptionAndPaymentLifecycle(t *testing.T) {
 		t.Errorf("ListSubscriptionsDueBefore() after payment = %+v, want empty", stillDue)
 	}
 }
+
+func seedSubscription(t *testing.T, repo *SQLiteRepository) (billing.Tenant, billing.Account, billing.Subscription) {
+	t.Helper()
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Fleet", BaseURL: "https://fleet.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+	account, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenant.ID, TraccarUserID: 5, Name: "Cristian", Email: "c@example.com", DeviceCount: 11})
+	if err != nil {
+		t.Fatalf("UpsertAccount() error = %v", err)
+	}
+	sub, err := repo.UpsertSubscription(ctx, billing.Subscription{
+		AccountID:      account.ID,
+		Status:         billing.StatusActive,
+		UnitPriceCents: 20000,
+		MinDevices:     2,
+		GraceDays:      3,
+		Currency:       "MXN",
+		PeriodDays:     30,
+		NextDueAt:      time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("UpsertSubscription() error = %v", err)
+	}
+	return tenant, account, sub
+}
+
+func TestSubscriptionPricingRoundTrip(t *testing.T) {
+	repo := newTestRepo(t)
+	_, _, sub := seedSubscription(t, repo)
+
+	got, err := repo.GetSubscription(context.Background(), sub.ID)
+	if err != nil {
+		t.Fatalf("GetSubscription() error = %v", err)
+	}
+	if got.UnitPriceCents != 20000 {
+		t.Errorf("UnitPriceCents = %d, want 20000", got.UnitPriceCents)
+	}
+	if got.MinDevices != 2 {
+		t.Errorf("MinDevices = %d, want 2", got.MinDevices)
+	}
+	if got.GraceDays != 3 {
+		t.Errorf("GraceDays = %d, want 3", got.GraceDays)
+	}
+}
+
+func TestPaymentEditAndVoid(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	tenant, account, sub := seedSubscription(t, repo)
+
+	paidAt := time.Now().UTC().Truncate(time.Second)
+	created, err := repo.RecordPayment(ctx, billing.Payment{
+		SubscriptionID: sub.ID,
+		AmountCents:    220000,
+		UnitPriceCents: 20000,
+		DeviceCount:    11,
+		Currency:       "MXN",
+		Method:         "cash",
+		Reference:      "REF-1",
+		PaidAt:         paidAt,
+		Note:           "agosto",
+	})
+	if err != nil {
+		t.Fatalf("RecordPayment() error = %v", err)
+	}
+	if created.DeviceCount != 11 || created.Method != "cash" {
+		t.Errorf("RecordPayment() lost detail: %+v", created)
+	}
+
+	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("ListPaymentsByTenant() returned %d rows, want 1", len(listed))
+	}
+	if listed[0].AccountName != account.Name || listed[0].AccountID != account.ID {
+		t.Errorf("ListPaymentsByTenant() account = %d/%q, want %d/%q", listed[0].AccountID, listed[0].AccountName, account.ID, account.Name)
+	}
+
+	created.AmountCents = 180000
+	created.DeviceCount = 9
+	updated, err := repo.UpdatePayment(ctx, created)
+	if err != nil {
+		t.Fatalf("UpdatePayment() error = %v", err)
+	}
+	if updated.AmountCents != 180000 || updated.DeviceCount != 9 {
+		t.Errorf("UpdatePayment() = %d/%d, want 180000/9", updated.AmountCents, updated.DeviceCount)
+	}
+
+	if _, err := repo.GetPayment(ctx, tenant.ID+1, created.ID); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("GetPayment() across tenants error = %v, want ErrNotFound", err)
+	}
+
+	if err := repo.VoidPayment(ctx, created.ID, time.Now().UTC(), "duplicado"); err != nil {
+		t.Fatalf("VoidPayment() error = %v", err)
+	}
+	voided, err := repo.GetPayment(ctx, tenant.ID, created.ID)
+	if err != nil {
+		t.Fatalf("GetPayment() error = %v", err)
+	}
+	if !voided.Voided() || voided.VoidReason != "duplicado" {
+		t.Errorf("VoidPayment() left payment %+v", voided)
+	}
+
+	if err := repo.VoidPayment(ctx, created.ID, time.Now().UTC(), "otra vez"); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("VoidPayment() twice error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.UpdatePayment(ctx, voided); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("UpdatePayment() on voided error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestWithTxRollsBack(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	tenant, _, sub := seedSubscription(t, repo)
+
+	wantErr := errors.New("boom")
+	err := repo.WithTx(ctx, func(tx billing.Repository) error {
+		if _, err := tx.RecordPayment(ctx, billing.Payment{
+			SubscriptionID: sub.ID,
+			AmountCents:    5000,
+			Currency:       "MXN",
+			PaidAt:         time.Now().UTC(),
+		}); err != nil {
+			return err
+		}
+		return wantErr
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("WithTx() error = %v, want %v", err, wantErr)
+	}
+
+	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(listed) != 0 {
+		t.Fatalf("WithTx() rollback left %d payments", len(listed))
+	}
+}

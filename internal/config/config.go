@@ -12,6 +12,7 @@ type Config struct {
 	DatabaseURL   string
 	SyncInterval  time.Duration
 	SessionSecret string
+	Location      *time.Location
 }
 
 const minSessionSecretLen = 32
@@ -39,6 +40,12 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: invalid SYNC_INTERVAL: %w", err)
 	}
 	cfg.SyncInterval = interval
+
+	loc, err := time.LoadLocation(getenv("TIMEZONE", "UTC"))
+	if err != nil {
+		return Config{}, fmt.Errorf("config: invalid TIMEZONE: %w", err)
+	}
+	cfg.Location = loc
 
 	return cfg, nil
 }

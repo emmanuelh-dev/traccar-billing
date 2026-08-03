@@ -54,7 +54,7 @@ func run(logger *slog.Logger) error {
 	client := traccar.NewClient()
 
 	sched := scheduler.New(repo, client, cfg.SyncInterval, logger)
-	server := api.NewServer(repo, client, cfg.SessionSecret, logger)
+	server := api.NewServer(repo, client, cfg.SessionSecret, cfg.Location, logger)
 
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.HTTPPort,

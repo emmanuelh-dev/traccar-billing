@@ -1,0 +1,4 @@
+ALTER TABLE subscriptions ADD COLUMN unit_price_cents BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN flat_fee_cents BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN min_devices INT NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN grace_days INT NOT NULL DEFAULT 0;

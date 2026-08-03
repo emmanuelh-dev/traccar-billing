@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -76,11 +77,57 @@ func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 type payAccountRequest struct {
-	AmountCents *int64     `json:"amount_cents"`
-	Currency    string     `json:"currency"`
-	PeriodDays  *int       `json:"period_days"`
-	Note        string     `json:"note"`
-	PaidAt      *time.Time `json:"paid_at"`
+	AmountCents    *int64     `json:"amount_cents"`
+	UnitPriceCents *int64     `json:"unit_price_cents"`
+	DeviceCount    *int       `json:"device_count"`
+	Currency       string     `json:"currency"`
+	PeriodDays     *int       `json:"period_days"`
+	Method         string     `json:"method"`
+	Reference      string     `json:"reference"`
+	Note           string     `json:"note"`
+	PaidAt         *time.Time `json:"paid_at"`
+}
+
+func (s *Server) parsePayForm(r *http.Request) (payAccountRequest, error) {
+	var req payAccountRequest
+	if err := r.ParseForm(); err != nil {
+		return req, fmt.Errorf("invalid form")
+	}
+
+	if v := r.FormValue("amount"); v != "" {
+		cents, err := parseAmountCents(v)
+		if err != nil {
+			return req, fmt.Errorf("invalid amount")
+		}
+		req.AmountCents = &cents
+	}
+	if v := r.FormValue("unit_price"); v != "" {
+		cents, err := parseAmountCents(v)
+		if err != nil {
+			return req, fmt.Errorf("invalid unit price")
+		}
+		req.UnitPriceCents = &cents
+	}
+	if v := r.FormValue("device_count"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return req, fmt.Errorf("invalid device count")
+		}
+		req.DeviceCount = &n
+	}
+	if v := r.FormValue("paid_at"); v != "" {
+		paidAt, err := time.ParseInLocation(dueDateFormat, v, s.loc)
+		if err != nil {
+			return req, fmt.Errorf("invalid payment date")
+		}
+		req.PaidAt = &paidAt
+	}
+
+	req.Currency = r.FormValue("currency")
+	req.Method = r.FormValue("method")
+	req.Reference = r.FormValue("reference")
+	req.Note = r.FormValue("note")
+	return req, nil
 }
 
 // handlePayAccount records a payment against an account's subscription and
@@ -110,9 +157,17 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req payAccountRequest
-	if isJSON && r.ContentLength != 0 {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "invalid request body")
+	if isJSON {
+		if r.ContentLength != 0 {
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "invalid request body")
+				return
+			}
+		}
+	} else {
+		req, err = s.parsePayForm(r)
+		if err != nil {
+			s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
@@ -136,9 +191,6 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "failed to get subscription")
 		return
 	default:
-		if req.AmountCents != nil {
-			sub.AmountCents = *req.AmountCents
-		}
 		if req.PeriodDays != nil {
 			sub.PeriodDays = *req.PeriodDays
 		}
@@ -147,25 +199,45 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	paidAt := time.Now().UTC()
+	if req.UnitPriceCents != nil {
+		sub.UnitPriceCents = *req.UnitPriceCents
+	}
+
+	devices := account.DeviceCount
+	if req.DeviceCount != nil {
+		devices = *req.DeviceCount
+	}
+
+	amountCents := billing.ChargeCents(sub, devices)
+	if req.AmountCents != nil {
+		amountCents = *req.AmountCents
+	}
+
+	paidAt := s.now()
 	if req.PaidAt != nil {
 		paidAt = *req.PaidAt
 	}
 
-	updatedSub := billing.ApplyPayment(sub, paidAt)
-	updatedSub, err = s.repo.UpsertSubscription(r.Context(), updatedSub)
-	if err != nil {
-		s.logger.Error("api: upsert subscription", "error", err)
-		s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "failed to update subscription")
-		return
-	}
-
-	payment, err := s.repo.RecordPayment(r.Context(), billing.Payment{
-		SubscriptionID: updatedSub.ID,
-		AmountCents:    updatedSub.AmountCents,
-		Currency:       updatedSub.Currency,
-		PaidAt:         paidAt,
-		Note:           req.Note,
+	var updatedSub billing.Subscription
+	var payment billing.Payment
+	err = s.repo.WithTx(r.Context(), func(tx billing.Repository) error {
+		var txErr error
+		updatedSub, txErr = tx.UpsertSubscription(r.Context(), billing.ApplyPayment(sub, paidAt))
+		if txErr != nil {
+			return txErr
+		}
+		payment, txErr = tx.RecordPayment(r.Context(), billing.Payment{
+			SubscriptionID: updatedSub.ID,
+			AmountCents:    amountCents,
+			UnitPriceCents: sub.UnitPriceCents,
+			DeviceCount:    devices,
+			Currency:       updatedSub.Currency,
+			Method:         req.Method,
+			Reference:      req.Reference,
+			PaidAt:         paidAt,
+			Note:           req.Note,
+		})
+		return txErr
 	})
 	if err != nil {
 		s.logger.Error("api: record payment", "error", err)
@@ -176,7 +248,7 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 	s.syncTraccarAccess(r.Context(), tenant, account, false)
 
 	if !isJSON {
-		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		http.Redirect(w, r, redirectTarget(r, "/dashboard"), http.StatusSeeOther)
 		return
 	}
 	writeJSON(w, http.StatusOK, accountDetail{
@@ -191,14 +263,22 @@ func (s *Server) respondPayFailure(w http.ResponseWriter, r *http.Request, isJSO
 		writeJSONError(w, status, message)
 		return
 	}
-	redirectDashboardError(w, r, message)
+	redirectPageError(w, r, message)
 }
 
 func currencyOrDefault(currency string) string {
 	if currency == "" {
-		return "USD"
+		return defaultCurrency
 	}
 	return currency
+}
+
+func redirectTarget(r *http.Request, fallback string) string {
+	target := r.FormValue("redirect_to")
+	if strings.HasPrefix(target, "/") && !strings.HasPrefix(target, "//") {
+		return target
+	}
+	return fallback
 }
 
 func parseIDParam(r *http.Request, name string) (int64, error) {

@@ -12,7 +12,11 @@ producción.
 | `DB_DRIVER` | `sqlite` | `sqlite` o `mysql` |
 | `DATABASE_URL` | — | **requerida.** sqlite: ruta del archivo. mysql: DSN con `?parseTime=true` |
 | `SYNC_INTERVAL` | `15m` | cada cuánto sincroniza y revisa vencidos |
+| `TIMEZONE` | `UTC` | zona IANA para fechas de corte y de pago, y para los valores por default de la UI. En México: `America/Mexico_City` |
 | `SESSION_SECRET` | — | **requerida**, mínimo 32 caracteres. `openssl rand -hex 32` |
+
+Si dejas `TIMEZONE` en `UTC` operando desde México, un pago capturado después
+de las 6 p.m. queda fechado al día siguiente.
 
 Las credenciales de Traccar **no** se configuran aquí: cada tenant se agrega
 desde `/login` y solo se guarda la cookie resultante. Ver
