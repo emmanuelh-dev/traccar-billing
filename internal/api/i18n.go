@@ -222,6 +222,22 @@ type uiStrings struct {
 	DeleteAccountTtl  string
 	DeleteAccountWarn string
 	DeleteAccountBtn  string
+
+	NavConcepts      string
+	ConceptsPageTtl  string
+	ConceptsEmpty    string
+	NewConceptButton string
+	NewConceptTitle  string
+	EditConceptTitle string
+	ConceptLabel     string
+	ConceptNameLabel string
+	SlugLabel        string
+	SlugHint         string
+	RecurringLabel   string
+	RecurringYes     string
+	RecurringNo      string
+	NoConceptOption  string
+	ColConcept       string
 }
 
 var translations = map[string]uiStrings{
@@ -337,6 +353,22 @@ var translations = map[string]uiStrings{
 		ColCommission:   "Comisión",
 		AssignSellerTtl: "Asignar vendedor",
 		UnassignOption:  "— sin vendedor —",
+
+		NavConcepts:      "Conceptos",
+		ConceptsPageTtl:  "Conceptos de cobro",
+		ConceptsEmpty:    "Todavía no hay conceptos registrados. Da de alta uno para poder asociarlo a los pagos.",
+		NewConceptButton: "Nuevo concepto",
+		NewConceptTitle:  "Nuevo concepto",
+		EditConceptTitle: "Editar concepto",
+		ConceptLabel:     "Concepto",
+		ConceptNameLabel: "Nombre",
+		SlugLabel:        "Slug / Clave",
+		SlugHint:         "Identificador único (minúsculas, sin acentos ni espacios). Se genera automáticamente si se deja en blanco.",
+		RecurringLabel:   "Recurrente",
+		RecurringYes:     "Sí",
+		RecurringNo:      "No",
+		NoConceptOption:  "— sin concepto —",
+		ColConcept:       "Concepto",
 
 		DeleteButton:      "Eliminar",
 		DeletePaymentTtl:  "Eliminar pago",
@@ -492,6 +524,22 @@ var translations = map[string]uiStrings{
 		ColCommission:   "Commission",
 		AssignSellerTtl: "Assign seller",
 		UnassignOption:  "— no seller —",
+
+		NavConcepts:      "Concepts",
+		ConceptsPageTtl:  "Billing concepts",
+		ConceptsEmpty:    "No billing concepts registered yet. Create one to associate it with payments.",
+		NewConceptButton: "New concept",
+		NewConceptTitle:  "New concept",
+		EditConceptTitle: "Edit concept",
+		ConceptLabel:     "Concept",
+		ConceptNameLabel: "Name",
+		SlugLabel:        "Slug / Key",
+		SlugHint:         "Unique identifier (lowercase, no accents or spaces). Auto-generated if left blank.",
+		RecurringLabel:   "Recurring",
+		RecurringYes:     "Yes",
+		RecurringNo:      "No",
+		NoConceptOption:  "— no concept —",
+		ColConcept:       "Concept",
 
 		DeleteButton:      "Delete",
 		DeletePaymentTtl:  "Delete payment",

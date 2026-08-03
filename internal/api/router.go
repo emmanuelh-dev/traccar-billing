@@ -67,6 +67,10 @@ func (s *Server) Router() http.Handler {
 	r.Get("/sellers", s.requireTenant(s.handleSellers))
 	r.Post("/sellers", s.requireTenant(s.handleCreateSeller))
 	r.Post("/sellers/{id}", s.requireTenant(s.handleUpdateSeller))
+	r.Get("/concepts", s.requireTenant(s.handleConcepts))
+	r.Post("/concepts", s.requireTenant(s.handleCreateConcept))
+	r.Post("/concepts/{id}", s.requireTenant(s.handleUpdateConcept))
+	r.Post("/concepts/{id}/delete", s.requireTenant(s.handleDeleteConcept))
 	r.Get("/settings", s.requireTenant(s.handleSettings))
 	r.Post("/settings", s.requireTenant(s.handleSaveSettings))
 

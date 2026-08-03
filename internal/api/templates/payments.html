@@ -68,6 +68,7 @@
       <tr>
         <th>{{.T.PaymentsColDate}}</th>
         <th>{{.T.PaymentsColAccnt}}</th>
+        <th>{{.T.ColConcept}}</th>
         <th>{{.T.ColBreakdown}}</th>
         <th class="num">{{.T.PaymentsColAmnt}}</th>
         <th>{{.T.MethodLabel}}</th>
@@ -80,6 +81,7 @@
       <tr {{if .Voided}}class="voided"{{end}}>
         <td>{{.DateDisplay}}</td>
         <td>{{.AccountName}}</td>
+        <td class="muted">{{.ConceptName}}</td>
         <td class="muted">{{.Breakdown}}</td>
         <td class="num">{{.AmountDisplay}}</td>
         <td class="muted">{{.Method}}</td>
@@ -93,6 +95,7 @@
             data-modal="payment"
             data-payment="{{.ID}}"
             data-name="{{.AccountName}}"
+            data-concept="{{.ConceptID}}"
             data-devices="{{.Devices}}"
             data-unit="{{.UnitPriceVal}}"
             data-amount="{{.AmountValue}}"

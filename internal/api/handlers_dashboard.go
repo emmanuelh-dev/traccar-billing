@@ -75,6 +75,7 @@ type dashboardView struct {
 	Groups   []accountGroup
 	Accounts []chargeAccount
 	Sellers  []sellerOption
+	Concepts []conceptOption
 	Today    string
 	Redirect string
 	View     string
@@ -115,6 +116,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conceptOpts, _, err := s.conceptOptions(r, tenant.ID)
+	if err != nil {
+		s.logger.Error("api: list concepts for dashboard", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	showMirror := !settings.HideMirrorAccounts || resolveToggle(w, r, mirrorCookieName)
 	grouped := resolveToggle(w, r, groupCookieName)
 
@@ -125,6 +133,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Tenant:     tenant,
 		Error:      r.URL.Query().Get("error"),
 		Sellers:    sellerOpts,
+		Concepts:   conceptOpts,
 		Today:      now.Format(dueDateFormat),
 		Redirect:   "/dashboard",
 		View:       resolveView(w, r),

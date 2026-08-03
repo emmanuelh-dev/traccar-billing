@@ -5,6 +5,7 @@ import "time"
 type Payment struct {
 	ID             int64
 	SubscriptionID int64
+	ConceptID      int64
 	AmountCents    int64
 	UnitPriceCents int64
 	DeviceCount    int

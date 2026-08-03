@@ -195,6 +195,7 @@ func TestRenderPayments(t *testing.T) {
 				ID:            3,
 				AccountID:     7,
 				AccountName:   "Cristian Palomo",
+				ConceptName:   "Mensualidad",
 				DateDisplay:   "2026-08-02",
 				DateValue:     "2026-08-02",
 				AmountDisplay: "MXN 2200.00",
@@ -232,6 +233,8 @@ func TestRenderPayments(t *testing.T) {
 		`data-payment="3"`,
 		`class="voided"`,
 		"duplicado",
+		"Concepto",
+		"Mensualidad",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("payments output missing %q", want)
@@ -243,6 +246,54 @@ func TestRenderPayments(t *testing.T) {
 	}
 	if !strings.Contains(out, `data-modal="delete"`) {
 		t.Error("payments output is missing the delete action")
+	}
+}
+
+func TestRenderConcepts(t *testing.T) {
+	view := conceptsView{
+		T:        stringsFor("es"),
+		Title:    "Conceptos de Cobro",
+		Active:   "concepts",
+		Tenant:   billing.Tenant{Name: "gps.example.com"},
+		Redirect: "/concepts",
+		Rows: []conceptRow{
+			{
+				Concept: billing.Concept{
+					ID:          1,
+					Name:        "Mensualidad",
+					Slug:        "mensualidad",
+					AmountCents: 20000,
+					Currency:    "MXN",
+					Recurring:   true,
+					Active:      true,
+					Note:        "Cobro mensual",
+				},
+				AmountDisplay:  "MXN 200.00",
+				AmountValue:    "200.00",
+				RecurringLabel: "Sí",
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "concepts", view); err != nil {
+		t.Fatalf("render concepts: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{
+		`id="concept-dialog"`,
+		`id="concept-delete-dialog"`,
+		`data-modal="concept-new"`,
+		`data-modal="concept-edit"`,
+		`data-modal="concept-delete"`,
+		"Mensualidad",
+		"mensualidad",
+		"MXN 200.00",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("concepts output missing %q", want)
+		}
 	}
 }
 

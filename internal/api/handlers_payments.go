@@ -25,6 +25,8 @@ type tenantPaymentRow struct {
 	ID            int64
 	AccountID     int64
 	AccountName   string
+	ConceptID     int64
+	ConceptName   string
 	DateDisplay   string
 	DateValue     string
 	AmountDisplay string
@@ -48,6 +50,7 @@ type paymentsView struct {
 	Tenant   billing.Tenant
 	Rows     []tenantPaymentRow
 	Accounts []chargeAccount
+	Concepts []conceptOption
 	Today    string
 	Total    string
 	Redirect string
@@ -128,6 +131,13 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conceptOpts, _, err := s.conceptOptions(r, tenant.ID)
+	if err != nil {
+		s.logger.Error("api: list concepts for payments", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	view := paymentsView{
 		T:        t,
 		Title:    t.PaymentsPageTtl,
@@ -135,6 +145,7 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		Error:    r.URL.Query().Get("error"),
 		Tenant:   tenant,
 		Accounts: accounts,
+		Concepts: conceptOpts,
 		Today:    s.now().Format(dueDateFormat),
 		Redirect: r.URL.RequestURI(),
 
@@ -161,6 +172,8 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 			ID:            p.ID,
 			AccountID:     p.AccountID,
 			AccountName:   p.AccountName,
+			ConceptID:     p.ConceptID,
+			ConceptName:   p.ConceptName,
 			DateDisplay:   paidAt.Format(dueDateFormat),
 			DateValue:     paidAt.Format(dueDateFormat),
 			AmountDisplay: formatAmount(p.AmountCents, p.Currency),
@@ -251,6 +264,20 @@ func (s *Server) handleEditPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payment.AmountCents = *req.AmountCents
+	if req.ConceptID != nil {
+		if *req.ConceptID > 0 {
+			if _, err := s.repo.GetConcept(r.Context(), tenant.ID, *req.ConceptID); err != nil {
+				if errors.Is(err, billing.ErrNotFound) {
+					redirectPageError(w, r, "concept not found")
+					return
+				}
+				s.logger.Error("api: get concept for payment edit", "error", err)
+				redirectPageError(w, r, "internal error")
+				return
+			}
+		}
+		payment.ConceptID = *req.ConceptID
+	}
 	if req.DeviceCount != nil {
 		payment.DeviceCount = *req.DeviceCount
 	}

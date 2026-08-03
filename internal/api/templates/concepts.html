@@ -1,0 +1,86 @@
+{{define "concepts"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.ConceptsPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <div class="header-actions">
+      <button class="primary" type="button" data-modal="concept-new">{{.T.NewConceptButton}}</button>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  {{if .Rows}}
+  <div class="table-scroll">
+  <table class="accounts">
+    <thead>
+      <tr>
+        <th>{{.T.ConceptNameLabel}}</th>
+        <th>{{.T.SlugLabel}}</th>
+        <th class="num">{{.T.AmountLabel}}</th>
+        <th>{{.T.RecurringLabel}}</th>
+        <th>{{.T.ActiveLabel}}</th>
+        <th>{{.T.NoteLabel}}</th>
+        <th class="actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <td>{{.Concept.Name}}</td>
+        <td class="muted">{{.Concept.Slug}}</td>
+        <td class="num">{{.AmountDisplay}}</td>
+        <td>{{.RecurringLabel}}</td>
+        <td>
+          {{if .Concept.Active}}
+            <span class="badge badge-active">{{$.T.ActiveYes}}</span>
+          {{else}}
+            <span class="badge badge-suspended">{{$.T.ActiveNo}}</span>
+          {{end}}
+        </td>
+        <td class="muted">{{.Concept.Note}}</td>
+        <td class="row-actions">
+          <button type="button"
+            data-modal="concept-edit"
+            data-concept="{{.Concept.ID}}"
+            data-name="{{.Concept.Name}}"
+            data-slug="{{.Concept.Slug}}"
+            data-amount="{{.AmountValue}}"
+            data-currency="{{.Concept.Currency}}"
+            data-recurring="{{if .Concept.Recurring}}1{{else}}0{{end}}"
+            data-active="{{if .Concept.Active}}1{{else}}0{{end}}"
+            data-note="{{.Concept.Note}}"
+            class="btn-icon" title="{{$.T.EditButton}}" aria-label="{{$.T.EditButton}}">{{template "icon_edit"}}</button>
+          <button class="btn-icon danger-link" type="button"
+            data-modal="concept-delete"
+            data-concept="{{.Concept.ID}}"
+            data-name="{{.Concept.Name}}"
+            title="{{$.T.DeleteButton}}" aria-label="{{$.T.DeleteButton}}">{{template "icon_delete"}}</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}
+  <div class="empty-state">{{.T.ConceptsEmpty}}</div>
+  {{end}}
+</div>
+</main>
+</div>
+{{template "concept_dialog" .}}
+{{template "concept_delete_dialog" .}}
+{{template "modal_script" .}}
+{{template "footer" .}}
+{{end}}

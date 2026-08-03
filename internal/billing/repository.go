@@ -39,6 +39,14 @@ type Repository interface {
 	GetSeller(ctx context.Context, tenantID, sellerID int64) (Seller, error)
 	ListSellers(ctx context.Context, tenantID int64) ([]Seller, error)
 
+	CreateConcept(ctx context.Context, c Concept) (Concept, error)
+	UpdateConcept(ctx context.Context, c Concept) (Concept, error)
+	GetConcept(ctx context.Context, tenantID, conceptID int64) (Concept, error)
+	ListConcepts(ctx context.Context, tenantID int64) ([]Concept, error)
+	// DeleteConcept removes the concept, or merely deactivates it when
+	// payments already reference it, so billing history keeps its label.
+	DeleteConcept(ctx context.Context, tenantID, conceptID int64) error
+
 	UpsertSubscription(ctx context.Context, s Subscription) (Subscription, error)
 	GetSubscription(ctx context.Context, id int64) (Subscription, error)
 	GetSubscriptionByAccountID(ctx context.Context, accountID int64) (Subscription, error)
@@ -63,4 +71,5 @@ type TenantPayment struct {
 	Payment
 	AccountID   int64
 	AccountName string
+	ConceptName string
 }

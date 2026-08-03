@@ -63,6 +63,13 @@ func nullTime(t time.Time) any {
 	return t
 }
 
+func nullInt64(id int64) any {
+	if id <= 0 {
+		return nil
+	}
+	return id
+}
+
 func scanTime(nt sql.NullTime) time.Time {
 	if !nt.Valid {
 		return time.Time{}
@@ -83,6 +90,19 @@ func (r *sqlRepository) CreateTenant(ctx context.Context, t billing.Tenant) (bil
 	if err != nil {
 		return billing.Tenant{}, fmt.Errorf("storage: create tenant: %w", err)
 	}
+
+	// Seed the same catalog migration 000009 gave the existing tenants, so
+	// a tenant created later still opens with the three usual concepts.
+	if _, err := r.q().ExecContext(ctx,
+		`INSERT INTO concepts (tenant_id, name, slug, amount_cents, currency, recurring, active, note, created_at, updated_at)
+		 VALUES
+		 (?, 'Instalación', 'instalacion', 0, 'MXN', 0, 1, '', ?, ?),
+		 (?, 'Mensualidad', 'mensualidad', 0, 'MXN', 1, 1, '', ?, ?),
+		 (?, 'Desinstalación', 'desinstalacion', 0, 'MXN', 0, 1, '', ?, ?)`,
+		id, now, now, id, now, now, id, now, now); err != nil {
+		return billing.Tenant{}, fmt.Errorf("storage: seed tenant concepts: %w", err)
+	}
+
 	return r.GetTenantByID(ctx, id)
 }
 
@@ -259,7 +279,7 @@ func (r *sqlRepository) DeleteAccount(ctx context.Context, tenantID, accountID i
 
 const subscriptionColumns = `id, account_id, status, billing_mode, anchor_day, due_day, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at`
 
-const paymentColumns = `id, subscription_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, voided_at, void_reason, created_at, updated_at`
+const paymentColumns = `id, subscription_id, concept_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, voided_at, void_reason, created_at, updated_at`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -282,12 +302,14 @@ func scanSubscriptionInto(sc scanner) (billing.Subscription, error) {
 
 func scanPaymentInto(sc scanner, extra ...any) (billing.Payment, error) {
 	var p billing.Payment
+	var conceptID sql.NullInt64
 	var voidedAt, updatedAt sql.NullTime
-	dest := []any{&p.ID, &p.SubscriptionID, &p.AmountCents, &p.UnitPriceCents, &p.DeviceCount, &p.Currency,
+	dest := []any{&p.ID, &p.SubscriptionID, &conceptID, &p.AmountCents, &p.UnitPriceCents, &p.DeviceCount, &p.Currency,
 		&p.Method, &p.Reference, &p.PaidAt, &p.Note, &voidedAt, &p.VoidReason, &p.CreatedAt, &updatedAt}
 	if err := sc.Scan(append(dest, extra...)...); err != nil {
 		return billing.Payment{}, err
 	}
+	p.ConceptID = conceptID.Int64
 	p.VoidedAt = scanTime(voidedAt)
 	p.UpdatedAt = scanTime(updatedAt)
 	return p, nil
@@ -369,9 +391,9 @@ func (r *sqlRepository) ListSubscriptionsDueBefore(ctx context.Context, tenantID
 func (r *sqlRepository) RecordPayment(ctx context.Context, p billing.Payment) (billing.Payment, error) {
 	now := time.Now().UTC()
 	res, err := r.q().ExecContext(ctx,
-		`INSERT INTO payments (subscription_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.SubscriptionID, p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, now, now)
+		`INSERT INTO payments (subscription_id, concept_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.SubscriptionID, nullInt64(p.ConceptID), p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, now, now)
 	if err != nil {
 		return billing.Payment{}, fmt.Errorf("storage: record payment: %w", err)
 	}
@@ -396,7 +418,7 @@ func (r *sqlRepository) getPaymentByID(ctx context.Context, id int64) (billing.P
 
 func (r *sqlRepository) GetPayment(ctx context.Context, tenantID, paymentID int64) (billing.Payment, error) {
 	p, err := scanPaymentInto(r.q().QueryRowContext(ctx,
-		`SELECT p.id, p.subscription_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at
+		`SELECT p.id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at
 		 FROM payments p
 		 JOIN subscriptions s ON s.id = p.subscription_id
 		 JOIN accounts a ON a.id = s.account_id
@@ -412,9 +434,9 @@ func (r *sqlRepository) GetPayment(ctx context.Context, tenantID, paymentID int6
 
 func (r *sqlRepository) UpdatePayment(ctx context.Context, p billing.Payment) (billing.Payment, error) {
 	res, err := r.q().ExecContext(ctx,
-		`UPDATE payments SET amount_cents = ?, unit_price_cents = ?, device_count = ?, currency = ?, method = ?, reference = ?, paid_at = ?, note = ?, updated_at = ?
+		`UPDATE payments SET concept_id = ?, amount_cents = ?, unit_price_cents = ?, device_count = ?, currency = ?, method = ?, reference = ?, paid_at = ?, note = ?, updated_at = ?
 		 WHERE id = ? AND voided_at IS NULL`,
-		p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, time.Now().UTC(), p.ID)
+		nullInt64(p.ConceptID), p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, time.Now().UTC(), p.ID)
 	if err != nil {
 		return billing.Payment{}, fmt.Errorf("storage: update payment: %w", err)
 	}
@@ -467,10 +489,11 @@ func (r *sqlRepository) ListPaymentsBySubscription(ctx context.Context, subscrip
 }
 
 func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.TenantPayment, error) {
-	query := `SELECT p.id, p.subscription_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name
+	query := `SELECT p.id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name, COALESCE(c.name, '')
 		 FROM payments p
 		 JOIN subscriptions s ON s.id = p.subscription_id
 		 JOIN accounts a ON a.id = s.account_id
+		 LEFT JOIN concepts c ON c.id = p.concept_id
 		 WHERE a.tenant_id = ?`
 	args := []any{tenantID}
 
@@ -497,7 +520,7 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 	var payments []billing.TenantPayment
 	for rows.Next() {
 		var tp billing.TenantPayment
-		p, err := scanPaymentInto(rows, &tp.AccountID, &tp.AccountName)
+		p, err := scanPaymentInto(rows, &tp.AccountID, &tp.AccountName, &tp.ConceptName)
 		if err != nil {
 			return nil, fmt.Errorf("storage: scan tenant payment: %w", err)
 		}
@@ -655,6 +678,111 @@ func (r *sqlRepository) AssignAccountSeller(ctx context.Context, tenantID, accou
 		seller, time.Now().UTC(), accountID, tenantID)
 	if err != nil {
 		return fmt.Errorf("storage: assign account seller: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.ErrNotFound
+	}
+	return nil
+}
+
+const conceptColumns = `id, tenant_id, name, slug, amount_cents, currency, recurring, active, note, created_at, updated_at`
+
+func scanConceptInto(sc scanner) (billing.Concept, error) {
+	var c billing.Concept
+	var recurring, active int
+	if err := sc.Scan(&c.ID, &c.TenantID, &c.Name, &c.Slug, &c.AmountCents, &c.Currency, &recurring, &active, &c.Note, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		return billing.Concept{}, err
+	}
+	c.Recurring = recurring != 0
+	c.Active = active != 0
+	return c, nil
+}
+
+func (r *sqlRepository) CreateConcept(ctx context.Context, c billing.Concept) (billing.Concept, error) {
+	c = c.Normalized()
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`INSERT INTO concepts (tenant_id, name, slug, amount_cents, currency, recurring, active, note, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.TenantID, c.Name, c.Slug, c.AmountCents, c.Currency, boolToInt(c.Recurring), boolToInt(c.Active), c.Note, now, now)
+	if err != nil {
+		return billing.Concept{}, fmt.Errorf("storage: create concept: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return billing.Concept{}, fmt.Errorf("storage: create concept: %w", err)
+	}
+	return r.GetConcept(ctx, c.TenantID, id)
+}
+
+func (r *sqlRepository) UpdateConcept(ctx context.Context, c billing.Concept) (billing.Concept, error) {
+	c = c.Normalized()
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE concepts SET name = ?, slug = ?, amount_cents = ?, currency = ?, recurring = ?, active = ?, note = ?, updated_at = ?
+		 WHERE id = ? AND tenant_id = ?`,
+		c.Name, c.Slug, c.AmountCents, c.Currency, boolToInt(c.Recurring), boolToInt(c.Active), c.Note, time.Now().UTC(), c.ID, c.TenantID)
+	if err != nil {
+		return billing.Concept{}, fmt.Errorf("storage: update concept: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.Concept{}, billing.ErrNotFound
+	}
+	return r.GetConcept(ctx, c.TenantID, c.ID)
+}
+
+func (r *sqlRepository) GetConcept(ctx context.Context, tenantID, conceptID int64) (billing.Concept, error) {
+	c, err := scanConceptInto(r.q().QueryRowContext(ctx,
+		`SELECT `+conceptColumns+` FROM concepts WHERE tenant_id = ? AND id = ?`, tenantID, conceptID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return billing.Concept{}, billing.ErrNotFound
+	}
+	if err != nil {
+		return billing.Concept{}, fmt.Errorf("storage: get concept: %w", err)
+	}
+	return c, nil
+}
+
+func (r *sqlRepository) ListConcepts(ctx context.Context, tenantID int64) ([]billing.Concept, error) {
+	rows, err := r.q().QueryContext(ctx,
+		`SELECT `+conceptColumns+` FROM concepts WHERE tenant_id = ? ORDER BY active DESC, name`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list concepts: %w", err)
+	}
+	defer rows.Close()
+
+	var concepts []billing.Concept
+	for rows.Next() {
+		c, err := scanConceptInto(rows)
+		if err != nil {
+			return nil, fmt.Errorf("storage: scan concept: %w", err)
+		}
+		concepts = append(concepts, c)
+	}
+	return concepts, rows.Err()
+}
+
+func (r *sqlRepository) DeleteConcept(ctx context.Context, tenantID, conceptID int64) error {
+	if _, err := r.GetConcept(ctx, tenantID, conceptID); err != nil {
+		return err
+	}
+
+	var count int
+	if err := r.q().QueryRowContext(ctx, `SELECT COUNT(*) FROM payments WHERE concept_id = ?`, conceptID).Scan(&count); err != nil {
+		return fmt.Errorf("storage: check concept payments: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if count > 0 {
+		_, err := r.q().ExecContext(ctx, `UPDATE concepts SET active = 0, updated_at = ? WHERE id = ? AND tenant_id = ?`, now, conceptID, tenantID)
+		if err != nil {
+			return fmt.Errorf("storage: deactivate concept: %w", err)
+		}
+		return nil
+	}
+
+	res, err := r.q().ExecContext(ctx, `DELETE FROM concepts WHERE id = ? AND tenant_id = ?`, conceptID, tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: delete concept: %w", err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return billing.ErrNotFound

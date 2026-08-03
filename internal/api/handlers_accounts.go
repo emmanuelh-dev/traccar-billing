@@ -79,6 +79,7 @@ func (s *Server) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 type payAccountRequest struct {
+	ConceptID      *int64     `json:"concept_id"`
 	AmountCents    *int64     `json:"amount_cents"`
 	UnitPriceCents *int64     `json:"unit_price_cents"`
 	DeviceCount    *int       `json:"device_count"`
@@ -96,6 +97,20 @@ func (s *Server) parsePayForm(r *http.Request) (payAccountRequest, error) {
 		return req, fmt.Errorf("invalid form")
 	}
 
+	// The select is always submitted, so an empty value means "no concept"
+	// and has to reach the handler as a zero rather than as a missing field:
+	// that is what lets an edit clear a concept it had before.
+	if r.Form.Has("concept_id") {
+		var id int64
+		if v := r.FormValue("concept_id"); v != "" {
+			parsed, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return req, fmt.Errorf("invalid concept")
+			}
+			id = parsed
+		}
+		req.ConceptID = &id
+	}
 	if v := r.FormValue("amount"); v != "" {
 		cents, err := parseAmountCents(v)
 		if err != nil {
@@ -220,6 +235,24 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		paidAt = *req.PaidAt
 	}
 
+	var conceptID int64
+	if req.ConceptID != nil {
+		conceptID = *req.ConceptID
+	}
+	// A concept id arrives from the browser, so it has to be proven to
+	// belong to this tenant before it lands on a payment row.
+	if conceptID > 0 {
+		if _, err := s.repo.GetConcept(r.Context(), tenant.ID, conceptID); err != nil {
+			if errors.Is(err, billing.ErrNotFound) {
+				s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "concept not found")
+				return
+			}
+			s.logger.Error("api: get concept for payment", "error", err)
+			s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "internal error")
+			return
+		}
+	}
+
 	var updatedSub billing.Subscription
 	var payment billing.Payment
 	err = s.repo.WithTx(r.Context(), func(tx billing.Repository) error {
@@ -230,6 +263,7 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		payment, txErr = tx.RecordPayment(r.Context(), billing.Payment{
 			SubscriptionID: updatedSub.ID,
+			ConceptID:      conceptID,
 			AmountCents:    amountCents,
 			UnitPriceCents: sub.UnitPriceCents,
 			DeviceCount:    devices,

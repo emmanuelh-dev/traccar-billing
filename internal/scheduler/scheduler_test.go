@@ -185,6 +185,26 @@ func (r *fakeRepo) ListSellers(ctx context.Context, tenantID int64) ([]billing.S
 	return nil, nil
 }
 
+func (r *fakeRepo) CreateConcept(ctx context.Context, c billing.Concept) (billing.Concept, error) {
+	return billing.Concept{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) UpdateConcept(ctx context.Context, c billing.Concept) (billing.Concept, error) {
+	return billing.Concept{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) GetConcept(ctx context.Context, tenantID, conceptID int64) (billing.Concept, error) {
+	return billing.Concept{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) ListConcepts(ctx context.Context, tenantID int64) ([]billing.Concept, error) {
+	return nil, nil
+}
+
+func (r *fakeRepo) DeleteConcept(ctx context.Context, tenantID, conceptID int64) error {
+	return errors.New("not implemented")
+}
+
 func (r *fakeRepo) DeletePayment(ctx context.Context, tenantID, paymentID int64) error {
 	return errors.New("not implemented")
 }

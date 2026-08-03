@@ -524,3 +524,123 @@ func TestSettingsDefaultsAndSave(t *testing.T) {
 		t.Errorf("reloaded settings = %+v", reloaded)
 	}
 }
+
+func TestConceptsCRUD(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Fleet", BaseURL: "https://fleet.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	seeded, err := repo.ListConcepts(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListConcepts() error = %v", err)
+	}
+	if len(seeded) != 3 {
+		t.Fatalf("expected 3 seeded concepts, got %d", len(seeded))
+	}
+
+	created, err := repo.CreateConcept(ctx, billing.Concept{
+		TenantID:    tenant.ID,
+		Name:        " Mantenimiento ",
+		Slug:        "mantenimiento",
+		AmountCents: 15000,
+		Currency:    "MXN",
+		Recurring:   false,
+		Active:      true,
+		Note:        "Servicio técnico",
+	})
+	if err != nil {
+		t.Fatalf("CreateConcept() error = %v", err)
+	}
+	if created.Name != "Mantenimiento" {
+		t.Errorf("Name = %q, want trimmed Mantenimiento", created.Name)
+	}
+	if created.Slug != "mantenimiento" {
+		t.Errorf("Slug = %q, want mantenimiento", created.Slug)
+	}
+
+	created.Name = "Mantenimiento General"
+	updated, err := repo.UpdateConcept(ctx, created)
+	if err != nil {
+		t.Fatalf("UpdateConcept() error = %v", err)
+	}
+	if updated.Name != "Mantenimiento General" {
+		t.Errorf("Updated Name = %q, want Mantenimiento General", updated.Name)
+	}
+
+	_, err = repo.CreateConcept(ctx, billing.Concept{
+		TenantID: tenant.ID,
+		Name:     "Mantenimiento 2",
+		Slug:     "mantenimiento",
+	})
+	if err == nil {
+		t.Fatal("CreateConcept() with duplicate slug should fail, got nil error")
+	}
+
+	account, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenant.ID, TraccarUserID: 10, Name: "Tester", Email: "t@example.com"})
+	if err != nil {
+		t.Fatalf("UpsertAccount() error = %v", err)
+	}
+	sub, err := repo.UpsertSubscription(ctx, billing.Subscription{
+		AccountID:   account.ID,
+		Status:      billing.StatusActive,
+		AmountCents: 5000,
+		Currency:    "MXN",
+		PeriodDays:  30,
+		NextDueAt:   time.Now().UTC().Truncate(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("UpsertSubscription() error = %v", err)
+	}
+
+	p, err := repo.RecordPayment(ctx, billing.Payment{
+		SubscriptionID: sub.ID,
+		ConceptID:      created.ID,
+		AmountCents:    15000,
+		Currency:       "MXN",
+		PaidAt:         time.Now().UTC().Truncate(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("RecordPayment() with ConceptID error = %v", err)
+	}
+	if p.ConceptID != created.ID {
+		t.Errorf("Recorded payment ConceptID = %d, want %d", p.ConceptID, created.ID)
+	}
+
+	tpList, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(tpList) != 1 || tpList[0].ConceptName != "Mantenimiento General" {
+		t.Errorf("ListPaymentsByTenant ConceptName = %q, want Mantenimiento General", tpList[0].ConceptName)
+	}
+
+	if err := repo.DeleteConcept(ctx, tenant.ID, created.ID); err != nil {
+		t.Fatalf("DeleteConcept() error = %v", err)
+	}
+	gotConcept, err := repo.GetConcept(ctx, tenant.ID, created.ID)
+	if err != nil {
+		t.Fatalf("GetConcept() after DeleteConcept error = %v", err)
+	}
+	if gotConcept.Active {
+		t.Error("Concept should be deactivated (active=false) when payments exist")
+	}
+
+	unused, err := repo.CreateConcept(ctx, billing.Concept{
+		TenantID: tenant.ID,
+		Name:     "Temporal",
+		Slug:     "temporal",
+	})
+	if err != nil {
+		t.Fatalf("CreateConcept(unused) error = %v", err)
+	}
+	if err := repo.DeleteConcept(ctx, tenant.ID, unused.ID); err != nil {
+		t.Fatalf("DeleteConcept(unused) error = %v", err)
+	}
+	if _, err := repo.GetConcept(ctx, tenant.ID, unused.ID); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("GetConcept(unused) after delete error = %v, want ErrNotFound", err)
+	}
+}
