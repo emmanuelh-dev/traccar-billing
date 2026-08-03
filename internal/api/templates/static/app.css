@@ -557,7 +557,17 @@ th.actions {
   z-index: 3;
 }
 
-td.row-actions button {
+/* A row that posts more than one action wraps its buttons in a form, and a
+   block-level form would stack them instead of lining them up like every other
+   table does. */
+td.row-actions form {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+td.row-actions button,
+.agenda-actions button {
   font: inherit;
   font-size: 12px;
   line-height: 1.2;
@@ -595,7 +605,8 @@ button.btn-icon svg {
   stroke-linejoin: round;
 }
 
-td.row-actions button:hover {
+td.row-actions button:hover,
+.agenda-actions button:hover {
   color: var(--color-text);
   border-color: var(--color-text-muted);
 }
@@ -604,9 +615,24 @@ td.row-actions button.primary {
   width: auto;
   font-size: 12px;
   padding: 4px 9px;
+}
+
+td.row-actions button.primary,
+.agenda-actions button.primary {
   font-weight: 600;
   color: var(--color-accent-contrast);
   background: var(--color-accent);
+  border-color: transparent;
+}
+
+.agenda-actions button.danger {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+.agenda-actions button.danger:hover {
+  color: #fff;
+  background: var(--color-danger);
   border-color: transparent;
 }
 
@@ -853,12 +879,14 @@ button.link:hover {
   border-bottom-color: var(--color-text-muted);
 }
 
-td.row-actions button.danger-link {
+td.row-actions button.danger-link,
+.agenda-actions button.danger-link {
   color: var(--color-danger);
   border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
-td.row-actions button.danger-link:hover {
+td.row-actions button.danger-link:hover,
+.agenda-actions button.danger-link:hover {
   color: #fff;
   background: var(--color-danger);
   border-color: transparent;

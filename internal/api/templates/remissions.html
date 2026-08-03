@@ -72,9 +72,9 @@
           {{if .Pending}}
           <form method="post" action="/remissions/{{.Remission.ID}}/pay">
             <button class="primary" type="submit">{{$.T.RemissionMarkPaidBtn}}</button>
-          </form>
-          <form method="post" action="/remissions/{{.Remission.ID}}/cancel">
-            <button class="danger-link" type="submit">{{$.T.RemissionCancelBtn}}</button>
+            <button class="btn-icon danger-link" type="submit"
+              formaction="/remissions/{{.Remission.ID}}/cancel"
+              title="{{$.T.RemissionCancelBtn}}" aria-label="{{$.T.RemissionCancelBtn}}">{{template "icon_void"}}</button>
           </form>
           {{end}}
         </td>

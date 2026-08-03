@@ -33,8 +33,8 @@
   {{if .Tenant.OwnerEmail}}<div class="nav-owner" title="{{.T.SignedInAs}}">{{.Tenant.OwnerEmail}}</div>{{end}}
   <nav>
     <a href="/dashboard" {{if eq .Active "dashboard"}}class="active"{{end}}>{{.T.NavDashboard}}</a>
-    <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>
     <a href="/remissions" {{if eq .Active "remissions"}}class="active"{{end}}>{{.T.NavRemissions}}</a>
+    <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>
     <a href="/expenses" {{if eq .Active "expenses"}}class="active"{{end}}>{{.T.NavExpenses}}</a>
     <a href="/appointments" {{if eq .Active "appointments"}}class="active"{{end}}>{{.T.NavAppointments}}</a>
     <a href="/sellers" {{if eq .Active "sellers"}}class="active"{{end}}>{{.T.NavSellers}}</a>

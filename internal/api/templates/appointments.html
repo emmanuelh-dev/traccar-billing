@@ -113,7 +113,7 @@
         <form method="post" action="/appointments/{{.Appointment.ID}}/status">
           <input type="hidden" name="redirect_to" value="{{$.Redirect}}">
           <input type="hidden" name="status" value="scheduled">
-          <button class="link" type="submit">{{$.T.ReopenVisitBtn}}</button>
+          <button type="submit">{{$.T.ReopenVisitBtn}}</button>
         </form>
         {{end}}
 
