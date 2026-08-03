@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
@@ -334,5 +335,56 @@ func TestRenderDashboardCardView(t *testing.T) {
 	}
 	if strings.Contains(out, `class="table-scroll"`) {
 		t.Error("card view still rendered the table")
+	}
+}
+
+func TestRenderExpenses(t *testing.T) {
+	view := expensesView{
+		T:        stringsFor("es"),
+		Title:    "Retiros",
+		Active:   "expenses",
+		Tenant:   billing.Tenant{Name: "gps.example.com"},
+		Redirect: "/expenses",
+		Rows: []expenseRow{
+			{
+				Expense: billing.Expense{
+					ID:          1,
+					Category:    "Equipos GPS",
+					AmountCents: 150000,
+					Currency:    "MXN",
+					SpentAt:     time.Now(),
+					Method:      "transfer",
+					Reference:   "REF123",
+					Note:        "Compra de 5 equipos",
+				},
+				AmountDisplay: "MXN 1500.00",
+				AmountValue:   "1500.00",
+				DateDisplay:   "2026-08-02",
+				DateValue:     "2026-08-02",
+				SellerName:    "Ana",
+				CategoryLabel: "Equipos GPS",
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "expenses", view); err != nil {
+		t.Fatalf("render expenses: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{
+		`id="expense-dialog"`,
+		`id="expense-delete-dialog"`,
+		`data-modal="expense-new"`,
+		`data-modal="expense-edit"`,
+		`data-modal="expense-delete"`,
+		"Registrar retiro",
+		"Equipos GPS",
+		"MXN 1500.00",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expenses output missing %q", want)
+		}
 	}
 }

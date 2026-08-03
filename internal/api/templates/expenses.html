@@ -1,0 +1,112 @@
+{{define "expenses"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.ExpensesPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <div class="header-actions">
+      <button class="primary" type="button" data-modal="expense-new">{{.T.NewExpenseButton}}</button>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  <div class="filter-bar">
+    <div class="filter-chips">
+      <a href="/expenses?period=current" {{if eq .Period "current"}}class="active"{{end}}>{{.T.PeriodCurrent}}</a>
+      <a href="/expenses?period=previous" {{if eq .Period "previous"}}class="active"{{end}}>{{.T.PeriodPrevious}}</a>
+      <a href="/expenses?period=all" {{if eq .Period "all"}}class="active"{{end}}>{{.T.PeriodAll}}</a>
+    </div>
+
+    <form class="filter-form" method="get" action="/expenses">
+      <input type="hidden" name="period" value="range">
+      <label for="filter-from">{{.T.FromLabel}}</label>
+      <input id="filter-from" name="from" type="date" value="{{.FromValue}}">
+      <label for="filter-to">{{.T.ToLabel}}</label>
+      <input id="filter-to" name="to" type="date" value="{{.ToValue}}">
+      <button type="submit">{{.T.ApplyFilter}}</button>
+    </form>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="value">{{len .Rows}}</div>
+      <div class="label">{{.T.ExpensesPageTtl}}</div>
+    </div>
+    <div class="stat">
+      <div class="value">{{.Total}}</div>
+      <div class="label">{{.T.TotalWithdrawn}}{{if .RangeLabel}} · {{.RangeLabel}}{{end}}</div>
+    </div>
+  </div>
+
+  {{if .Rows}}
+  <div class="table-scroll">
+  <table class="accounts">
+    <thead>
+      <tr>
+        <th>{{.T.PaymentsColDate}}</th>
+        <th>{{.T.CategoryLabel}}</th>
+        <th>{{.T.SellerLabel}}</th>
+        <th>{{.T.MethodLabel}}</th>
+        <th>{{.T.ReferenceLabel}}</th>
+        <th>{{.T.NoteLabel}}</th>
+        <th class="num">{{.T.PaymentsColAmnt}}</th>
+        <th class="actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <td>{{.DateDisplay}}</td>
+        <td>{{.Expense.Category}}</td>
+        <td>{{.SellerName}}</td>
+        <td class="muted">{{.Expense.Method}}</td>
+        <td class="muted">{{.Expense.Reference}}</td>
+        <td class="muted">{{.Expense.Note}}</td>
+        <td class="num">{{.AmountDisplay}}</td>
+        <td class="row-actions">
+          <button type="button"
+            data-modal="expense-edit"
+            data-expense="{{.Expense.ID}}"
+            data-amount="{{.AmountValue}}"
+            data-currency="{{.Expense.Currency}}"
+            data-date="{{.DateValue}}"
+            data-category="{{.Expense.Category}}"
+            data-seller="{{.Expense.SellerID}}"
+            data-method="{{.Expense.Method}}"
+            data-reference="{{.Expense.Reference}}"
+            data-note="{{.Expense.Note}}"
+            class="btn-icon" title="{{$.T.EditButton}}" aria-label="{{$.T.EditButton}}">{{template "icon_edit"}}</button>
+          <button class="btn-icon danger-link" type="button"
+            data-modal="expense-delete"
+            data-expense="{{.Expense.ID}}"
+            data-category="{{.Expense.Category}}"
+            data-amount="{{.AmountDisplay}}"
+            title="{{$.T.DeleteButton}}" aria-label="{{$.T.DeleteButton}}">{{template "icon_delete"}}</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}
+  <div class="empty-state">{{if eq .Period "all"}}{{.T.ExpensesEmpty}}{{else}}{{.T.NoExpensesHere}}{{end}}</div>
+  {{end}}
+</div>
+</main>
+</div>
+{{template "expense_dialog" .}}
+{{template "expense_delete_dialog" .}}
+{{template "modal_script" .}}
+{{template "footer" .}}
+{{end}}

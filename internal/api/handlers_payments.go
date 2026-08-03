@@ -44,17 +44,20 @@ type tenantPaymentRow struct {
 }
 
 type paymentsView struct {
-	T        uiStrings
-	Title    string
-	Active   string
-	Error    string
-	Tenant   billing.Tenant
-	Rows     []tenantPaymentRow
-	Accounts []chargeAccount
-	Concepts []conceptOption
-	Today    string
-	Total    string
-	Redirect string
+	T              uiStrings
+	Title          string
+	Active         string
+	Error          string
+	Tenant         billing.Tenant
+	Rows           []tenantPaymentRow
+	Accounts       []chargeAccount
+	Concepts       []conceptOption
+	Today          string
+	Total          string
+	TotalWithdrawn string
+	NetTotal       string
+	ShowNet        bool
+	Redirect       string
 
 	Period        string
 	FromValue     string
@@ -139,6 +142,22 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Withdrawals belong to the tenant, not to an account, so the net only
+	// means something while the list is showing every account's payments.
+	var totalWithdrawnCents int64
+	showNet := filter.AccountID == 0
+	if showNet {
+		expenses, err := s.repo.ListExpenses(r.Context(), tenant.ID, filter)
+		if err != nil {
+			s.logger.Error("api: list expenses for payments net", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		for _, e := range expenses {
+			totalWithdrawnCents += e.AmountCents
+		}
+	}
+
 	view := paymentsView{
 		T:        t,
 		Title:    t.PaymentsPageTtl,
@@ -192,6 +211,9 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	view.Total = formatAmount(totalCents, currency)
+	view.ShowNet = showNet
+	view.TotalWithdrawn = formatAmount(totalWithdrawnCents, currency)
+	view.NetTotal = formatAmount(totalCents-totalWithdrawnCents, currency)
 
 	render(w, http.StatusOK, "payments", view)
 }

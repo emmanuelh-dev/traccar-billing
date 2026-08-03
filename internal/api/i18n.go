@@ -241,6 +241,18 @@ type uiStrings struct {
 	ColConcept       string
 	OneOffChargeFmt  string
 	OneOffBadge      string
+
+	NavExpenses      string
+	ExpensesPageTtl  string
+	ExpensesEmpty    string
+	NoExpensesHere   string
+	NewExpenseButton string
+	NewExpenseTitle  string
+	EditExpenseTitle string
+	DeleteExpenseTtl string
+	CategoryLabel    string
+	TotalWithdrawn   string
+	NetTotal         string
 }
 
 var translations = map[string]uiStrings{
@@ -416,6 +428,18 @@ var translations = map[string]uiStrings{
 		DeleteAccountTtl:  "Eliminar cuenta",
 		DeleteAccountWarn: "Se elimina la cuenta con su suscripción y todos sus pagos, y también se borra el usuario en Traccar. Esto no se puede deshacer.",
 		DeleteAccountBtn:  "Eliminar cuenta",
+
+		NavExpenses:      "Retiros",
+		ExpensesPageTtl:  "Retiros",
+		ExpensesEmpty:    "Sin retiros registrados.",
+		NoExpensesHere:   "No hay retiros en este periodo.",
+		NewExpenseButton: "Registrar retiro",
+		NewExpenseTitle:  "Registrar retiro",
+		EditExpenseTitle: "Editar retiro",
+		DeleteExpenseTtl: "Eliminar retiro",
+		CategoryLabel:    "Categoría",
+		TotalWithdrawn:   "Total retiros",
+		NetTotal:         "Total neto",
 	},
 	"en": {
 		Lang:               "en",
@@ -590,6 +614,18 @@ var translations = map[string]uiStrings{
 		DeleteAccountTtl:  "Delete account",
 		DeleteAccountWarn: "This deletes the account with its subscription and every payment, and removes the user in Traccar too. It cannot be undone.",
 		DeleteAccountBtn:  "Delete account",
+
+		NavExpenses:      "Expenses",
+		ExpensesPageTtl:  "Expenses",
+		ExpensesEmpty:    "No expenses recorded yet.",
+		NoExpensesHere:   "No expenses in this period.",
+		NewExpenseButton: "Record withdrawal",
+		NewExpenseTitle:  "Record withdrawal",
+		EditExpenseTitle: "Edit withdrawal",
+		DeleteExpenseTtl: "Delete withdrawal",
+		CategoryLabel:    "Category",
+		TotalWithdrawn:   "Total withdrawn",
+		NetTotal:         "Net total",
 	},
 }
 

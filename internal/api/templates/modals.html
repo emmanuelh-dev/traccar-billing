@@ -451,6 +451,93 @@
 </dialog>
 {{end}}
 
+{{define "expense_dialog"}}
+<dialog id="expense-dialog" class="modal">
+  <form id="expense-form" class="modal-form" method="post">
+    <h2 id="expense-title">{{.T.NewExpenseTitle}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+
+    <div class="field-row">
+      <div class="field">
+        <label for="expense-amount">{{.T.AmountLabel}}</label>
+        <input id="expense-amount" name="amount" type="number" min="0" step="0.01" required>
+      </div>
+      <div class="field">
+        <label for="expense-currency">{{.T.CurrencyLabel}}</label>
+        <select id="expense-currency" name="currency">
+          <option value="MXN">MXN</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="expense-date">{{.T.PaymentsColDate}}</label>
+        <input id="expense-date" name="spent_at" type="date" value="{{.Today}}" required>
+      </div>
+      <div class="field">
+        <label for="expense-category">{{.T.CategoryLabel}}</label>
+        <input id="expense-category" name="category" type="text" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="expense-seller">{{.T.SellerLabel}}</label>
+        <select id="expense-seller" name="seller_id">
+          <option value="0">{{.T.UnassignOption}}</option>
+          {{range .Sellers}}
+          <option value="{{.ID}}">{{.Name}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="expense-method">{{.T.MethodLabel}}</label>
+        <select id="expense-method" name="method">
+          <option value="cash">{{.T.MethodCash}}</option>
+          <option value="transfer">{{.T.MethodTransfer}}</option>
+          <option value="card">{{.T.MethodCard}}</option>
+          <option value="other">{{.T.MethodOther}}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="expense-reference">{{.T.ReferenceLabel}}</label>
+        <input id="expense-reference" name="reference" type="text" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="expense-note">{{.T.NoteLabel}}</label>
+        <input id="expense-note" name="note" type="text" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="primary" type="submit">{{.T.SaveButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "expense_delete_dialog"}}
+<dialog id="expense-delete-dialog" class="modal">
+  <form id="expense-delete-form" class="modal-form" method="post">
+    <h2>{{.T.DeleteExpenseTtl}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="expense-delete-info"></p>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="danger" type="submit">{{.T.DeleteConfirmWord}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
 {{define "modal_script"}}
 <script>
 (function () {
@@ -459,6 +546,8 @@
   const SELLER_EDIT_TITLE = "{{.T.EditSellerTitle}}";
   const CONCEPT_NEW_TITLE = "{{.T.NewConceptTitle}}";
   const CONCEPT_EDIT_TITLE = "{{.T.EditConceptTitle}}";
+  const EXPENSE_NEW_TITLE = "{{.T.NewExpenseTitle}}";
+  const EXPENSE_EDIT_TITLE = "{{.T.EditExpenseTitle}}";
   const DEVICES_WORD = "{{.T.DevicesWord}}";
   const EACH_WORD = "{{.T.EachWord}}";
   const ONE_OFF_CHARGE_FMT = "{{.T.OneOffChargeFmt}}";
@@ -785,6 +874,33 @@
       form.action = "/concepts/" + data.concept + "/delete";
       $("concept-delete-name").textContent = data.name || "";
       openModal($("concept-delete-dialog"));
+      return;
+    }
+
+    if (kind === "expense-new" || kind === "expense-edit") {
+      const form = $("expense-form");
+      const editing = kind === "expense-edit";
+      form.action = editing ? "/expenses/" + data.expense : "/expenses";
+      $("expense-title").textContent = editing ? EXPENSE_EDIT_TITLE : EXPENSE_NEW_TITLE;
+      $("expense-amount").value = data.amount || "";
+      $("expense-currency").value = data.currency || "MXN";
+      // defaultValue is today's date, rendered into the value attribute, so a
+      // new withdrawal opens dated today instead of with an empty field.
+      $("expense-date").value = data.date || $("expense-date").defaultValue;
+      $("expense-category").value = data.category || "";
+      $("expense-seller").value = data.seller || "0";
+      $("expense-method").value = data.method || "cash";
+      $("expense-reference").value = data.reference || "";
+      $("expense-note").value = data.note || "";
+      openModal($("expense-dialog"));
+      return;
+    }
+
+    if (kind === "expense-delete") {
+      const form = $("expense-delete-form");
+      form.action = "/expenses/" + data.expense + "/delete";
+      $("expense-delete-info").textContent = (data.category ? data.category + " — " : "") + (data.amount || "");
+      openModal($("expense-delete-dialog"));
       return;
     }
 

@@ -53,6 +53,16 @@
       <div class="value">{{.Total}}</div>
       <div class="label">{{.T.TotalCollected}}{{if .RangeLabel}} · {{.RangeLabel}}{{end}}</div>
     </div>
+    {{if .ShowNet}}
+    <a class="stat stat-link" href="/expenses?period={{.Period}}&from={{.FromValue}}&to={{.ToValue}}">
+      <div class="value">{{.TotalWithdrawn}}</div>
+      <div class="label">{{.T.TotalWithdrawn}}</div>
+    </a>
+    <div class="stat">
+      <div class="value">{{.NetTotal}}</div>
+      <div class="label">{{.T.NetTotal}}</div>
+    </div>
+    {{end}}
     {{if .VoidedCount}}
     <div class="stat">
       <div class="value">{{.VoidedCount}}</div>
