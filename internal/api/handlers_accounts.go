@@ -424,6 +424,10 @@ func (s *Server) recordItemizedCharge(w http.ResponseWriter, r *http.Request, is
 	items := req.Items
 	renews := false
 	var recurringLine billing.PaymentItem
+	// conceptLine is the first line that names a concept. The payments page
+	// reads the concept from the payment row, so a charge with no recurring
+	// line still needs one there or the whole column shows up empty.
+	var conceptLine int64
 	for i := range items {
 		recurring := false
 		if items[i].ConceptID > 0 {
@@ -449,6 +453,9 @@ func (s *Server) recordItemizedCharge(w http.ResponseWriter, r *http.Request, is
 			renews = true
 			recurringLine = items[i]
 		}
+		if conceptLine == 0 && items[i].ConceptID > 0 {
+			conceptLine = items[i].ConceptID
+		}
 	}
 
 	total := billing.ItemsTotal(items)
@@ -471,6 +478,7 @@ func (s *Server) recordItemizedCharge(w http.ResponseWriter, r *http.Request, is
 		PaidAt:      paidAt,
 		Note:        req.Note,
 	}
+	payment.ConceptID = conceptLine
 	if renews {
 		// The recurring line is what the per-device breakdown on the payments
 		// page describes, so it is the one that lands on the payment row.

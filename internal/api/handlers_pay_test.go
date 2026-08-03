@@ -500,3 +500,52 @@ func TestPayAccountItemizedWithoutSubscriptionAllowsOneOff(t *testing.T) {
 		t.Errorf("a one-off charge restored Traccar access %d time(s), want 0", client.enabled)
 	}
 }
+
+// A charge made only of one-off lines still has a concept the operator picked,
+// and the payments page reads it from the payment row, not from the lines. It
+// used to land there only when the charge renewed the subscription, so every
+// installation was listed with an empty concept column.
+func TestPayAccountItemizedOneOffKeepsConcept(t *testing.T) {
+	srv, repo, _ := newTestServer(t)
+	ctx := context.Background()
+	tenant, account, _ := setupTestTenantAndAccount(t, repo)
+
+	concepts, err := repo.ListConcepts(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("ListConcepts error = %v", err)
+	}
+	var oneOff billing.Concept
+	for _, c := range concepts {
+		if !c.Recurring {
+			oneOff = c
+			break
+		}
+	}
+	if oneOff.ID == 0 {
+		t.Fatal("no non-recurring concept found")
+	}
+
+	form := url.Values{}
+	form.Add("item_concept_id", strconv.FormatInt(oneOff.ID, 10))
+	form.Add("item_qty", "1")
+	form.Add("item_price", "1500.00")
+	form.Set("paid_at", "2026-08-02")
+
+	if w := postCharge(t, srv, tenant.ID, account.ID, form); w.Code != http.StatusSeeOther {
+		t.Fatalf("response status = %d, want %d (body %s)", w.Code, http.StatusSeeOther, w.Body.String())
+	}
+
+	payments, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{AccountID: account.ID})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant error = %v", err)
+	}
+	if len(payments) != 1 {
+		t.Fatalf("payments count = %d, want 1", len(payments))
+	}
+	if payments[0].ConceptID != oneOff.ID {
+		t.Errorf("Payment.ConceptID = %d, want %d", payments[0].ConceptID, oneOff.ID)
+	}
+	if payments[0].ConceptName != oneOff.Name {
+		t.Errorf("Payment.ConceptName = %q, want %q", payments[0].ConceptName, oneOff.Name)
+	}
+}
