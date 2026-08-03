@@ -53,3 +53,14 @@ Cada handler arma su propia *view struct* con los valores ya formateados
 HTML plano renderizado en el servidor, CSS propio, cero JavaScript de
 terceros. El binario es autocontenido. Los modales de la Fase 1 se hacen con
 `<dialog>` nativo y un puñado de JS embebido, no con un framework.
+
+## 8. Un tenant es un usuario de Traccar, no un servidor
+
+`tenants` es único por `(base_url, traccar_user_id)`, y el login busca al
+tenant con el id del usuario que Traccar acaba de autenticar. Cuando la clave
+era solo `base_url`, cualquiera con una cuenta en ese Traccar entraba a los
+libros del primero que se hubiera registrado: veía sus cuentas, sus pagos, sus
+gastos y su agenda, y el sync sobreescribía las cuentas con las que ese usuario
+alcanzaba a ver. Si algún día hace falta que dos personas compartan los mismos
+libros, se resuelve con una tabla de miembros por tenant, no aflojando este
+índice.

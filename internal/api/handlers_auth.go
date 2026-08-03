@@ -56,12 +56,16 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenant, err := s.repo.GetTenantByBaseURL(r.Context(), baseURL.String())
+	// The tenant is this Traccar user on this server, never the server on its
+	// own: two people who log into the same Traccar each get their own books.
+	tenant, err := s.repo.GetTenantByOwner(r.Context(), baseURL.String(), loggedInUser.ID)
 	switch {
 	case errors.Is(err, billing.ErrNotFound):
 		tenant, err = s.repo.CreateTenant(r.Context(), billing.Tenant{
 			Name:               baseURL.Hostname(),
 			BaseURL:            baseURL.String(),
+			TraccarUserID:      loggedInUser.ID,
+			OwnerEmail:         loggedInUser.Email,
 			SessionCookie:      session.Cookie,
 			SessionExpiresAt:   session.ExpiresAt,
 			AdminTraccarUserID: loggedInUser.ID,
@@ -73,7 +77,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case err != nil:
-		s.logger.Error("api: get tenant by base url", "error", err)
+		s.logger.Error("api: get tenant by owner", "error", err)
 		view.Error = t.InternalError
 		render(w, http.StatusInternalServerError, "login", view)
 		return
@@ -84,13 +88,14 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 			render(w, http.StatusInternalServerError, "login", view)
 			return
 		}
-		// Whoever just logged in becomes the account SetUserDisabled will
-		// never auto-pause, so pausing can't lock out the person who is
-		// currently able to fix it.
-		if err := s.repo.UpdateTenantAdmin(r.Context(), tenant.ID, loggedInUser.ID); err != nil {
-			s.logger.Error("api: update tenant admin", "error", err)
+		// The owner is the account SetUserDisabled will never auto-pause, so
+		// pausing can't lock out the person who is currently able to fix it.
+		// This also fills in the email for tenants created before it existed.
+		if err := s.repo.UpdateTenantOwner(r.Context(), tenant.ID, loggedInUser.ID, loggedInUser.Email); err != nil {
+			s.logger.Error("api: update tenant owner", "error", err)
 		}
 		tenant.AdminTraccarUserID = loggedInUser.ID
+		tenant.OwnerEmail = loggedInUser.Email
 	}
 
 	cookieExpiresAt := session.ExpiresAt

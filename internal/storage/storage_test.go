@@ -45,12 +45,12 @@ func TestTenantLifecycle(t *testing.T) {
 		t.Errorf("GetTenantByID() BaseURL = %q, want %q", byID.BaseURL, created.BaseURL)
 	}
 
-	byURL, err := repo.GetTenantByBaseURL(ctx, created.BaseURL)
+	byOwner, err := repo.GetTenantByOwner(ctx, created.BaseURL, created.TraccarUserID)
 	if err != nil {
-		t.Fatalf("GetTenantByBaseURL() error = %v", err)
+		t.Fatalf("GetTenantByOwner() error = %v", err)
 	}
-	if byURL.ID != created.ID {
-		t.Errorf("GetTenantByBaseURL() ID = %d, want %d", byURL.ID, created.ID)
+	if byOwner.ID != created.ID {
+		t.Errorf("GetTenantByOwner() ID = %d, want %d", byOwner.ID, created.ID)
 	}
 
 	expiresAt := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
@@ -80,15 +80,18 @@ func TestTenantLifecycle(t *testing.T) {
 		t.Error("HasValidSession() = true, want false after clearing session")
 	}
 
-	if err := repo.UpdateTenantAdmin(ctx, created.ID, 42); err != nil {
-		t.Fatalf("UpdateTenantAdmin() error = %v", err)
+	if err := repo.UpdateTenantOwner(ctx, created.ID, 42, "owner@example.com"); err != nil {
+		t.Fatalf("UpdateTenantOwner() error = %v", err)
 	}
-	withAdmin, err := repo.GetTenantByID(ctx, created.ID)
+	withOwner, err := repo.GetTenantByID(ctx, created.ID)
 	if err != nil {
-		t.Fatalf("GetTenantByID() after UpdateTenantAdmin error = %v", err)
+		t.Fatalf("GetTenantByID() after UpdateTenantOwner error = %v", err)
 	}
-	if withAdmin.AdminTraccarUserID != 42 {
-		t.Errorf("AdminTraccarUserID = %d, want 42", withAdmin.AdminTraccarUserID)
+	if withOwner.AdminTraccarUserID != 42 {
+		t.Errorf("AdminTraccarUserID = %d, want 42", withOwner.AdminTraccarUserID)
+	}
+	if withOwner.OwnerEmail != "owner@example.com" {
+		t.Errorf("OwnerEmail = %q, want owner@example.com", withOwner.OwnerEmail)
 	}
 
 	tenants, err := repo.ListTenants(ctx)
@@ -797,5 +800,43 @@ func TestListExpensesFiltersByDateRange(t *testing.T) {
 	}
 	if augustOnly[0].ID != augustExpense.ID {
 		t.Errorf("ListExpenses(august) got ID %d, want %d", augustOnly[0].ID, augustExpense.ID)
+	}
+}
+
+// TestTenantsAreScopedToOwner covers the schema half of the multi-tenant fix:
+// one Traccar server holds one set of books per user, and a user cannot end up
+// with two.
+func TestTenantsAreScopedToOwner(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestRepo(t)
+
+	const baseURL = "https://gps.example.com/api"
+
+	first, err := repo.CreateTenant(ctx, billing.Tenant{Name: "gps.example.com", BaseURL: baseURL, TraccarUserID: 11, OwnerEmail: "first@example.com"})
+	if err != nil {
+		t.Fatalf("CreateTenant(first) error = %v", err)
+	}
+	second, err := repo.CreateTenant(ctx, billing.Tenant{Name: "gps.example.com", BaseURL: baseURL, TraccarUserID: 22, OwnerEmail: "second@example.com"})
+	if err != nil {
+		t.Fatalf("CreateTenant(second) on the same server error = %v", err)
+	}
+	if first.ID == second.ID {
+		t.Fatal("two Traccar users of one server share a tenant")
+	}
+
+	found, err := repo.GetTenantByOwner(ctx, baseURL, 22)
+	if err != nil {
+		t.Fatalf("GetTenantByOwner() error = %v", err)
+	}
+	if found.ID != second.ID {
+		t.Errorf("GetTenantByOwner() ID = %d, want %d", found.ID, second.ID)
+	}
+
+	if _, err := repo.CreateTenant(ctx, billing.Tenant{Name: "dup", BaseURL: baseURL, TraccarUserID: 22}); err == nil {
+		t.Error("CreateTenant() with an existing owner succeeded, want a unique violation")
+	}
+
+	if _, err := repo.GetTenantByOwner(ctx, baseURL, 999); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("GetTenantByOwner(unknown user) error = %v, want ErrNotFound", err)
 	}
 }

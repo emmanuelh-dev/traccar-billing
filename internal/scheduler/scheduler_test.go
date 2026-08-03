@@ -37,7 +37,7 @@ func (r *fakeRepo) GetTenantByID(ctx context.Context, id int64) (billing.Tenant,
 	return billing.Tenant{}, billing.ErrNotFound
 }
 
-func (r *fakeRepo) GetTenantByBaseURL(ctx context.Context, baseURL string) (billing.Tenant, error) {
+func (r *fakeRepo) GetTenantByOwner(ctx context.Context, baseURL string, traccarUserID int64) (billing.Tenant, error) {
 	return billing.Tenant{}, errors.New("not implemented")
 }
 
@@ -52,10 +52,11 @@ func (r *fakeRepo) UpdateTenantSession(ctx context.Context, tenantID int64, sess
 	return nil
 }
 
-func (r *fakeRepo) UpdateTenantAdmin(ctx context.Context, tenantID int64, adminTraccarUserID int64) error {
+func (r *fakeRepo) UpdateTenantOwner(ctx context.Context, tenantID int64, traccarUserID int64, email string) error {
 	for i, t := range r.tenants {
 		if t.ID == tenantID {
-			r.tenants[i].AdminTraccarUserID = adminTraccarUserID
+			r.tenants[i].AdminTraccarUserID = traccarUserID
+			r.tenants[i].OwnerEmail = email
 		}
 	}
 	return nil

@@ -107,6 +107,7 @@ type uiStrings struct {
 
 	DashboardTitle string
 	LogoutButton   string
+	SignedInAs     string
 	StatAccounts   string
 	StatActive     string
 	StatOverdue    string
@@ -343,6 +344,7 @@ var translations = map[string]uiStrings{
 
 		DashboardTitle: "Dashboard",
 		LogoutButton:   "Cerrar sesión",
+		SignedInAs:     "Sesión iniciada como",
 		StatAccounts:   "Cuentas",
 		StatActive:     "Al corriente",
 		StatOverdue:    "Vencidas",
@@ -579,6 +581,7 @@ var translations = map[string]uiStrings{
 
 		DashboardTitle: "Dashboard",
 		LogoutButton:   "Sign out",
+		SignedInAs:     "Signed in as",
 		StatAccounts:   "Accounts",
 		StatActive:     "Current",
 		StatOverdue:    "Overdue",

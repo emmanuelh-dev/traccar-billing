@@ -14,9 +14,15 @@ type Repository interface {
 
 	CreateTenant(ctx context.Context, t Tenant) (Tenant, error)
 	GetTenantByID(ctx context.Context, id int64) (Tenant, error)
-	GetTenantByBaseURL(ctx context.Context, baseURL string) (Tenant, error)
+	// GetTenantByOwner finds the books of one Traccar user on one server.
+	// Looking a tenant up by base URL alone is what used to hand every user
+	// of a server the same books.
+	GetTenantByOwner(ctx context.Context, baseURL string, traccarUserID int64) (Tenant, error)
 	UpdateTenantSession(ctx context.Context, tenantID int64, session Session) error
-	UpdateTenantAdmin(ctx context.Context, tenantID int64, adminTraccarUserID int64) error
+	// UpdateTenantOwner refreshes what the tenant knows about the person who
+	// just signed in: their Traccar user id, which SetUserDisabled refuses to
+	// pause, and the email shown in the header.
+	UpdateTenantOwner(ctx context.Context, tenantID int64, traccarUserID int64, email string) error
 	ListTenants(ctx context.Context) ([]Tenant, error)
 
 	UpsertAccount(ctx context.Context, a Account) (Account, error)

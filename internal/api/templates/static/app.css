@@ -221,6 +221,16 @@ button.primary:active {
   display: none;
 }
 
+/* Whose books these are. With one tenant per Traccar user, the email is the
+   only thing on screen that tells two logins on the same server apart. */
+.nav-owner {
+  display: block;
+  padding: 0 10px 8px;
+  font-size: 12px;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
 .nav-open svg,
 .nav-close svg {
   width: 22px;

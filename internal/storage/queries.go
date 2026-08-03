@@ -78,12 +78,24 @@ func scanTime(nt sql.NullTime) time.Time {
 	return nt.Time
 }
 
+const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at`
+
+func scanTenantInto(sc scanner) (billing.Tenant, error) {
+	var t billing.Tenant
+	var sessionExpiresAt sql.NullTime
+	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		return billing.Tenant{}, err
+	}
+	t.SessionExpiresAt = scanTime(sessionExpiresAt)
+	return t, nil
+}
+
 func (r *sqlRepository) CreateTenant(ctx context.Context, t billing.Tenant) (billing.Tenant, error) {
 	now := time.Now().UTC()
 	res, err := r.q().ExecContext(ctx,
-		`INSERT INTO tenants (name, base_url, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		t.Name, t.BaseURL, t.SessionCookie, nullTime(t.SessionExpiresAt), t.AdminTraccarUserID, now, now)
+		`INSERT INTO tenants (name, base_url, traccar_user_id, owner_email, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.Name, t.BaseURL, t.TraccarUserID, t.OwnerEmail, t.SessionCookie, nullTime(t.SessionExpiresAt), t.AdminTraccarUserID, now, now)
 	if err != nil {
 		return billing.Tenant{}, fmt.Errorf("storage: create tenant: %w", err)
 	}
@@ -109,27 +121,22 @@ func (r *sqlRepository) CreateTenant(ctx context.Context, t billing.Tenant) (bil
 
 func (r *sqlRepository) GetTenantByID(ctx context.Context, id int64) (billing.Tenant, error) {
 	return r.scanTenant(r.q().QueryRowContext(ctx,
-		`SELECT id, name, base_url, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at
-		 FROM tenants WHERE id = ?`, id))
+		`SELECT `+tenantColumns+` FROM tenants WHERE id = ?`, id))
 }
 
-func (r *sqlRepository) GetTenantByBaseURL(ctx context.Context, baseURL string) (billing.Tenant, error) {
+func (r *sqlRepository) GetTenantByOwner(ctx context.Context, baseURL string, traccarUserID int64) (billing.Tenant, error) {
 	return r.scanTenant(r.q().QueryRowContext(ctx,
-		`SELECT id, name, base_url, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at
-		 FROM tenants WHERE base_url = ?`, baseURL))
+		`SELECT `+tenantColumns+` FROM tenants WHERE base_url = ? AND traccar_user_id = ?`, baseURL, traccarUserID))
 }
 
 func (r *sqlRepository) scanTenant(row *sql.Row) (billing.Tenant, error) {
-	var t billing.Tenant
-	var sessionExpiresAt sql.NullTime
-	err := row.Scan(&t.ID, &t.Name, &t.BaseURL, &t.SessionCookie, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt)
+	t, err := scanTenantInto(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return billing.Tenant{}, billing.ErrNotFound
 	}
 	if err != nil {
 		return billing.Tenant{}, fmt.Errorf("storage: scan tenant: %w", err)
 	}
-	t.SessionExpiresAt = scanTime(sessionExpiresAt)
 	return t, nil
 }
 
@@ -143,20 +150,19 @@ func (r *sqlRepository) UpdateTenantSession(ctx context.Context, tenantID int64,
 	return nil
 }
 
-func (r *sqlRepository) UpdateTenantAdmin(ctx context.Context, tenantID int64, adminTraccarUserID int64) error {
+func (r *sqlRepository) UpdateTenantOwner(ctx context.Context, tenantID int64, traccarUserID int64, email string) error {
 	_, err := r.q().ExecContext(ctx,
-		`UPDATE tenants SET admin_traccar_user_id = ?, updated_at = ? WHERE id = ?`,
-		adminTraccarUserID, time.Now().UTC(), tenantID)
+		`UPDATE tenants SET admin_traccar_user_id = ?, owner_email = ?, updated_at = ? WHERE id = ?`,
+		traccarUserID, email, time.Now().UTC(), tenantID)
 	if err != nil {
-		return fmt.Errorf("storage: update tenant admin: %w", err)
+		return fmt.Errorf("storage: update tenant owner: %w", err)
 	}
 	return nil
 }
 
 func (r *sqlRepository) ListTenants(ctx context.Context) ([]billing.Tenant, error) {
 	rows, err := r.q().QueryContext(ctx,
-		`SELECT id, name, base_url, session_cookie, session_expires_at, admin_traccar_user_id, created_at, updated_at
-		 FROM tenants ORDER BY id`)
+		`SELECT `+tenantColumns+` FROM tenants ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("storage: list tenants: %w", err)
 	}
@@ -164,12 +170,10 @@ func (r *sqlRepository) ListTenants(ctx context.Context) ([]billing.Tenant, erro
 
 	var tenants []billing.Tenant
 	for rows.Next() {
-		var t billing.Tenant
-		var sessionExpiresAt sql.NullTime
-		if err := rows.Scan(&t.ID, &t.Name, &t.BaseURL, &t.SessionCookie, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		t, err := scanTenantInto(rows)
+		if err != nil {
 			return nil, fmt.Errorf("storage: scan tenant: %w", err)
 		}
-		t.SessionExpiresAt = scanTime(sessionExpiresAt)
 		tenants = append(tenants, t)
 	}
 	return tenants, rows.Err()

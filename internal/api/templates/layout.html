@@ -30,6 +30,7 @@
     <span>traccar-billing</span>
     <label class="nav-close" for="nav-toggle" title="{{.T.CloseButton}}" aria-label="{{.T.CloseButton}}">{{template "icon_close"}}</label>
   </div>
+  {{if .Tenant.OwnerEmail}}<div class="nav-owner" title="{{.T.SignedInAs}}">{{.Tenant.OwnerEmail}}</div>{{end}}
   <nav>
     <a href="/dashboard" {{if eq .Active "dashboard"}}class="active"{{end}}>{{.T.NavDashboard}}</a>
     <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>

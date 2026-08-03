@@ -7,8 +7,10 @@ embebidas en el binario (`migrations/embed.go`) y se aplican al arrancar.
 ## Esquema actual (migraciones 1–3)
 
 ```
-tenants
-  id, name, base_url (UNIQUE)
+tenants                                  un usuario de Traccar, no un servidor
+  id, name, base_url
+  traccar_user_id                        UNIQUE(base_url, traccar_user_id)
+  owner_email                            para mostrar de quién es la sesión
   session_cookie, session_expires_at     cookie de Traccar, nunca la contraseña
   admin_traccar_user_id                  usuario protegido: nunca se corta
   created_at, updated_at
