@@ -824,6 +824,29 @@
       openModal($("configure-dialog"));
     }
   }
+
+  // Toggle email privacy
+  const emailToggleBtn = $("toggle-emails-btn");
+  function applyEmailPrivacy(hidden) {
+    if (hidden) {
+      document.body.classList.add("hide-emails");
+      if (emailToggleBtn) emailToggleBtn.classList.add("active");
+    } else {
+      document.body.classList.remove("hide-emails");
+      if (emailToggleBtn) emailToggleBtn.classList.remove("active");
+    }
+  }
+
+  const isHidden = localStorage.getItem("hide_emails") === "true";
+  applyEmailPrivacy(isHidden);
+
+  if (emailToggleBtn) {
+    emailToggleBtn.addEventListener("click", function() {
+      const nextState = !document.body.classList.contains("hide-emails");
+      localStorage.setItem("hide_emails", nextState ? "true" : "false");
+      applyEmailPrivacy(nextState);
+    });
+  }
 })();
 </script>
 {{end}}

@@ -203,6 +203,7 @@ type uiStrings struct {
 	ColUnitPrice   string
 	ViewCards      string
 	ViewTable      string
+	ToggleEmails   string
 
 	NavSettings       string
 	SettingsPageTtl   string
@@ -395,6 +396,7 @@ var translations = map[string]uiStrings{
 		ColUnitPrice:   "Cobro por equipo",
 		ViewCards:      "Ver como tarjetas",
 		ViewTable:      "Ver como tabla",
+		ToggleEmails:   "Ocultar/Censurar correos",
 
 		NavSettings:       "Ajustes",
 		SettingsPageTtl:   "Ajustes de facturación",
@@ -568,6 +570,7 @@ var translations = map[string]uiStrings{
 		ColUnitPrice:   "Price per unit",
 		ViewCards:      "Card view",
 		ViewTable:      "Table view",
+		ToggleEmails:   "Hide/Censor emails",
 
 		NavSettings:       "Settings",
 		SettingsPageTtl:   "Billing settings",

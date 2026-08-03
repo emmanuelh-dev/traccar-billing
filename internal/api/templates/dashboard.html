@@ -144,6 +144,7 @@
       {{else}}
       <a class="btn-icon view-toggle" href="/dashboard?view=cards" title="{{.T.ViewCards}}" aria-label="{{.T.ViewCards}}">{{template "icon_cards"}}</a>
       {{end}}
+      <button id="toggle-emails-btn" class="btn-icon view-toggle" type="button" title="{{.T.ToggleEmails}}" aria-label="{{.T.ToggleEmails}}">{{template "icon_eye"}}</button>
       <button class="primary" type="button" data-modal="charge">{{.T.PayButton}}</button>
       <form class="logout-form" method="post" action="/logout">
         <button type="submit">{{.T.LogoutButton}}</button>

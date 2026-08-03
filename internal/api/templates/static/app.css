@@ -1004,3 +1004,20 @@ a.stat.stat-link .label {
 .settings-form .modal-actions {
   margin-top: 22px;
 }
+
+/* Email Privacy / Censoring */
+body.hide-emails td.cell-stack small,
+body.hide-emails .account-card-name small,
+body.hide-emails .account-email,
+body.hide-emails small.account-email {
+  filter: blur(5px);
+  user-select: none;
+  transition: filter 0.2s ease-in-out;
+}
+
+body.hide-emails td.cell-stack small:hover,
+body.hide-emails .account-card-name small:hover,
+body.hide-emails .account-email:hover,
+body.hide-emails small.account-email:hover {
+  filter: blur(0);
+}
