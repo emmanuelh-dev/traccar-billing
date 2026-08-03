@@ -110,8 +110,32 @@ Para integraciones (requieren la cookie de sesión del navegador):
   en el body para crear la primera; si ya existe, esos campos son opcionales.
 - `GET /health` — healthcheck, sin autenticación
 
+## Documentación
+
+El plan completo, el modelo de datos y las reglas de cobro están en
+[`docs/`](docs/README.md). Si vas a tocar código, empieza por
+[`docs/decisions.md`](docs/decisions.md) — hay cosas que parecen bugs y son
+intencionales.
+
 ## Pendiente / roadmap
 
+El plan detallado por fases está en [`docs/roadmap.md`](docs/roadmap.md). Lo
+más grande que falta:
+
+- **Remisiones automáticas.** Que al cierre de cada periodo (por ejemplo,
+  cada día 1 con vencimiento el 5) se genere sola la remisión de cada
+  cuenta, calculada según cuántos dispositivos tiene en ese momento.
+- **Cobro por dispositivo.** Configurar un precio unitario por cuenta, y que
+  al registrar un pago se pregunte cuántos dispositivos se están cobrando
+  (precargado con los que tiene) y calcule el total.
+- **Portal para clientes.** Que cada cliente pueda entrar a ver su estado de
+  cuenta, sus remisiones y su historial de pagos. Requiere autenticación de
+  clientes, separada de la de operadores, y se vuelve realmente útil junto
+  con el pago en línea.
+- **Cobranza automática.** Recordatorios por correo/WhatsApp antes del
+  vencimiento y aviso antes de suspender el servicio.
+- **Facturación CFDI (México).** Los datos fiscales (RFC, régimen, uso CFDI)
+  se van a capturar desde antes; el timbrado con un PAC viene después.
 - **Webhooks entrantes y salientes.** Por ahora todo el flujo de pagos es
   manual (`POST /accounts/{id}/pay`) y toda la sincronización es por
   polling (`SYNC_INTERVAL`). Falta: webhooks salientes para notificar a
