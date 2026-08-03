@@ -111,8 +111,32 @@ For integrations (require the browser session cookie):
   exists, those fields are optional.
 - `GET /health` — healthcheck, no authentication required
 
+## Documentation
+
+The full plan, data model and billing rules live in
+[`docs/`](docs/README.md) (in Spanish). If you're going to touch the code,
+start with [`docs/decisions.md`](docs/decisions.md) — some things that look
+like bugs are deliberate.
+
 ## Pending / roadmap
 
+The detailed phased plan is in [`docs/roadmap.md`](docs/roadmap.md). The
+biggest missing pieces:
+
+- **Automatic statements.** At the end of each period (say, generated on the
+  1st and due on the 5th), each account's statement should be produced
+  automatically, priced from however many devices it has at that moment.
+- **Per-device pricing.** Configure a unit price per account, and when
+  recording a payment, ask how many devices are being charged (prefilled
+  with the account's current count) and compute the total.
+- **Customer portal.** Let each customer log in to see their balance,
+  statements and payment history. Needs customer authentication, separate
+  from operator authentication, and really pays off alongside online
+  payments.
+- **Automated collections.** Email/WhatsApp reminders before the due date
+  and a warning before service is suspended.
+- **CFDI invoicing (Mexico).** Tax data (RFC, tax regime, CFDI use) will be
+  captured ahead of time; stamping through a PAC comes later.
 - **Incoming and outgoing webhooks.** For now the whole payment flow is
   manual (`POST /accounts/{id}/pay`) and all syncing is by polling
   (`SYNC_INTERVAL`). Missing: outgoing webhooks to notify external systems
