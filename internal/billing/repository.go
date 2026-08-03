@@ -87,6 +87,16 @@ type Repository interface {
 	// leaves the scheduled state and recording why in Outcome.
 	SetAppointmentStatus(ctx context.Context, tenantID, appointmentID int64, status AppointmentStatus, outcome string) (Appointment, error)
 	DeleteAppointment(ctx context.Context, tenantID, appointmentID int64) error
+
+	// CreateRemission returns ErrConflict when the subscription already has a
+	// remission for that period, which is how re-running the month-end job stays
+	// idempotent.
+	CreateRemission(ctx context.Context, r Remission) (Remission, error)
+	GetRemission(ctx context.Context, tenantID, remissionID int64) (Remission, error)
+	ListRemissions(ctx context.Context, tenantID int64, filter RemissionFilter) ([]TenantRemission, error)
+	// SettleRemission links the remission to the payment that paid it.
+	SettleRemission(ctx context.Context, tenantID, remissionID, paymentID int64, paidAt time.Time) (Remission, error)
+	CancelRemission(ctx context.Context, tenantID, remissionID int64, canceledAt time.Time) error
 }
 
 type PaymentFilter struct {
@@ -100,4 +110,16 @@ type TenantPayment struct {
 	AccountName      string
 	ConceptName      string
 	ConceptRecurring bool
+}
+
+type RemissionFilter struct {
+	From      time.Time
+	To        time.Time // filter on period_start
+	AccountID int64
+	Status    RemissionStatus // empty means all
+}
+
+type TenantRemission struct {
+	Remission
+	AccountName string
 }

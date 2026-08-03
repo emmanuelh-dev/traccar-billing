@@ -17,6 +17,7 @@ type fakeRepo struct {
 	tenants           []billing.Tenant
 	accounts          []billing.Account
 	subscriptions     []billing.Subscription
+	remissions        []billing.Remission
 	upsertAccountCall int
 	sessionUpdates    []billing.Session
 	archived          []int64
@@ -107,7 +108,88 @@ func (r *fakeRepo) GetSubscription(ctx context.Context, id int64) (billing.Subsc
 }
 
 func (r *fakeRepo) GetSubscriptionByAccountID(ctx context.Context, accountID int64) (billing.Subscription, error) {
-	return billing.Subscription{}, errors.New("not implemented")
+	for _, s := range r.subscriptions {
+		if s.AccountID == accountID {
+			return s, nil
+		}
+	}
+	return billing.Subscription{}, billing.ErrNotFound
+}
+
+func (r *fakeRepo) CreateRemission(ctx context.Context, rem billing.Remission) (billing.Remission, error) {
+	for _, existing := range r.remissions {
+		if existing.SubscriptionID == rem.SubscriptionID && existing.PeriodStart.Equal(rem.PeriodStart) {
+			return billing.Remission{}, billing.ErrConflict
+		}
+	}
+	rem.ID = int64(len(r.remissions) + 1)
+	r.remissions = append(r.remissions, rem)
+	return rem, nil
+}
+
+func (r *fakeRepo) GetRemission(ctx context.Context, tenantID, remissionID int64) (billing.Remission, error) {
+	for _, rem := range r.remissions {
+		if rem.TenantID == tenantID && rem.ID == remissionID {
+			return rem, nil
+		}
+	}
+	return billing.Remission{}, billing.ErrNotFound
+}
+
+func (r *fakeRepo) ListRemissions(ctx context.Context, tenantID int64, filter billing.RemissionFilter) ([]billing.TenantRemission, error) {
+	var list []billing.TenantRemission
+	for _, rem := range r.remissions {
+		if rem.TenantID != tenantID {
+			continue
+		}
+		if filter.AccountID > 0 && rem.AccountID != filter.AccountID {
+			continue
+		}
+		if filter.Status != "" && rem.Status != filter.Status {
+			continue
+		}
+		if !filter.From.IsZero() && rem.PeriodStart.Before(filter.From) {
+			continue
+		}
+		if !filter.To.IsZero() && rem.PeriodStart.After(filter.To) {
+			continue
+		}
+		accountName := ""
+		for _, acc := range r.accounts {
+			if acc.ID == rem.AccountID {
+				accountName = acc.Name
+				break
+			}
+		}
+		list = append(list, billing.TenantRemission{
+			Remission:   rem,
+			AccountName: accountName,
+		})
+	}
+	return list, nil
+}
+
+func (r *fakeRepo) SettleRemission(ctx context.Context, tenantID, remissionID, paymentID int64, paidAt time.Time) (billing.Remission, error) {
+	for i, rem := range r.remissions {
+		if rem.TenantID == tenantID && rem.ID == remissionID {
+			r.remissions[i].Status = billing.RemissionPaid
+			r.remissions[i].PaymentID = paymentID
+			r.remissions[i].PaidAt = paidAt
+			return r.remissions[i], nil
+		}
+	}
+	return billing.Remission{}, billing.ErrNotFound
+}
+
+func (r *fakeRepo) CancelRemission(ctx context.Context, tenantID, remissionID int64, canceledAt time.Time) error {
+	for i, rem := range r.remissions {
+		if rem.TenantID == tenantID && rem.ID == remissionID {
+			r.remissions[i].Status = billing.RemissionCanceled
+			r.remissions[i].CanceledAt = canceledAt
+			return nil
+		}
+	}
+	return billing.ErrNotFound
 }
 
 func (r *fakeRepo) ListSubscriptionsDueBefore(ctx context.Context, tenantID int64, cutoff time.Time) ([]billing.Subscription, error) {
@@ -529,4 +611,138 @@ func (r *fakeRepo) SetAppointmentStatus(ctx context.Context, tenantID, appointme
 
 func (r *fakeRepo) DeleteAppointment(ctx context.Context, tenantID, appointmentID int64) error {
 	return errors.New("not implemented")
+}
+
+func TestGenerateRemissions(t *testing.T) {
+	now := time.Date(2026, time.August, 1, 10, 0, 0, 0, time.UTC)
+	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api"}
+
+	repo := &fakeRepo{
+		accounts: []billing.Account{
+			{ID: 1, TenantID: 1, Name: "Calendar Active", DeviceCount: 4},
+			{ID: 2, TenantID: 1, Name: "Rolling Active", DeviceCount: 2},
+			{ID: 3, TenantID: 1, Name: "Calendar Canceled", DeviceCount: 3},
+			{ID: 4, TenantID: 1, Name: "Archived Calendar", DeviceCount: 5, ArchivedAt: now.Add(-time.Hour)},
+			{ID: 5, TenantID: 1, Name: "Mirror Calendar", Email: "owner@example.com:8675309", DeviceCount: 1},
+		},
+		subscriptions: []billing.Subscription{
+			{ID: 10, AccountID: 1, BillingMode: billing.ModeCalendar, Status: billing.StatusActive, UnitPriceCents: 1000, Currency: "MXN"},
+			{ID: 20, AccountID: 2, BillingMode: billing.ModeRolling, Status: billing.StatusActive, UnitPriceCents: 1000, Currency: "MXN"},
+			{ID: 30, AccountID: 3, BillingMode: billing.ModeCalendar, Status: billing.StatusCanceled, UnitPriceCents: 1000, Currency: "MXN"},
+			{ID: 40, AccountID: 4, BillingMode: billing.ModeCalendar, Status: billing.StatusActive, UnitPriceCents: 1000, Currency: "MXN"},
+			{ID: 50, AccountID: 5, BillingMode: billing.ModeCalendar, Status: billing.StatusActive, UnitPriceCents: 1000, Currency: "MXN"},
+		},
+	}
+	client := &fakeClient{}
+	s := New(repo, client, time.Minute, silentLogger())
+
+	// 1. Generates exactly one remission per calendar subscription (skipping rolling, canceled, archived, mirror)
+	n, err := s.GenerateRemissions(context.Background(), tenant, now)
+	if err != nil {
+		t.Fatalf("GenerateRemissions error = %v", err)
+	}
+	if n != 1 {
+		t.Errorf("GenerateRemissions created count = %d, want 1", n)
+	}
+	if len(repo.remissions) != 1 {
+		t.Fatalf("len(repo.remissions) = %d, want 1", len(repo.remissions))
+	}
+	rem := repo.remissions[0]
+	if rem.SubscriptionID != 10 {
+		t.Errorf("Remission SubscriptionID = %d, want 10", rem.SubscriptionID)
+	}
+	if rem.AmountCents != 4000 {
+		t.Errorf("Remission AmountCents = %d, want 4000 (4 * 1000)", rem.AmountCents)
+	}
+
+	// 2. Running it TWICE for the same month creates no duplicates (duplicate-run test)
+	n2, err := s.GenerateRemissions(context.Background(), tenant, now)
+	if err != nil {
+		t.Fatalf("GenerateRemissions second run error = %v", err)
+	}
+	if n2 != 0 {
+		t.Errorf("GenerateRemissions second run created count = %d, want 0", n2)
+	}
+	if len(repo.remissions) != 1 {
+		t.Errorf("len(repo.remissions) after second run = %d, want 1", len(repo.remissions))
+	}
+
+	// 3. Amount is frozen: change the account's DeviceCount, re-read, remission amount must be unchanged
+	repo.accounts[0].DeviceCount = 10
+	remFetched, err := repo.GetRemission(context.Background(), tenant.ID, rem.ID)
+	if err != nil {
+		t.Fatalf("GetRemission error = %v", err)
+	}
+	if remFetched.AmountCents != 4000 || remFetched.DeviceCount != 4 {
+		t.Errorf("Remission after account change has amount %d count %d, want frozen 4000 and 4", remFetched.AmountCents, remFetched.DeviceCount)
+	}
+
+	// 4. Crossing into next month generates a new one
+	nextMonth := time.Date(2026, time.September, 1, 10, 0, 0, 0, time.UTC)
+	n3, err := s.GenerateRemissions(context.Background(), tenant, nextMonth)
+	if err != nil {
+		t.Fatalf("GenerateRemissions next month error = %v", err)
+	}
+	if n3 != 1 {
+		t.Errorf("GenerateRemissions next month created count = %d, want 1", n3)
+	}
+	if len(repo.remissions) != 2 {
+		t.Errorf("len(repo.remissions) after next month = %d, want 2", len(repo.remissions))
+	}
+}
+
+func TestGenerateRemissionsLeavesSubscriptionUntouched(t *testing.T) {
+	now := time.Date(2026, time.August, 1, 10, 0, 0, 0, time.UTC)
+	dueFuture := now.Add(15 * 24 * time.Hour)
+	lastPaid := now.Add(-15 * 24 * time.Hour)
+
+	tenant := billing.Tenant{
+		ID:                 1,
+		BaseURL:            "https://acme.example.com/api",
+		SessionCookie:      "JSESSIONID=abc",
+		SessionExpiresAt:   now.Add(time.Hour),
+		AdminTraccarUserID: 999,
+	}
+
+	acc := billing.Account{ID: 1, TenantID: 1, TraccarUserID: 101, Name: "Test Account", DeviceCount: 2}
+	sub := billing.Subscription{
+		ID:          10,
+		AccountID:   1,
+		Status:      billing.StatusActive,
+		BillingMode: billing.ModeCalendar,
+		AmountCents: 2000,
+		Currency:    "MXN",
+		LastPaidAt:  lastPaid,
+		NextDueAt:   dueFuture,
+	}
+
+	repo := &fakeRepo{
+		tenants:       []billing.Tenant{tenant},
+		accounts:      []billing.Account{acc},
+		subscriptions: []billing.Subscription{sub},
+	}
+	client := &fakeClient{}
+	s := New(repo, client, time.Minute, silentLogger())
+
+	subBefore := repo.subscriptions[0]
+
+	// Run GenerateRemissions
+	if _, err := s.GenerateRemissions(context.Background(), tenant, now); err != nil {
+		t.Fatalf("GenerateRemissions error = %v", err)
+	}
+
+	subAfter := repo.subscriptions[0]
+
+	// Assert subscription row is byte-for-byte unchanged
+	if subAfter != subBefore {
+		t.Errorf("Subscription changed after GenerateRemissions!\nBefore: %+v\nAfter:  %+v", subBefore, subAfter)
+	}
+
+	// Assert checkOverdue did not disable Traccar user
+	if err := s.checkOverdue(context.Background(), tenant); err != nil {
+		t.Fatalf("checkOverdue error = %v", err)
+	}
+	if len(client.disabledCalls) != 0 {
+		t.Errorf("checkOverdue called SetUserDisabled for %v, want none", client.disabledCalls)
+	}
 }

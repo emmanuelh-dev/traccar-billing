@@ -840,3 +840,199 @@ func TestTenantsAreScopedToOwner(t *testing.T) {
 		t.Errorf("GetTenantByOwner(unknown user) error = %v, want ErrNotFound", err)
 	}
 }
+
+func TestRemissionStorage(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestRepo(t)
+
+	tenantA, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Tenant A", BaseURL: "https://a.example.com"})
+	if err != nil {
+		t.Fatalf("CreateTenant A: %v", err)
+	}
+	tenantB, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Tenant B", BaseURL: "https://b.example.com"})
+	if err != nil {
+		t.Fatalf("CreateTenant B: %v", err)
+	}
+
+	accA, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenantA.ID, TraccarUserID: 1, Name: "Account A", Email: "a@example.com", DeviceCount: 5})
+	if err != nil {
+		t.Fatalf("UpsertAccount A: %v", err)
+	}
+	accB, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenantB.ID, TraccarUserID: 2, Name: "Account B", Email: "b@example.com", DeviceCount: 3})
+	if err != nil {
+		t.Fatalf("UpsertAccount B: %v", err)
+	}
+
+	subA, err := repo.UpsertSubscription(ctx, billing.Subscription{AccountID: accA.ID, BillingMode: billing.ModeCalendar, AmountCents: 5000, Currency: "USD", NextDueAt: time.Now()})
+	if err != nil {
+		t.Fatalf("UpsertSubscription A: %v", err)
+	}
+	subB, err := repo.UpsertSubscription(ctx, billing.Subscription{AccountID: accB.ID, BillingMode: billing.ModeCalendar, AmountCents: 3000, Currency: "USD", NextDueAt: time.Now()})
+	if err != nil {
+		t.Fatalf("UpsertSubscription B: %v", err)
+	}
+
+	periodStart := time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC)
+	periodEnd := time.Date(2026, time.August, 31, 0, 0, 0, 0, time.UTC)
+
+	remA := billing.Remission{
+		TenantID:       tenantA.ID,
+		AccountID:      accA.ID,
+		SubscriptionID: subA.ID,
+		PeriodStart:    periodStart,
+		PeriodEnd:      periodEnd,
+		DeviceCount:    5,
+		AmountCents:    5000,
+		Currency:       "USD",
+		Status:         billing.RemissionPending,
+		IssuedAt:       periodStart,
+	}
+
+	created, err := repo.CreateRemission(ctx, remA)
+	if err != nil {
+		t.Fatalf("CreateRemission error = %v", err)
+	}
+	if created.ID == 0 {
+		t.Fatal("CreateRemission returned zero ID")
+	}
+
+	// 1. Read back with frozen amount intact
+	fetched, err := repo.GetRemission(ctx, tenantA.ID, created.ID)
+	if err != nil {
+		t.Fatalf("GetRemission error = %v", err)
+	}
+	if fetched.AmountCents != 5000 || fetched.DeviceCount != 5 {
+		t.Errorf("GetRemission got amount %d device count %d, want 5000 and 5", fetched.AmountCents, fetched.DeviceCount)
+	}
+
+	// 2. Second create for same (subscription_id, period_start) returns ErrConflict
+	_, err = repo.CreateRemission(ctx, remA)
+	if !errors.Is(err, billing.ErrConflict) {
+		t.Errorf("CreateRemission duplicate error = %v, want ErrConflict", err)
+	}
+
+	// 3. Tenant scoping: Tenant B cannot read Tenant A's remission
+	_, err = repo.GetRemission(ctx, tenantB.ID, created.ID)
+	if !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("GetRemission cross-tenant error = %v, want ErrNotFound", err)
+	}
+
+	// 4. ListRemissions filtering by status and account
+	remA2 := billing.Remission{
+		TenantID:       tenantA.ID,
+		AccountID:      accA.ID,
+		SubscriptionID: subA.ID,
+		PeriodStart:    time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC),
+		PeriodEnd:      time.Date(2026, time.September, 30, 0, 0, 0, 0, time.UTC),
+		DeviceCount:    5,
+		AmountCents:    5000,
+		Currency:       "USD",
+		Status:         billing.RemissionPaid,
+		IssuedAt:       time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC),
+	}
+	remA2Created, err := repo.CreateRemission(ctx, remA2)
+	if err != nil {
+		t.Fatalf("CreateRemission remA2 error = %v", err)
+	}
+
+	// Create remission for Tenant B
+	remB := billing.Remission{
+		TenantID:       tenantB.ID,
+		AccountID:      accB.ID,
+		SubscriptionID: subB.ID,
+		PeriodStart:    periodStart,
+		PeriodEnd:      periodEnd,
+		DeviceCount:    3,
+		AmountCents:    3000,
+		Currency:       "USD",
+		Status:         billing.RemissionPending,
+		IssuedAt:       periodStart,
+	}
+	if _, err := repo.CreateRemission(ctx, remB); err != nil {
+		t.Fatalf("CreateRemission remB error = %v", err)
+	}
+
+	listPending, err := repo.ListRemissions(ctx, tenantA.ID, billing.RemissionFilter{Status: billing.RemissionPending})
+	if err != nil {
+		t.Fatalf("ListRemissions pending error = %v", err)
+	}
+	if len(listPending) != 1 || listPending[0].ID != created.ID {
+		t.Errorf("ListRemissions pending got %d remissions, want 1 with ID %d", len(listPending), created.ID)
+	}
+	if listPending[0].AccountName != "Account A" {
+		t.Errorf("ListRemissions AccountName = %q, want Account A", listPending[0].AccountName)
+	}
+
+	listAccount, err := repo.ListRemissions(ctx, tenantA.ID, billing.RemissionFilter{AccountID: accA.ID})
+	if err != nil {
+		t.Fatalf("ListRemissions account error = %v", err)
+	}
+	if len(listAccount) != 2 {
+		t.Errorf("ListRemissions account got %d remissions, want 2", len(listAccount))
+	}
+
+	// 5. SettleRemission sets status, paid_at, payment_id
+	pmt, err := repo.RecordPayment(ctx, billing.Payment{AccountID: accA.ID, SubscriptionID: subA.ID, AmountCents: 5000, Currency: "USD", PaidAt: time.Now()})
+	if err != nil {
+		t.Fatalf("RecordPayment error = %v", err)
+	}
+	paidTime := time.Now().Truncate(time.Second)
+	settled, err := repo.SettleRemission(ctx, tenantA.ID, created.ID, pmt.ID, paidTime)
+	if err != nil {
+		t.Fatalf("SettleRemission error = %v", err)
+	}
+	if settled.Status != billing.RemissionPaid {
+		t.Errorf("SettleRemission status = %s, want paid", settled.Status)
+	}
+	if settled.PaymentID != pmt.ID {
+		t.Errorf("SettleRemission PaymentID = %d, want %d", settled.PaymentID, pmt.ID)
+	}
+	if !settled.PaidAt.Equal(paidTime) {
+		t.Errorf("SettleRemission PaidAt = %v, want %v", settled.PaidAt, paidTime)
+	}
+
+	// 6. CancelRemission sets status and canceled_at
+	cancelTime := time.Now().Truncate(time.Second)
+	if err := repo.CancelRemission(ctx, tenantA.ID, remA2Created.ID, cancelTime); err != nil {
+		t.Fatalf("CancelRemission error = %v", err)
+	}
+	canceledRem, err := repo.GetRemission(ctx, tenantA.ID, remA2Created.ID)
+	if err != nil {
+		t.Fatalf("GetRemission canceled error = %v", err)
+	}
+	if canceledRem.Status != billing.RemissionCanceled {
+		t.Errorf("Canceled remission status = %s, want canceled", canceledRem.Status)
+	}
+	if !canceledRem.CanceledAt.Equal(cancelTime) {
+		t.Errorf("Canceled remission CanceledAt = %v, want %v", canceledRem.CanceledAt, cancelTime)
+	}
+}
+
+// TestIsUniqueViolationRejectsOtherConstraints pins down the distinction the
+// month-end run depends on: CreateRemission turns a unique violation into
+// ErrConflict, and the scheduler reads that as "already billed" and moves on.
+// A NOT NULL failure must not take that path, or a broken insert would be
+// silently skipped and the account would go unbilled.
+func TestIsUniqueViolationRejectsOtherConstraints(t *testing.T) {
+	repo := newTestRepo(t)
+	db := repo.DB()
+
+	_, err := db.Exec(`INSERT INTO tenants (id, name, base_url) VALUES (1, NULL, 'https://x.example.com')`)
+	if err == nil {
+		t.Fatal("inserting a NULL name did not fail, so this test proves nothing")
+	}
+	if isUniqueViolation(err) {
+		t.Errorf("isUniqueViolation(NOT NULL violation) = true, want false (err: %v)", err)
+	}
+
+	if _, err := db.Exec(`INSERT INTO tenants (id, name, base_url, traccar_user_id) VALUES (1, 'A', 'https://x.example.com', 7)`); err != nil {
+		t.Fatalf("seed tenant: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO tenants (id, name, base_url, traccar_user_id) VALUES (2, 'B', 'https://x.example.com', 7)`)
+	if err == nil {
+		t.Fatal("duplicate (base_url, traccar_user_id) did not fail")
+	}
+	if !isUniqueViolation(err) {
+		t.Errorf("isUniqueViolation(duplicate unique key) = false, want true (err: %v)", err)
+	}
+}
