@@ -9,9 +9,27 @@ import (
 )
 
 const (
-	langCookieName = "lang"
-	viewCookieName = "view"
+	langCookieName   = "lang"
+	viewCookieName   = "view"
+	groupCookieName  = "group"
+	mirrorCookieName = "mirror"
 )
+
+// resolveToggle backs a sticky on/off dashboard switch with a cookie, the
+// same way resolveView backs the layout switch: ?name=1 or ?name=0 wins
+// and is remembered, otherwise the cookie decides, defaulting to off.
+func resolveToggle(w http.ResponseWriter, r *http.Request, name string) bool {
+	switch r.URL.Query().Get(name) {
+	case "1", "0":
+		value := r.URL.Query().Get(name)
+		http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
+		return value == "1"
+	}
+	if cookie, err := r.Cookie(name); err == nil {
+		return cookie.Value == "1"
+	}
+	return false
+}
 
 var supportedViews = map[string]bool{"table": true, "cards": true}
 
@@ -185,6 +203,25 @@ type uiStrings struct {
 	ColUnitPrice   string
 	ViewCards      string
 	ViewTable      string
+
+	NavSettings       string
+	SettingsPageTtl   string
+	SettingsIntro     string
+	SettingsSaved     string
+	DefaultsSection   string
+	DisplaySection    string
+	HideMirrorLabel   string
+	HideMirrorHint    string
+	MirrorBadge       string
+	StatMirror        string
+	ShowMirrorLink    string
+	HideMirrorLink    string
+	GroupBySeller     string
+	GroupNone         string
+	GroupTotalFmt     string
+	DeleteAccountTtl  string
+	DeleteAccountWarn string
+	DeleteAccountBtn  string
 }
 
 var translations = map[string]uiStrings{
@@ -323,6 +360,25 @@ var translations = map[string]uiStrings{
 		ColUnitPrice:   "Cobro por equipo",
 		ViewCards:      "Ver como tarjetas",
 		ViewTable:      "Ver como tabla",
+
+		NavSettings:       "Ajustes",
+		SettingsPageTtl:   "Ajustes de facturación",
+		SettingsIntro:     "Estos valores se usan como punto de partida al configurar una cuenta nueva. Cambiarlos no afecta las suscripciones ya configuradas.",
+		SettingsSaved:     "Ajustes guardados.",
+		DefaultsSection:   "Valores por defecto",
+		DisplaySection:    "Presentación",
+		HideMirrorLabel:   "Ocultar cuentas espejo",
+		HideMirrorHint:    "Traccar crea usuarios temporales al compartir un equipo (su correo lleva dos puntos y el ID del equipo). No son clientes y no se cobran.",
+		MirrorBadge:       "espejo",
+		StatMirror:        "Espejo",
+		ShowMirrorLink:    "Mostrar espejo",
+		HideMirrorLink:    "Ocultar espejo",
+		GroupBySeller:     "Agrupar por vendedor",
+		GroupNone:         "Quitar agrupación",
+		GroupTotalFmt:     "%d cuentas · %d equipos · %s",
+		DeleteAccountTtl:  "Eliminar cuenta",
+		DeleteAccountWarn: "Se elimina la cuenta con su suscripción y todos sus pagos, y también se borra el usuario en Traccar. Esto no se puede deshacer.",
+		DeleteAccountBtn:  "Eliminar cuenta",
 	},
 	"en": {
 		Lang:               "en",
@@ -459,6 +515,25 @@ var translations = map[string]uiStrings{
 		ColUnitPrice:   "Price per unit",
 		ViewCards:      "Card view",
 		ViewTable:      "Table view",
+
+		NavSettings:       "Settings",
+		SettingsPageTtl:   "Billing settings",
+		SettingsIntro:     "These values are the starting point when configuring a new account. Changing them leaves existing subscriptions untouched.",
+		SettingsSaved:     "Settings saved.",
+		DefaultsSection:   "Defaults",
+		DisplaySection:    "Display",
+		HideMirrorLabel:   "Hide mirror accounts",
+		HideMirrorHint:    "Traccar creates temporary users when a device is shared (their email carries a colon and the device ID). They are not customers and are never billed.",
+		MirrorBadge:       "mirror",
+		StatMirror:        "Mirror",
+		ShowMirrorLink:    "Show mirror",
+		HideMirrorLink:    "Hide mirror",
+		GroupBySeller:     "Group by seller",
+		GroupNone:         "Ungroup",
+		GroupTotalFmt:     "%d accounts · %d devices · %s",
+		DeleteAccountTtl:  "Delete account",
+		DeleteAccountWarn: "This deletes the account with its subscription and every payment, and removes the user in Traccar too. It cannot be undone.",
+		DeleteAccountBtn:  "Delete account",
 	},
 }
 

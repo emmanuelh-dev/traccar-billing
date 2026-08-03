@@ -160,6 +160,26 @@ func (c *Client) SetUserDisabled(ctx context.Context, baseURL *url.URL, session 
 	return checkStatus(resp)
 }
 
+// DeleteUser removes the user from Traccar. Traccar cascades the deletion
+// to that user's permissions, so devices it owned are left server-side
+// without an owner rather than deleted.
+func (c *Client) DeleteUser(ctx context.Context, baseURL *url.URL, session billing.Session, traccarUserID int64) error {
+	endpoint := baseURL.JoinPath("users", strconv.FormatInt(traccarUserID, 10))
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint.String(), nil)
+	if err != nil {
+		return fmt.Errorf("traccar: build delete request: %w", err)
+	}
+	req.Header.Set("Cookie", session.Cookie)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("traccar: delete user %d: %w", traccarUserID, err)
+	}
+	defer resp.Body.Close()
+
+	return checkStatus(resp)
+}
+
 func (c *Client) getJSON(ctx context.Context, endpoint *url.URL, session billing.Session, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {

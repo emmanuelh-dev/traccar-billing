@@ -67,12 +67,15 @@ func (s *Server) Router() http.Handler {
 	r.Get("/sellers", s.requireTenant(s.handleSellers))
 	r.Post("/sellers", s.requireTenant(s.handleCreateSeller))
 	r.Post("/sellers/{id}", s.requireTenant(s.handleUpdateSeller))
+	r.Get("/settings", s.requireTenant(s.handleSettings))
+	r.Post("/settings", s.requireTenant(s.handleSaveSettings))
 
 	r.Get("/accounts", s.requireTenant(s.handleListAccounts))
 	r.Get("/accounts/{id}", s.requireTenant(s.handleGetAccount))
 	r.Post("/accounts/{id}/pay", s.requireTenant(s.handlePayAccount))
 	r.Post("/accounts/{id}/subscription", s.requireTenant(s.handleConfigureSubscription))
 	r.Post("/accounts/{id}/seller", s.requireTenant(s.handleAssignSeller))
+	r.Post("/accounts/{id}/delete", s.requireTenant(s.handleDeleteAccount))
 
 	r.Post("/payments/{id}", s.requireTenant(s.handleEditPayment))
 	r.Post("/payments/{id}/void", s.requireTenant(s.handleVoidPayment))

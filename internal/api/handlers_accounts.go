@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -264,6 +266,69 @@ func (s *Server) respondPayFailure(w http.ResponseWriter, r *http.Request, isJSO
 		return
 	}
 	redirectPageError(w, r, message)
+}
+
+// handleDeleteAccount removes the account here and the matching user in
+// Traccar. Traccar goes first on purpose: deleting only locally would be
+// undone by the next scheduler sync, which recreates an account for every
+// user the server still lists.
+func (s *Server) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+
+	accountID, err := parseIDParam(r, "id")
+	if err != nil {
+		redirectPageError(w, r, "invalid account id")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectPageError(w, r, "invalid form")
+		return
+	}
+
+	account, err := s.repo.GetAccount(r.Context(), tenant.ID, accountID)
+	if errors.Is(err, billing.ErrNotFound) {
+		redirectPageError(w, r, "account not found")
+		return
+	}
+	if err != nil {
+		s.logger.Error("api: get account for delete", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	// Deleting the user whose session drives every Traccar call would lock
+	// the tenant out of its own server.
+	if account.TraccarUserID == tenant.AdminTraccarUserID {
+		redirectPageError(w, r, "cannot delete the tenant's own admin account")
+		return
+	}
+
+	if err := s.deleteTraccarUser(r.Context(), tenant, account); err != nil {
+		s.logger.Error("api: delete traccar user", "account_id", account.ID, "traccar_user_id", account.TraccarUserID, "error", err)
+		redirectPageError(w, r, "could not delete the user in Traccar")
+		return
+	}
+
+	if err := s.repo.DeleteAccount(r.Context(), tenant.ID, accountID); err != nil {
+		s.logger.Error("api: delete account", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+	s.logger.Info("api: deleted account", "tenant_id", tenant.ID, "account_id", accountID, "traccar_user_id", account.TraccarUserID)
+
+	http.Redirect(w, r, redirectTarget(r, "/dashboard"), http.StatusSeeOther)
+}
+
+func (s *Server) deleteTraccarUser(ctx context.Context, tenant billing.Tenant, account billing.Account) error {
+	if !tenant.HasValidSession(time.Now()) {
+		return errors.New("traccar session expired")
+	}
+	baseURL, err := url.Parse(tenant.BaseURL)
+	if err != nil {
+		return fmt.Errorf("parse base url: %w", err)
+	}
+	session := billing.Session{Cookie: tenant.SessionCookie, ExpiresAt: tenant.SessionExpiresAt}
+	return s.client.DeleteUser(ctx, baseURL, session, account.TraccarUserID)
 }
 
 func currencyOrDefault(currency string) string {

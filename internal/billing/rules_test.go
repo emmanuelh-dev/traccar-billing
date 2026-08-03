@@ -199,3 +199,20 @@ func TestNextCalendarDueClampsShortMonths(t *testing.T) {
 		t.Errorf("NextCalendarDue() = %v, want %v", got, want)
 	}
 }
+
+func TestAccountMirror(t *testing.T) {
+	cases := []struct {
+		email string
+		want  bool
+	}{
+		{"info@bysmax.com:357956372250441", true},
+		{"mconie23@gmail.com:869671077202263", true},
+		{"info@bysmax.com", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		if got := (Account{Email: tc.email}).Mirror(); got != tc.want {
+			t.Errorf("Account{Email: %q}.Mirror() = %v, want %v", tc.email, got, tc.want)
+		}
+	}
+}

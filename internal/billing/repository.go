@@ -23,7 +23,16 @@ type Repository interface {
 	GetAccount(ctx context.Context, tenantID, accountID int64) (Account, error)
 	ListAccountsByTenant(ctx context.Context, tenantID int64) ([]Account, error)
 	ArchiveAccount(ctx context.Context, accountID int64, archivedAt time.Time) error
+	// DeleteAccount removes the account together with its subscription and
+	// every payment recorded against it. Unlike ArchiveAccount this is not
+	// reversible and loses the billing history.
+	DeleteAccount(ctx context.Context, tenantID, accountID int64) error
 	AssignAccountSeller(ctx context.Context, tenantID, accountID, sellerID int64) error
+
+	// GetSettings returns DefaultSettings(tenantID) when the tenant has no
+	// row yet, so callers never have to special-case a missing one.
+	GetSettings(ctx context.Context, tenantID int64) (Settings, error)
+	SaveSettings(ctx context.Context, s Settings) (Settings, error)
 
 	CreateSeller(ctx context.Context, s Seller) (Seller, error)
 	UpdateSeller(ctx context.Context, s Seller) (Seller, error)

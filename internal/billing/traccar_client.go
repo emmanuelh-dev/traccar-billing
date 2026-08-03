@@ -24,6 +24,10 @@ type TraccarClient interface {
 	// used to pause access when a subscription goes overdue and restore it
 	// on payment. It preserves every other field on the user record.
 	SetUserDisabled(ctx context.Context, baseURL *url.URL, session Session, traccarUserID int64, disabled bool) error
+	// DeleteUser removes the Traccar user outright. Deleting only the
+	// billing account would be undone by the next sync, which recreates
+	// an account for every user the server still returns.
+	DeleteUser(ctx context.Context, baseURL *url.URL, session Session, traccarUserID int64) error
 }
 
 type TraccarUser struct {

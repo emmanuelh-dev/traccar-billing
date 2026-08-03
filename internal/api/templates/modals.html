@@ -180,6 +180,22 @@
 </dialog>
 {{end}}
 
+{{define "account_delete_dialog"}}
+<dialog id="account-delete-dialog" class="modal">
+  <form id="account-delete-form" class="modal-form" method="post">
+    <h2>{{.T.DeleteAccountTtl}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="account-delete-account"></p>
+    <p class="modal-warning">{{.T.DeleteAccountWarn}}</p>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="danger" type="submit">{{.T.DeleteAccountBtn}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
 {{define "configure_dialog"}}
 <dialog id="configure-dialog" class="modal">
   <form id="configure-form" class="modal-form" method="post">
@@ -213,8 +229,8 @@
     <div class="field">
       <label for="configure-mode">{{.T.BillingModeLabel}}</label>
       <select id="configure-mode" name="billing_mode">
-        <option value="calendar">{{.T.ModeCalendarLabel}}</option>
         <option value="rolling">{{.T.ModeRollingLabel}}</option>
+        <option value="calendar">{{.T.ModeCalendarLabel}}</option>
       </select>
     </div>
 
@@ -520,6 +536,14 @@
       return;
     }
 
+    if (kind === "account-delete") {
+      const form = $("account-delete-form");
+      form.action = "/accounts/" + data.account + "/delete";
+      $("account-delete-account").textContent = (data.name || "") + " — " + (data.email || "");
+      openModal($("account-delete-dialog"));
+      return;
+    }
+
     if (kind === "assign-seller") {
       const form = $("assign-seller-form");
       form.action = "/accounts/" + data.account + "/seller";
@@ -541,7 +565,7 @@
       $("configure-period").value = data.period || 30;
       $("configure-due").value = data.due || "";
       $("configure-grace").value = data.grace || 0;
-      $("configure-mode").value = data.mode || "calendar";
+      $("configure-mode").value = data.mode || "rolling";
       $("configure-anchor").value = data.anchor || 1;
       $("configure-dueday").value = data.dueday || 5;
       applyBillingMode();

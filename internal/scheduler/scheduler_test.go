@@ -20,6 +20,8 @@ type fakeRepo struct {
 	upsertAccountCall int
 	sessionUpdates    []billing.Session
 	archived          []int64
+	deleted           []int64
+	settings          map[int64]billing.Settings
 }
 
 func (r *fakeRepo) CreateTenant(ctx context.Context, t billing.Tenant) (billing.Tenant, error) {
@@ -136,6 +138,33 @@ func (r *fakeRepo) ArchiveAccount(ctx context.Context, accountID int64, archived
 	return billing.ErrNotFound
 }
 
+func (r *fakeRepo) DeleteAccount(ctx context.Context, tenantID, accountID int64) error {
+	for i := range r.accounts {
+		if r.accounts[i].ID == accountID {
+			r.accounts = append(r.accounts[:i], r.accounts[i+1:]...)
+			r.deleted = append(r.deleted, accountID)
+			return nil
+		}
+	}
+	return billing.ErrNotFound
+}
+
+func (r *fakeRepo) GetSettings(ctx context.Context, tenantID int64) (billing.Settings, error) {
+	if s, ok := r.settings[tenantID]; ok {
+		return s, nil
+	}
+	return billing.DefaultSettings(tenantID), nil
+}
+
+func (r *fakeRepo) SaveSettings(ctx context.Context, s billing.Settings) (billing.Settings, error) {
+	if r.settings == nil {
+		r.settings = make(map[int64]billing.Settings)
+	}
+	s = s.Normalized()
+	r.settings[s.TenantID] = s
+	return s, nil
+}
+
 func (r *fakeRepo) AssignAccountSeller(ctx context.Context, tenantID, accountID, sellerID int64) error {
 	return errors.New("not implemented")
 }
@@ -187,6 +216,8 @@ type fakeClient struct {
 	fetchCalled   int
 	disabledCalls []int64
 	disableErr    error
+	deletedUsers  []int64
+	deleteErr     error
 }
 
 func (c *fakeClient) Login(ctx context.Context, baseURL *url.URL, email, password string) (billing.Session, billing.TraccarUser, error) {
@@ -222,6 +253,11 @@ func (c *fakeClient) FetchServerInfo(ctx context.Context, baseURL *url.URL, sess
 func (c *fakeClient) SetUserDisabled(ctx context.Context, baseURL *url.URL, session billing.Session, traccarUserID int64, disabled bool) error {
 	c.disabledCalls = append(c.disabledCalls, traccarUserID)
 	return c.disableErr
+}
+
+func (c *fakeClient) DeleteUser(ctx context.Context, baseURL *url.URL, session billing.Session, traccarUserID int64) error {
+	c.deletedUsers = append(c.deletedUsers, traccarUserID)
+	return c.deleteErr
 }
 
 func silentLogger() *slog.Logger {

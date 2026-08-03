@@ -1,0 +1,104 @@
+{{define "settings"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.SettingsPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <div class="header-actions">
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+  {{if .Saved}}<div class="form-ok">{{.T.SettingsSaved}}</div>{{end}}
+
+  <form class="settings-form modal-form" method="post" action="/settings">
+    <p class="field-hint">{{.T.SettingsIntro}}</p>
+
+    <h2>{{.T.DefaultsSection}}</h2>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="settings-unit">{{.T.UnitPriceLabel}}</label>
+        <input id="settings-unit" name="unit_price" type="number" min="0" step="0.01" value="{{.UnitPriceValue}}">
+      </div>
+      <div class="field">
+        <label for="settings-flat">{{.T.FlatFeeLabel}}</label>
+        <input id="settings-flat" name="flat_fee" type="number" min="0" step="0.01" value="{{.FlatFeeValue}}">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="settings-min">{{.T.MinDevicesLabel}}</label>
+        <input id="settings-min" name="min_devices" type="number" min="0" step="1" value="{{.Settings.MinDevices}}">
+      </div>
+      <div class="field">
+        <label for="settings-currency">{{.T.CurrencyLabel}}</label>
+        <select id="settings-currency" name="currency">
+          <option value="MXN" {{if eq .Settings.Currency "MXN"}}selected{{end}}>MXN</option>
+          <option value="USD" {{if eq .Settings.Currency "USD"}}selected{{end}}>USD</option>
+          <option value="EUR" {{if eq .Settings.Currency "EUR"}}selected{{end}}>EUR</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="settings-mode">{{.T.BillingModeLabel}}</label>
+      <select id="settings-mode" name="billing_mode">
+        <option value="rolling" {{if eq .Settings.BillingMode "rolling"}}selected{{end}}>{{.T.ModeRollingLabel}}</option>
+        <option value="calendar" {{if eq .Settings.BillingMode "calendar"}}selected{{end}}>{{.T.ModeCalendarLabel}}</option>
+      </select>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="settings-anchor">{{.T.AnchorDayLabel}}</label>
+        <input id="settings-anchor" name="anchor_day" type="number" min="1" max="31" step="1" value="{{.Settings.AnchorDay}}">
+      </div>
+      <div class="field">
+        <label for="settings-dueday">{{.T.DueDayLabel}}</label>
+        <input id="settings-dueday" name="due_day" type="number" min="1" max="31" step="1" value="{{.Settings.DueDay}}">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="settings-period">{{.T.PeriodLabel}}</label>
+        <input id="settings-period" name="period_days" type="number" min="1" step="1" value="{{.Settings.PeriodDays}}">
+      </div>
+      <div class="field">
+        <label for="settings-grace">{{.T.GraceDaysLabel}}</label>
+        <input id="settings-grace" name="grace_days" type="number" min="0" step="1" value="{{.Settings.GraceDays}}">
+      </div>
+    </div>
+
+    <h2>{{.T.DisplaySection}}</h2>
+
+    <div class="field">
+      <label for="settings-mirror">{{.T.HideMirrorLabel}}</label>
+      <select id="settings-mirror" name="hide_mirror">
+        <option value="1" {{if .Settings.HideMirrorAccounts}}selected{{end}}>{{.T.ActiveYes}}</option>
+        <option value="0" {{if not .Settings.HideMirrorAccounts}}selected{{end}}>{{.T.ActiveNo}}</option>
+      </select>
+      <p class="field-hint">{{.T.HideMirrorHint}}</p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="primary" type="submit">{{.T.SaveButton}}</button>
+    </div>
+  </form>
+</div>
+</main>
+</div>
+{{template "footer" .}}
+{{end}}

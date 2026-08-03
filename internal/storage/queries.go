@@ -234,6 +234,29 @@ func (r *sqlRepository) ArchiveAccount(ctx context.Context, accountID int64, arc
 	return nil
 }
 
+// DeleteAccount cascades by hand: the schema declares the account ->
+// subscription -> payment foreign keys without ON DELETE CASCADE, and
+// SQLite only enforces them when foreign_keys pragma is on, so relying on
+// the engine would behave differently per dialect.
+func (r *sqlRepository) DeleteAccount(ctx context.Context, tenantID, accountID int64) error {
+	if _, err := r.GetAccount(ctx, tenantID, accountID); err != nil {
+		return err
+	}
+
+	if _, err := r.q().ExecContext(ctx,
+		`DELETE FROM payments WHERE subscription_id IN (SELECT id FROM subscriptions WHERE account_id = ?)`,
+		accountID); err != nil {
+		return fmt.Errorf("storage: delete account payments: %w", err)
+	}
+	if _, err := r.q().ExecContext(ctx, `DELETE FROM subscriptions WHERE account_id = ?`, accountID); err != nil {
+		return fmt.Errorf("storage: delete account subscription: %w", err)
+	}
+	if _, err := r.q().ExecContext(ctx, `DELETE FROM accounts WHERE id = ? AND tenant_id = ?`, accountID, tenantID); err != nil {
+		return fmt.Errorf("storage: delete account: %w", err)
+	}
+	return nil
+}
+
 const subscriptionColumns = `id, account_id, status, billing_mode, anchor_day, due_day, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at`
 
 const paymentColumns = `id, subscription_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, voided_at, void_reason, created_at, updated_at`
@@ -482,6 +505,60 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 		payments = append(payments, tp)
 	}
 	return payments, rows.Err()
+}
+
+const settingsColumns = `tenant_id, billing_mode, anchor_day, due_day, period_days, grace_days, currency, unit_price_cents, flat_fee_cents, min_devices, hide_mirror_accounts, created_at, updated_at`
+
+func (r *sqlRepository) GetSettings(ctx context.Context, tenantID int64) (billing.Settings, error) {
+	var s billing.Settings
+	var mode string
+	var hideMirror int
+
+	err := r.q().QueryRowContext(ctx,
+		`SELECT `+settingsColumns+` FROM tenant_settings WHERE tenant_id = ?`, tenantID).
+		Scan(&s.TenantID, &mode, &s.AnchorDay, &s.DueDay, &s.PeriodDays, &s.GraceDays, &s.Currency,
+			&s.UnitPriceCents, &s.FlatFeeCents, &s.MinDevices, &hideMirror, &s.CreatedAt, &s.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return billing.DefaultSettings(tenantID), nil
+	}
+	if err != nil {
+		return billing.Settings{}, fmt.Errorf("storage: get settings: %w", err)
+	}
+
+	s.BillingMode = billing.BillingMode(mode)
+	s.HideMirrorAccounts = hideMirror != 0
+	return s.Normalized(), nil
+}
+
+func (r *sqlRepository) SaveSettings(ctx context.Context, s billing.Settings) (billing.Settings, error) {
+	s = s.Normalized()
+	now := time.Now().UTC()
+
+	var query string
+	if r.dialect == "mysql" {
+		query = `INSERT INTO tenant_settings (` + settingsColumns + `)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON DUPLICATE KEY UPDATE billing_mode = VALUES(billing_mode), anchor_day = VALUES(anchor_day),
+				due_day = VALUES(due_day), period_days = VALUES(period_days), grace_days = VALUES(grace_days),
+				currency = VALUES(currency), unit_price_cents = VALUES(unit_price_cents),
+				flat_fee_cents = VALUES(flat_fee_cents), min_devices = VALUES(min_devices),
+				hide_mirror_accounts = VALUES(hide_mirror_accounts), updated_at = VALUES(updated_at)`
+	} else {
+		query = `INSERT INTO tenant_settings (` + settingsColumns + `)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(tenant_id) DO UPDATE SET billing_mode = excluded.billing_mode, anchor_day = excluded.anchor_day,
+				due_day = excluded.due_day, period_days = excluded.period_days, grace_days = excluded.grace_days,
+				currency = excluded.currency, unit_price_cents = excluded.unit_price_cents,
+				flat_fee_cents = excluded.flat_fee_cents, min_devices = excluded.min_devices,
+				hide_mirror_accounts = excluded.hide_mirror_accounts, updated_at = excluded.updated_at`
+	}
+
+	if _, err := r.q().ExecContext(ctx, query,
+		s.TenantID, string(s.BillingMode), s.AnchorDay, s.DueDay, s.PeriodDays, s.GraceDays, s.Currency,
+		s.UnitPriceCents, s.FlatFeeCents, s.MinDevices, boolToInt(s.HideMirrorAccounts), now, now); err != nil {
+		return billing.Settings{}, fmt.Errorf("storage: save settings: %w", err)
+	}
+	return r.GetSettings(ctx, s.TenantID)
 }
 
 const sellerColumns = `id, tenant_id, name, email, phone, commission_bp, active, note, created_at, updated_at`

@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-//go:embed templates/layout.html templates/login.html templates/dashboard.html templates/payments.html templates/sellers.html templates/modals.html templates/icons.html
+//go:embed templates/layout.html templates/login.html templates/dashboard.html templates/payments.html templates/sellers.html templates/settings.html templates/modals.html templates/icons.html
 var templateFiles embed.FS
 
 //go:embed templates/static

@@ -422,3 +422,105 @@ func TestListPaymentsByTenantFiltersByPeriod(t *testing.T) {
 		t.Fatalf("unknown account filter returned %d payments, want 0", len(none))
 	}
 }
+
+func TestDeleteAccountRemovesSubscriptionAndPayments(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Acme", BaseURL: "https://acme.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+	account, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenant.ID, TraccarUserID: 1, Name: "Prueba", Email: "p@example.com"})
+	if err != nil {
+		t.Fatalf("UpsertAccount() error = %v", err)
+	}
+	sub, err := repo.UpsertSubscription(ctx, billing.Subscription{
+		AccountID:   account.ID,
+		Status:      billing.StatusActive,
+		AmountCents: 5000,
+		Currency:    "MXN",
+		PeriodDays:  30,
+		NextDueAt:   time.Now().UTC().Truncate(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("UpsertSubscription() error = %v", err)
+	}
+	if _, err := repo.RecordPayment(ctx, billing.Payment{
+		SubscriptionID: sub.ID,
+		AmountCents:    5000,
+		Currency:       "MXN",
+		PaidAt:         time.Now().UTC().Truncate(time.Second),
+		Method:         "cash",
+	}); err != nil {
+		t.Fatalf("RecordPayment() error = %v", err)
+	}
+
+	if err := repo.DeleteAccount(ctx, tenant.ID, account.ID); err != nil {
+		t.Fatalf("DeleteAccount() error = %v", err)
+	}
+
+	if _, err := repo.GetAccount(ctx, tenant.ID, account.ID); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("GetAccount() after delete error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.GetSubscriptionByAccountID(ctx, account.ID); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("GetSubscriptionByAccountID() after delete error = %v, want ErrNotFound", err)
+	}
+	payments, err := repo.ListPaymentsBySubscription(ctx, sub.ID)
+	if err != nil {
+		t.Fatalf("ListPaymentsBySubscription() error = %v", err)
+	}
+	if len(payments) != 0 {
+		t.Errorf("payments left after delete = %d, want 0", len(payments))
+	}
+
+	if err := repo.DeleteAccount(ctx, tenant.ID, account.ID); !errors.Is(err, billing.ErrNotFound) {
+		t.Errorf("DeleteAccount() twice error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestSettingsDefaultsAndSave(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Acme", BaseURL: "https://acme.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	// A tenant created before the settings table existed still gets a
+	// usable set of defaults instead of a zero value.
+	got, err := repo.GetSettings(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetSettings() error = %v", err)
+	}
+	if got.BillingMode != billing.ModeRolling {
+		t.Errorf("default BillingMode = %q, want rolling", got.BillingMode)
+	}
+	if !got.HideMirrorAccounts {
+		t.Error("default HideMirrorAccounts = false, want true")
+	}
+	if got.Currency != "MXN" || got.PeriodDays != 30 {
+		t.Errorf("defaults = %+v", got)
+	}
+
+	got.BillingMode = billing.ModeCalendar
+	got.UnitPriceCents = 20000
+	got.HideMirrorAccounts = false
+	got.AnchorDay = 99 // out of range: Normalized() must clamp it back
+	saved, err := repo.SaveSettings(ctx, got)
+	if err != nil {
+		t.Fatalf("SaveSettings() error = %v", err)
+	}
+	if saved.AnchorDay != 1 {
+		t.Errorf("AnchorDay = %d, want the clamped default 1", saved.AnchorDay)
+	}
+
+	reloaded, err := repo.GetSettings(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetSettings() after save error = %v", err)
+	}
+	if reloaded.BillingMode != billing.ModeCalendar || reloaded.UnitPriceCents != 20000 || reloaded.HideMirrorAccounts {
+		t.Errorf("reloaded settings = %+v", reloaded)
+	}
+}

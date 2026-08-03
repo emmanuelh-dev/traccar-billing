@@ -42,6 +42,8 @@ func TestRenderDashboard(t *testing.T) {
 		},
 	}
 
+	view.Groups = buildGroups(view.T, view.Rows, false, "MXN")
+
 	var buf bytes.Buffer
 	if err := templates.ExecuteTemplate(&buf, "dashboard", view); err != nil {
 		t.Fatalf("render dashboard: %v", err)
@@ -63,6 +65,119 @@ func TestRenderDashboard(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("dashboard output missing %q", want)
 		}
+	}
+}
+
+func TestRenderDashboardGroupedBySeller(t *testing.T) {
+	rows := []accountRow{
+		{
+			Account:         billing.Account{ID: 1, Name: "Uno", DeviceCount: 3},
+			Subscription:    billing.Subscription{Status: billing.StatusActive, Currency: "MXN", UnitPriceCents: 20000},
+			HasSubscription: true,
+			SellerID:        4,
+			SellerName:      "Ana",
+		},
+		{Account: billing.Account{ID: 2, Name: "Dos", DeviceCount: 1}},
+	}
+
+	groups := buildGroups(stringsFor("es"), rows, true, "MXN")
+	if len(groups) != 2 {
+		t.Fatalf("want 2 groups, got %d", len(groups))
+	}
+	if groups[0].Name != "Ana" {
+		t.Errorf("first group = %q, want the named seller", groups[0].Name)
+	}
+	if groups[1].SellerID != 0 {
+		t.Error("unassigned group should sort last")
+	}
+	if groups[0].DeviceCount != 3 {
+		t.Errorf("group device count = %d, want 3", groups[0].DeviceCount)
+	}
+	if !strings.Contains(groups[0].Summary(), "MXN 600.00") {
+		t.Errorf("group summary = %q, want the 3 x 200 total", groups[0].Summary())
+	}
+
+	view := dashboardView{
+		T:        stringsFor("es"),
+		Title:    "Dashboard",
+		Active:   "dashboard",
+		Tenant:   billing.Tenant{Name: "gps.example.com"},
+		Redirect: "/dashboard",
+		Grouped:  true,
+		Rows:     rows,
+		Groups:   groups,
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "dashboard", view); err != nil {
+		t.Fatalf("render grouped dashboard: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{`class="group-header"`, "Ana", "/dashboard?group=0"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("grouped dashboard missing %q", want)
+		}
+	}
+}
+
+func TestRenderDashboardDeleteAction(t *testing.T) {
+	view := dashboardView{
+		T:        stringsFor("es"),
+		Title:    "Dashboard",
+		Active:   "dashboard",
+		Tenant:   billing.Tenant{Name: "gps.example.com"},
+		Redirect: "/dashboard",
+		Rows:     []accountRow{{Account: billing.Account{ID: 9, Name: "Prueba", Email: "p@example.com"}}},
+	}
+	view.Groups = buildGroups(view.T, view.Rows, false, "MXN")
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "dashboard", view); err != nil {
+		t.Fatalf("render dashboard: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		`data-modal="account-delete"`,
+		`id="account-delete-dialog"`,
+		`class="btn-icon danger"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("dashboard missing %q", want)
+		}
+	}
+}
+
+func TestRenderSettings(t *testing.T) {
+	view := settingsView{
+		T:              stringsFor("es"),
+		Title:          "Ajustes",
+		Active:         "settings",
+		Saved:          true,
+		Tenant:         billing.Tenant{Name: "gps.example.com"},
+		Settings:       billing.DefaultSettings(1),
+		Redirect:       "/settings",
+		UnitPriceValue: "200.00",
+		FlatFeeValue:   "0.00",
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "settings", view); err != nil {
+		t.Fatalf("render settings: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		`action="/settings"`,
+		`name="hide_mirror"`,
+		`name="billing_mode"`,
+		`value="200.00"`,
+		`class="form-ok"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("settings output missing %q", want)
+		}
+	}
+	if !strings.Contains(out, `<option value="rolling" selected>`) {
+		t.Error("settings should default to the rolling billing mode")
 	}
 }
 
@@ -151,6 +266,8 @@ func TestRenderDashboardCardView(t *testing.T) {
 			SellerName:      "Ana",
 		}},
 	}
+
+	view.Groups = buildGroups(view.T, view.Rows, false, "MXN")
 
 	var buf bytes.Buffer
 	if err := templates.ExecuteTemplate(&buf, "dashboard", view); err != nil {

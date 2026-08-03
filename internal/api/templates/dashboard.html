@@ -1,3 +1,125 @@
+{{define "account_row_actions"}}
+<button type="button"
+  data-modal="configure"
+  data-account="{{.Account.ID}}"
+  data-name="{{.Account.Name}}"
+  data-unit="{{.UnitPriceValue}}"
+  data-amount="{{.AmountValue}}"
+  data-flat="{{.FlatFeeValue}}"
+  data-min="{{.MinDevices}}"
+  data-grace="{{.GraceDays}}"
+  data-currency="{{.Currency}}"
+  data-period="{{.DefaultPeriod}}"
+  data-due="{{.DefaultDueDate}}"
+  data-mode="{{.BillingMode}}"
+  data-anchor="{{.AnchorDay}}"
+  data-dueday="{{.DueDay}}"
+  class="btn-icon" title="{{$.T.ConfigureLabel}}" aria-label="{{$.T.ConfigureLabel}}">{{template "icon_configure"}}</button>
+{{if .HasSubscription}}
+<button class="btn-icon primary" type="button"
+  data-modal="charge"
+  data-account="{{.Account.ID}}"
+  title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
+{{end}}
+<button class="btn-icon danger" type="button"
+  data-modal="account-delete"
+  data-account="{{.Account.ID}}"
+  data-name="{{.Account.Name}}"
+  data-email="{{.Account.Email}}"
+  title="{{$.T.DeleteAccountTtl}}" aria-label="{{$.T.DeleteAccountTtl}}">{{template "icon_delete"}}</button>
+{{end}}
+
+{{define "account_table"}}
+<div class="table-scroll">
+<table class="accounts">
+  <thead>
+    <tr>
+      <th>{{.T.ColAccount}}</th>
+      <th>{{.T.SellerLabel}}</th>
+      <th class="num">{{.T.ColDevices}}</th>
+      <th class="num">{{.T.ColUnitPrice}}</th>
+      <th class="num">{{.T.ColAmount}}</th>
+      <th>{{.T.ColStatus}}</th>
+      <th>{{.T.ColNextDue}}</th>
+      <th class="actions"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Rows}}
+    <tr>
+      <td class="cell-stack">
+        <span>{{.Account.Name}}{{if .Account.Mirror}} <span class="badge badge-mirror">{{$.T.MirrorBadge}}</span>{{end}}</span>
+        <small>{{.Account.Email}}</small>
+      </td>
+      <td>
+        <button class="link" type="button"
+          data-modal="assign-seller"
+          data-account="{{.Account.ID}}"
+          data-name="{{.Account.Name}}"
+          data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
+      </td>
+      <td class="num">{{.Account.DeviceCount}}</td>
+      <td class="num muted">{{.UnitPriceLabel}}</td>
+      <td class="num">{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</td>
+      <td>
+        {{if .HasSubscription}}
+          <span class="badge badge-{{.Subscription.Status}}">{{.StatusLabel}}</span>
+        {{else}}
+          <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
+        {{end}}
+      </td>
+      <td class="cell-stack">
+        {{if .HasSubscription}}
+        <span>{{.DefaultDueDate}}</span>
+        <small>{{.DaysLeftLabel}}</small>
+        {{end}}
+      </td>
+      <td class="row-actions">{{template "account_row_actions" .}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+{{define "account_cards"}}
+<div class="card-grid">
+  {{range .Rows}}
+  <article class="account-card">
+    <header>
+      <div class="account-card-name">
+        <strong>{{.Account.Name}}</strong>
+        <small>{{.Account.Email}}</small>
+      </div>
+      {{if .Account.Mirror}}
+        <span class="badge badge-mirror">{{$.T.MirrorBadge}}</span>
+      {{else if .HasSubscription}}
+        <span class="badge badge-{{.Subscription.Status}}">{{.StatusLabel}}</span>
+      {{else}}
+        <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
+      {{end}}
+    </header>
+
+    <dl>
+      <div><dt>{{$.T.SellerLabel}}</dt><dd>
+        <button class="link" type="button"
+          data-modal="assign-seller"
+          data-account="{{.Account.ID}}"
+          data-name="{{.Account.Name}}"
+          data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
+      </dd></div>
+      <div><dt>{{$.T.ColDevices}}</dt><dd>{{.Account.DeviceCount}}</dd></div>
+      <div><dt>{{$.T.ColUnitPrice}}</dt><dd>{{.UnitPriceLabel}}</dd></div>
+      <div><dt>{{$.T.ColAmount}}</dt><dd>{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</dd></div>
+      <div><dt>{{$.T.ColNextDue}}</dt><dd>{{if .HasSubscription}}{{.DefaultDueDate}} <small>{{.DaysLeftLabel}}</small>{{end}}</dd></div>
+    </dl>
+
+    <footer class="row-actions">{{template "account_row_actions" .}}</footer>
+  </article>
+  {{end}}
+</div>
+{{end}}
+
 {{define "dashboard"}}
 {{template "header" .}}
 <div class="app-shell">
@@ -10,6 +132,11 @@
       <div class="tenant-url">{{.Tenant.BaseURL}}</div>
     </div>
     <div class="header-actions">
+      {{if .Grouped}}
+      <a class="btn-icon view-toggle active" href="/dashboard?group=0" title="{{.T.GroupNone}}" aria-label="{{.T.GroupNone}}">{{template "icon_seller"}}</a>
+      {{else}}
+      <a class="btn-icon view-toggle" href="/dashboard?group=1" title="{{.T.GroupBySeller}}" aria-label="{{.T.GroupBySeller}}">{{template "icon_seller"}}</a>
+      {{end}}
       {{if eq .View "cards"}}
       <a class="btn-icon view-toggle" href="/dashboard?view=table" title="{{.T.ViewTable}}" aria-label="{{.T.ViewTable}}">{{template "icon_table"}}</a>
       {{else}}
@@ -39,141 +166,24 @@
       <div class="value">{{.Stats.Overdue}}</div>
       <div class="label">{{.T.StatOverdue}}</div>
     </div>
-  </div>
-
-  {{if .Rows}}
-  {{if eq .View "cards"}}
-  <div class="card-grid">
-    {{range .Rows}}
-    <article class="account-card">
-      <header>
-        <div class="account-card-name">
-          <strong>{{.Account.Name}}</strong>
-          <small>{{.Account.Email}}</small>
-        </div>
-        {{if .HasSubscription}}
-          <span class="badge badge-{{.Subscription.Status}}">{{.StatusLabel}}</span>
-        {{else}}
-          <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
-        {{end}}
-      </header>
-
-      <dl>
-        <div><dt>{{$.T.SellerLabel}}</dt><dd>
-          <button class="link" type="button"
-            data-modal="assign-seller"
-            data-account="{{.Account.ID}}"
-            data-name="{{.Account.Name}}"
-            data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
-        </dd></div>
-        <div><dt>{{$.T.ColDevices}}</dt><dd>{{.Account.DeviceCount}}</dd></div>
-        <div><dt>{{$.T.ColUnitPrice}}</dt><dd>{{.UnitPriceLabel}}</dd></div>
-        <div><dt>{{$.T.ColAmount}}</dt><dd>{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</dd></div>
-        <div><dt>{{$.T.ColNextDue}}</dt><dd>{{if .HasSubscription}}{{.DefaultDueDate}} <small>{{.DaysLeftLabel}}</small>{{end}}</dd></div>
-      </dl>
-
-      <footer class="row-actions">
-        <button type="button"
-            data-modal="configure"
-            data-account="{{.Account.ID}}"
-            data-name="{{.Account.Name}}"
-            data-unit="{{.UnitPriceValue}}"
-            data-amount="{{.AmountValue}}"
-            data-flat="{{.FlatFeeValue}}"
-            data-min="{{.MinDevices}}"
-            data-grace="{{.GraceDays}}"
-            data-currency="{{.Currency}}"
-            data-period="{{.DefaultPeriod}}"
-            data-due="{{.DefaultDueDate}}"
-            data-mode="{{.BillingMode}}"
-            data-anchor="{{.AnchorDay}}"
-            data-dueday="{{.DueDay}}"
-            class="btn-icon" title="{{$.T.ConfigureLabel}}" aria-label="{{$.T.ConfigureLabel}}">{{template "icon_configure"}}</button>
-          {{if .HasSubscription}}
-          <button class="btn-icon primary" type="button"
-            data-modal="charge"
-            data-account="{{.Account.ID}}"
-            title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
-          {{end}}
-      </footer>
-    </article>
+    {{if .Stats.Mirror}}
+    <a class="stat stat-link" href="/dashboard?mirror={{if .ShowMirror}}0{{else}}1{{end}}">
+      <div class="value">{{.Stats.Mirror}}</div>
+      <div class="label">{{if .ShowMirror}}{{.T.HideMirrorLink}}{{else}}{{.T.ShowMirrorLink}}{{end}}</div>
+    </a>
     {{end}}
   </div>
-  {{else}}
-  <div class="table-scroll">
-  <table class="accounts">
-    <thead>
-      <tr>
-        <th>{{.T.ColAccount}}</th>
-        <th>{{.T.SellerLabel}}</th>
-        <th class="num">{{.T.ColDevices}}</th>
-        <th class="num">{{.T.ColUnitPrice}}</th>
-        <th class="num">{{.T.ColAmount}}</th>
-        <th>{{.T.ColStatus}}</th>
-        <th>{{.T.ColNextDue}}</th>
-        <th class="actions"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Rows}}
-      <tr>
-        <td class="cell-stack">
-          <span>{{.Account.Name}}</span>
-          <small>{{.Account.Email}}</small>
-        </td>
-        <td>
-          <button class="link" type="button"
-            data-modal="assign-seller"
-            data-account="{{.Account.ID}}"
-            data-name="{{.Account.Name}}"
-            data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
-        </td>
-        <td class="num">{{.Account.DeviceCount}}</td>
-        <td class="num muted">{{.UnitPriceLabel}}</td>
-        <td class="num">{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</td>
-        <td>
-          {{if .HasSubscription}}
-            <span class="badge badge-{{.Subscription.Status}}">{{.StatusLabel}}</span>
-          {{else}}
-            <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
-          {{end}}
-        </td>
-        <td class="cell-stack">
-          {{if .HasSubscription}}
-          <span>{{.DefaultDueDate}}</span>
-          <small>{{.DaysLeftLabel}}</small>
-          {{end}}
-        </td>
-        <td class="row-actions">
-          <button type="button"
-            data-modal="configure"
-            data-account="{{.Account.ID}}"
-            data-name="{{.Account.Name}}"
-            data-unit="{{.UnitPriceValue}}"
-            data-amount="{{.AmountValue}}"
-            data-flat="{{.FlatFeeValue}}"
-            data-min="{{.MinDevices}}"
-            data-grace="{{.GraceDays}}"
-            data-currency="{{.Currency}}"
-            data-period="{{.DefaultPeriod}}"
-            data-due="{{.DefaultDueDate}}"
-            data-mode="{{.BillingMode}}"
-            data-anchor="{{.AnchorDay}}"
-            data-dueday="{{.DueDay}}"
-            class="btn-icon" title="{{$.T.ConfigureLabel}}" aria-label="{{$.T.ConfigureLabel}}">{{template "icon_configure"}}</button>
-          {{if .HasSubscription}}
-          <button class="btn-icon primary" type="button"
-            data-modal="charge"
-            data-account="{{.Account.ID}}"
-            title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
-          {{end}}
-        </td>
-      </tr>
+
+  {{if .Groups}}
+    {{range .Groups}}
+      {{if .Name}}
+      <div class="group-header">
+        <h2>{{.Name}}</h2>
+        <span class="group-summary">{{.Summary}}</span>
+      </div>
       {{end}}
-    </tbody>
-  </table>
-  </div>
-  {{end}}
+      {{if eq $.View "cards"}}{{template "account_cards" .}}{{else}}{{template "account_table" .}}{{end}}
+    {{end}}
   {{else}}
   <div class="empty-state">{{.T.EmptyState}}</div>
   {{end}}
@@ -183,6 +193,7 @@
 {{template "charge_dialog" .}}
 {{template "configure_dialog" .}}
 {{template "assign_seller_dialog" .}}
+{{template "account_delete_dialog" .}}
 {{template "modal_script" .}}
 {{template "footer" .}}
 {{end}}
