@@ -21,6 +21,75 @@
 
   {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
 
+  <section class="concept-stats">
+    <h2>{{.T.IncomeByConcept}}</h2>
+
+    <div class="filter-bar">
+      <form class="filter-form" method="get" action="/concepts">
+        <input type="hidden" name="by" value="{{.By}}">
+        <label for="stats-year">{{.T.YearLabel}}</label>
+        <select id="stats-year" name="year">
+          {{range .Years}}
+          <option value="{{.Year}}" {{if .Selected}}selected{{end}}>{{.Year}}</option>
+          {{end}}
+        </select>
+        <label for="stats-month">{{.T.MonthLabel}}</label>
+        <select id="stats-month" name="month">
+          <option value="all" {{if .MonthIsAll}}selected{{end}}>{{.T.AllMonthsOption}}</option>
+          {{range .Months}}
+          <option value="{{.Month}}" {{if .Selected}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+        <button type="submit">{{.T.ApplyFilter}}</button>
+      </form>
+
+      <div class="filter-chips">
+        <a href="/concepts?year={{.Year}}&amp;month={{if .MonthIsAll}}all{{else}}{{.Month}}{{end}}&amp;by=day" {{if .StatsByDay}}class="active"{{end}}>{{.T.GroupByDay}}</a>
+        <a href="/concepts?year={{.Year}}&amp;month={{if .MonthIsAll}}all{{else}}{{.Month}}{{end}}&amp;by=month" {{if not .StatsByDay}}class="active"{{end}}>{{.T.GroupByMonth}}</a>
+      </div>
+    </div>
+
+    {{if .HasStats}}
+    <div class="stat-row">
+      <div class="stat">
+        <div class="value">{{.StatsTotal}}</div>
+        <div class="label">{{.T.TotalsLabel}} · {{.RangeLabel}}</div>
+      </div>
+      <div class="stat">
+        <div class="value">{{.StatsCount}}</div>
+        <div class="label">{{.T.ChargesCountLbl}}</div>
+      </div>
+      <div class="stat">
+        <div class="value">{{.TopAmount}}</div>
+        <div class="label">{{.T.TopConceptLabel}}: {{.TopName}}</div>
+      </div>
+    </div>
+
+    <div class="chart-bars">
+      {{range .Bars}}
+      <div class="chart-col" title="{{.Title}}">
+        <div class="chart-track"><div class="chart-bar{{if .Zero}} is-zero{{end}}" style="{{.Style}}"></div></div>
+        <div class="chart-tick">{{.Label}}</div>
+      </div>
+      {{end}}
+    </div>
+
+    <ul class="concept-shares">
+      {{range .Shares}}
+      <li>
+        <div class="share-head">
+          <span class="share-name">{{.Name}}</span>
+          <span class="share-amount">{{.AmountDisplay}} <span class="muted">· {{.SharePct}}</span></span>
+        </div>
+        <div class="share-track"><div class="share-bar tone-{{.Tone}}" style="{{.Style}}"></div></div>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="empty-state">{{.T.NoIncomeInPeriod}}</p>
+    {{end}}
+  </section>
+
   {{if .Rows}}
   <div class="table-scroll">
   <table class="accounts">

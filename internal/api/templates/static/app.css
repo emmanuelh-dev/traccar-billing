@@ -1528,3 +1528,126 @@ body.hide-emails small.account-email:hover {
   background: color-mix(in srgb, var(--color-warning) 12%, transparent);
   color: var(--color-warning);
 }
+
+/* Income by concept */
+.concept-stats {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 18px 18px 20px;
+  margin-bottom: 24px;
+}
+
+.concept-stats h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.concept-stats .filter-bar {
+  margin-bottom: 16px;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 180px;
+  margin: 4px 0 22px;
+  overflow-x: auto;
+}
+
+.chart-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 10px;
+  height: 100%;
+}
+
+/* The track is what gives every column the same full height, so a bar's
+   percentage means the same thing no matter where it sits. */
+.chart-track {
+  display: flex;
+  align-items: flex-end;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-bar {
+  width: 100%;
+  min-height: 1px;
+  border-radius: 3px 3px 0 0;
+  background: var(--color-accent);
+}
+
+/* A period with no income is still a column: an empty slot keeps the dates
+   lined up instead of silently compressing the chart. */
+.chart-bar.is-zero {
+  height: 2px;
+  background: var(--color-border);
+}
+
+.chart-tick {
+  height: 16px;
+  padding-top: 4px;
+  font-size: 10px;
+  line-height: 1;
+  text-align: center;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.concept-shares {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.share-name {
+  font-weight: 600;
+}
+
+.share-amount {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.share-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+
+.share-bar {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+}
+
+.share-bar.tone-1 { background: var(--color-accent); }
+.share-bar.tone-2 { background: var(--color-success); }
+.share-bar.tone-3 { background: var(--color-warning); }
+.share-bar.tone-4 { background: color-mix(in srgb, var(--color-accent) 55%, var(--color-surface-2)); }
+.share-bar.tone-5 { background: color-mix(in srgb, var(--color-success) 55%, var(--color-surface-2)); }
+.share-bar.tone-6 { background: color-mix(in srgb, var(--color-warning) 55%, var(--color-surface-2)); }
+
+@media (max-width: 720px) {
+  .chart-bars {
+    height: 140px;
+  }
+}

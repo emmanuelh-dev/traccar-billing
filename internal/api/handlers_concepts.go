@@ -32,6 +32,23 @@ type conceptsView struct {
 	Rows     []conceptRow
 	Redirect string
 
+	Bars       []conceptChartBar
+	Shares     []conceptShareRow
+	Years      []conceptYearOption
+	Months     []conceptMonthOption
+	Year       int
+	Month      int
+	By         string
+	Query      string
+	RangeLabel string
+	StatsTotal string
+	StatsCount int
+	TopName    string
+	TopAmount  string
+	HasStats   bool
+	StatsByDay bool
+	MonthIsAll bool
+
 	SessionExpired bool
 }
 
@@ -46,15 +63,53 @@ func (s *Server) handleConcepts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	year, month, filter := s.resolveConceptPeriod(r)
+	by := resolveGranularity(r, month)
+
+	payments, err := s.repo.ListPaymentsByTenant(r.Context(), tenant.ID, filter)
+	if err != nil {
+		s.logger.Error("api: list payments for concept stats", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	currency := conceptStatsCurrency(payments)
+	totals := billing.ConceptTotals(payments)
+	buckets := billing.ConceptSeries(payments, filter.From, filter.To, by, s.loc)
+
 	view := conceptsView{
 		T:        t,
 		Title:    t.ConceptsPageTtl,
 		Active:   "concepts",
 		Error:    r.URL.Query().Get("error"),
 		Tenant:   tenant,
-		Redirect: "/concepts",
+		Redirect: "/concepts?" + conceptStatsQuery(year, month, by),
+
+		Bars:       conceptChartBars(buckets, by, t, currency),
+		Shares:     conceptShareRows(totals, t, currency),
+		Years:      s.conceptYearOptions(year),
+		Months:     conceptMonthOptions(t, month),
+		Year:       year,
+		Month:      month,
+		By:         string(by),
+		Query:      conceptStatsQuery(year, month, by),
+		RangeLabel: s.rangeLabel(filter),
+		StatsCount: livePaymentCount(payments),
+		StatsByDay: by == billing.ByDay,
+		MonthIsAll: month == 0,
 
 		SessionExpired: !tenant.HasValidSession(s.now()),
+	}
+
+	var grandCents int64
+	for _, total := range totals {
+		grandCents += total.Cents
+	}
+	view.StatsTotal = formatAmount(grandCents, currency)
+	view.HasStats = grandCents > 0
+	if len(view.Shares) > 0 {
+		view.TopName = view.Shares[0].Name
+		view.TopAmount = view.Shares[0].AmountDisplay
 	}
 
 	for _, concept := range concepts {

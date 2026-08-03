@@ -283,9 +283,21 @@ type uiStrings struct {
 	DeleteAccountWarn string
 	DeleteAccountBtn  string
 
-	NavConcepts      string
-	ConceptsPageTtl  string
-	ConceptsEmpty    string
+	NavConcepts     string
+	ConceptsPageTtl string
+	ConceptsEmpty   string
+
+	MonthNames       [12]string
+	IncomeByConcept  string
+	YearLabel        string
+	MonthLabel       string
+	AllMonthsOption  string
+	GroupByDay       string
+	GroupByMonth     string
+	ChargesCountLbl  string
+	TopConceptLabel  string
+	NoIncomeInPeriod string
+	ShareLabel       string
 	NewConceptButton string
 	NewConceptTitle  string
 	EditConceptTitle string
@@ -477,9 +489,22 @@ var translations = map[string]uiStrings{
 		AssignSellerTtl: "Asignar vendedor",
 		UnassignOption:  "— sin vendedor —",
 
-		NavConcepts:       "Conceptos",
-		ConceptsPageTtl:   "Conceptos de cobro",
-		ConceptsEmpty:     "Todavía no hay conceptos registrados. Da de alta uno para poder asociarlo a los pagos.",
+		NavConcepts:     "Conceptos",
+		ConceptsPageTtl: "Conceptos de cobro",
+		ConceptsEmpty:   "Todavía no hay conceptos registrados. Da de alta uno para poder asociarlo a los pagos.",
+
+		MonthNames: [12]string{"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+			"Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"},
+		IncomeByConcept:   "Ingresos por concepto",
+		YearLabel:         "Año",
+		MonthLabel:        "Mes",
+		AllMonthsOption:   "Todo el año",
+		GroupByDay:        "Por día",
+		GroupByMonth:      "Por mes",
+		ChargesCountLbl:   "Cobros",
+		TopConceptLabel:   "Concepto principal",
+		NoIncomeInPeriod:  "No hay ingresos registrados en este periodo.",
+		ShareLabel:        "Participación",
 		NewConceptButton:  "Nuevo concepto",
 		NewConceptTitle:   "Nuevo concepto",
 		EditConceptTitle:  "Editar concepto",
@@ -742,9 +767,22 @@ var translations = map[string]uiStrings{
 		AssignSellerTtl: "Assign seller",
 		UnassignOption:  "— no seller —",
 
-		NavConcepts:      "Concepts",
-		ConceptsPageTtl:  "Billing concepts",
-		ConceptsEmpty:    "No billing concepts registered yet. Create one to associate it with payments.",
+		NavConcepts:     "Concepts",
+		ConceptsPageTtl: "Billing concepts",
+		ConceptsEmpty:   "No billing concepts registered yet. Create one to associate it with payments.",
+
+		MonthNames: [12]string{"January", "February", "March", "April", "May", "June",
+			"July", "August", "September", "October", "November", "December"},
+		IncomeByConcept:  "Income by concept",
+		YearLabel:        "Year",
+		MonthLabel:       "Month",
+		AllMonthsOption:  "Whole year",
+		GroupByDay:       "By day",
+		GroupByMonth:     "By month",
+		ChargesCountLbl:  "Charges",
+		TopConceptLabel:  "Top concept",
+		NoIncomeInPeriod: "No income recorded in this period.",
+		ShareLabel:       "Share",
 		NewConceptButton: "New concept",
 		NewConceptTitle:  "New concept",
 		EditConceptTitle: "Edit concept",
