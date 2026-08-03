@@ -41,7 +41,13 @@ type Repository interface {
 	VoidPayment(ctx context.Context, paymentID int64, voidedAt time.Time, reason string) error
 	DeletePayment(ctx context.Context, tenantID, paymentID int64) error
 	ListPaymentsBySubscription(ctx context.Context, subscriptionID int64) ([]Payment, error)
-	ListPaymentsByTenant(ctx context.Context, tenantID int64) ([]TenantPayment, error)
+	ListPaymentsByTenant(ctx context.Context, tenantID int64, filter PaymentFilter) ([]TenantPayment, error)
+}
+
+type PaymentFilter struct {
+	From      time.Time
+	To        time.Time
+	AccountID int64
 }
 
 type TenantPayment struct {

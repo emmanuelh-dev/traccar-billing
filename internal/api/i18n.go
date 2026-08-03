@@ -151,6 +151,18 @@ type uiStrings struct {
 	DevicesWord       string
 	EachWord          string
 	ColBreakdown      string
+
+	FilterPeriod   string
+	PeriodCurrent  string
+	PeriodPrevious string
+	PeriodAll      string
+	PeriodRange    string
+	FromLabel      string
+	ToLabel        string
+	ApplyFilter    string
+	AllAccounts    string
+	VoidedCountFmt string
+	NoPaymentsHere string
 }
 
 var translations = map[string]uiStrings{
@@ -274,6 +286,18 @@ var translations = map[string]uiStrings{
 		DevicesWord:       "dispositivos",
 		EachWord:          "c/u",
 		ColBreakdown:      "Concepto",
+
+		FilterPeriod:   "Periodo",
+		PeriodCurrent:  "Mes actual",
+		PeriodPrevious: "Mes anterior",
+		PeriodAll:      "Todo",
+		PeriodRange:    "Rango",
+		FromLabel:      "Desde",
+		ToLabel:        "Hasta",
+		ApplyFilter:    "Filtrar",
+		AllAccounts:    "Todas las cuentas",
+		VoidedCountFmt: "%d anulados, no suman al total",
+		NoPaymentsHere: "No hay pagos en este periodo.",
 	},
 	"en": {
 		Lang:               "en",
@@ -395,6 +419,18 @@ var translations = map[string]uiStrings{
 		DevicesWord:       "devices",
 		EachWord:          "each",
 		ColBreakdown:      "Covers",
+
+		FilterPeriod:   "Period",
+		PeriodCurrent:  "This month",
+		PeriodPrevious: "Last month",
+		PeriodAll:      "All",
+		PeriodRange:    "Range",
+		FromLabel:      "From",
+		ToLabel:        "To",
+		ApplyFilter:    "Filter",
+		AllAccounts:    "All accounts",
+		VoidedCountFmt: "%d voided, not counted in the total",
+		NoPaymentsHere: "No payments in this period.",
 	},
 }
 
@@ -407,6 +443,10 @@ func (t uiStrings) daysLeftLabel(days int) string {
 		return fmt.Sprintf(t.DaysOverdueFmt, -days)
 	}
 	return fmt.Sprintf(t.DaysLeftFmt, days)
+}
+
+func (t uiStrings) voidedCountLabel(n int) string {
+	return fmt.Sprintf(t.VoidedCountFmt, n)
 }
 
 func (t uiStrings) statusLabel(status billing.SubscriptionStatus) string {

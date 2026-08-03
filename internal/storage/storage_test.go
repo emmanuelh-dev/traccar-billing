@@ -300,7 +300,7 @@ func TestPaymentEditAndVoid(t *testing.T) {
 		t.Errorf("RecordPayment() lost detail: %+v", created)
 	}
 
-	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID)
+	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
 	if err != nil {
 		t.Fatalf("ListPaymentsByTenant() error = %v", err)
 	}
@@ -365,11 +365,60 @@ func TestWithTxRollsBack(t *testing.T) {
 		t.Fatalf("WithTx() error = %v, want %v", err, wantErr)
 	}
 
-	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID)
+	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
 	if err != nil {
 		t.Fatalf("ListPaymentsByTenant() error = %v", err)
 	}
 	if len(listed) != 0 {
 		t.Fatalf("WithTx() rollback left %d payments", len(listed))
+	}
+}
+
+func TestListPaymentsByTenantFiltersByPeriod(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	tenant, _, sub := seedSubscription(t, repo)
+
+	july := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
+	august := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	for _, paidAt := range []time.Time{july, august} {
+		if _, err := repo.RecordPayment(ctx, billing.Payment{
+			SubscriptionID: sub.ID,
+			AmountCents:    10000,
+			Currency:       "MXN",
+			PaidAt:         paidAt,
+		}); err != nil {
+			t.Fatalf("RecordPayment() error = %v", err)
+		}
+	}
+
+	augustOnly, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{
+		From: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(augustOnly) != 1 {
+		t.Fatalf("august filter returned %d payments, want 1", len(augustOnly))
+	}
+	if !augustOnly[0].PaidAt.Equal(august) {
+		t.Errorf("august filter returned payment dated %v, want %v", augustOnly[0].PaidAt, august)
+	}
+
+	all, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("unfiltered returned %d payments, want 2", len(all))
+	}
+
+	none, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{AccountID: 9999})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("unknown account filter returned %d payments, want 0", len(none))
 	}
 }

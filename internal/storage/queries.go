@@ -443,14 +443,29 @@ func (r *sqlRepository) ListPaymentsBySubscription(ctx context.Context, subscrip
 	return payments, rows.Err()
 }
 
-func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64) ([]billing.TenantPayment, error) {
-	rows, err := r.q().QueryContext(ctx,
-		`SELECT p.id, p.subscription_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name
+func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.TenantPayment, error) {
+	query := `SELECT p.id, p.subscription_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name
 		 FROM payments p
 		 JOIN subscriptions s ON s.id = p.subscription_id
 		 JOIN accounts a ON a.id = s.account_id
-		 WHERE a.tenant_id = ?
-		 ORDER BY p.paid_at DESC, p.id DESC`, tenantID)
+		 WHERE a.tenant_id = ?`
+	args := []any{tenantID}
+
+	if !filter.From.IsZero() {
+		query += ` AND p.paid_at >= ?`
+		args = append(args, filter.From.UTC())
+	}
+	if !filter.To.IsZero() {
+		query += ` AND p.paid_at < ?`
+		args = append(args, filter.To.UTC())
+	}
+	if filter.AccountID > 0 {
+		query += ` AND a.id = ?`
+		args = append(args, filter.AccountID)
+	}
+	query += ` ORDER BY p.paid_at DESC, p.id DESC`
+
+	rows, err := r.q().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("storage: list tenant payments: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
@@ -51,14 +52,65 @@ type paymentsView struct {
 	Total    string
 	Redirect string
 
+	Period        string
+	FromValue     string
+	ToValue       string
+	FilterAccount int64
+	RangeLabel    string
+	VoidedCount   int
+
 	SessionExpired bool
+}
+
+// resolvePeriod turns the ?period= shortcut into a half-open [from, to)
+// range in the tenant's timezone. "range" reads the explicit dates and
+// anything unrecognised means no filter at all.
+func (s *Server) resolvePeriod(r *http.Request) (string, billing.PaymentFilter) {
+	now := s.now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, s.loc)
+
+	period := r.URL.Query().Get("period")
+	switch period {
+	case "current":
+		return period, billing.PaymentFilter{From: monthStart, To: monthStart.AddDate(0, 1, 0)}
+	case "previous":
+		return period, billing.PaymentFilter{From: monthStart.AddDate(0, -1, 0), To: monthStart}
+	case "range":
+		var filter billing.PaymentFilter
+		if from, err := time.ParseInLocation(dueDateFormat, r.URL.Query().Get("from"), s.loc); err == nil {
+			filter.From = from
+		}
+		if to, err := time.ParseInLocation(dueDateFormat, r.URL.Query().Get("to"), s.loc); err == nil {
+			filter.To = to.AddDate(0, 0, 1)
+		}
+		return period, filter
+	default:
+		return "all", billing.PaymentFilter{}
+	}
+}
+
+func (s *Server) rangeLabel(filter billing.PaymentFilter) string {
+	if filter.From.IsZero() && filter.To.IsZero() {
+		return ""
+	}
+	from, to := "…", "…"
+	if !filter.From.IsZero() {
+		from = filter.From.In(s.loc).Format(dueDateFormat)
+	}
+	if !filter.To.IsZero() {
+		to = filter.To.In(s.loc).AddDate(0, 0, -1).Format(dueDateFormat)
+	}
+	return from + " → " + to
 }
 
 func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 	tenant := tenantFromContext(r.Context())
 	t := stringsFor(resolveLang(w, r))
 
-	payments, err := s.repo.ListPaymentsByTenant(r.Context(), tenant.ID)
+	period, filter := s.resolvePeriod(r)
+	filter.AccountID, _ = strconv.ParseInt(r.URL.Query().Get("account"), 10, 64)
+
+	payments, err := s.repo.ListPaymentsByTenant(r.Context(), tenant.ID, filter)
 	if err != nil {
 		s.logger.Error("api: list tenant payments", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -80,7 +132,13 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		Tenant:   tenant,
 		Accounts: accounts,
 		Today:    s.now().Format(dueDateFormat),
-		Redirect: "/payments",
+		Redirect: r.URL.RequestURI(),
+
+		Period:        period,
+		FromValue:     r.URL.Query().Get("from"),
+		ToValue:       r.URL.Query().Get("to"),
+		FilterAccount: filter.AccountID,
+		RangeLabel:    s.rangeLabel(filter),
 
 		SessionExpired: !tenant.HasValidSession(time.Now()),
 	}
@@ -88,7 +146,9 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 	var totalCents int64
 	currency := defaultCurrency
 	for _, p := range payments {
-		if !p.Voided() {
+		if p.Voided() {
+			view.VoidedCount++
+		} else {
 			totalCents += p.AmountCents
 			currency = p.Currency
 		}

@@ -176,7 +176,7 @@ func (r *fakeRepo) VoidPayment(ctx context.Context, paymentID int64, voidedAt ti
 	return errors.New("not implemented")
 }
 
-func (r *fakeRepo) ListPaymentsByTenant(ctx context.Context, tenantID int64) ([]billing.TenantPayment, error) {
+func (r *fakeRepo) ListPaymentsByTenant(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.TenantPayment, error) {
 	return nil, errors.New("not implemented")
 }
 

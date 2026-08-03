@@ -21,6 +21,29 @@
 
   {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
 
+  <div class="filter-bar">
+    <div class="filter-chips">
+      <a href="/payments?period=current" {{if eq .Period "current"}}class="active"{{end}}>{{.T.PeriodCurrent}}</a>
+      <a href="/payments?period=previous" {{if eq .Period "previous"}}class="active"{{end}}>{{.T.PeriodPrevious}}</a>
+      <a href="/payments?period=all" {{if eq .Period "all"}}class="active"{{end}}>{{.T.PeriodAll}}</a>
+    </div>
+
+    <form class="filter-form" method="get" action="/payments">
+      <input type="hidden" name="period" value="range">
+      <label for="filter-from">{{.T.FromLabel}}</label>
+      <input id="filter-from" name="from" type="date" value="{{.FromValue}}">
+      <label for="filter-to">{{.T.ToLabel}}</label>
+      <input id="filter-to" name="to" type="date" value="{{.ToValue}}">
+      <select name="account">
+        <option value="0">{{.T.AllAccounts}}</option>
+        {{range .Accounts}}
+        <option value="{{.ID}}" {{if eq .ID $.FilterAccount}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+      <button type="submit">{{.T.ApplyFilter}}</button>
+    </form>
+  </div>
+
   <div class="stat-row">
     <div class="stat">
       <div class="value">{{len .Rows}}</div>
@@ -28,8 +51,14 @@
     </div>
     <div class="stat">
       <div class="value">{{.Total}}</div>
-      <div class="label">{{.T.TotalCollected}}</div>
+      <div class="label">{{.T.TotalCollected}}{{if .RangeLabel}} · {{.RangeLabel}}{{end}}</div>
     </div>
+    {{if .VoidedCount}}
+    <div class="stat">
+      <div class="value">{{.VoidedCount}}</div>
+      <div class="label">{{.T.VoidedLabel}}</div>
+    </div>
+    {{end}}
   </div>
 
   {{if .Rows}}
@@ -90,7 +119,7 @@
   </table>
   </div>
   {{else}}
-  <div class="empty-state">{{.T.PaymentsEmpty}}</div>
+  <div class="empty-state">{{if eq .Period "all"}}{{.T.PaymentsEmpty}}{{else}}{{.T.NoPaymentsHere}}{{end}}</div>
   {{end}}
 </div>
 </main>
