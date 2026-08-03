@@ -29,7 +29,7 @@
       <a href="/remissions?status=pending" {{if eq .Status "pending"}}class="active"{{end}}>{{.T.RemissionPendingLbl}}</a>
       <a href="/remissions?status=paid" {{if eq .Status "paid"}}class="active"{{end}}>{{.T.RemissionPaidLabel}}</a>
       <a href="/remissions?status=canceled" {{if eq .Status "canceled"}}class="active"{{end}}>{{.T.RemissionCanceledLbl}}</a>
-      <a href="/remissions?status=all" {{if eq .Status "all"}}class="active"{{end}}>{{.T.FilterAll}}</a>
+      <a href="/remissions?status=all" {{if eq .Status "all"}}class="active"{{end}}>{{.T.PeriodAll}}</a>
     </div>
   </div>
 
@@ -44,46 +44,54 @@
     </div>
     <div class="stat">
       <div class="value">{{.Total}}</div>
-      <div class="label">{{.T.ColMonthly}}</div>
+      <div class="label">{{.T.TotalsLabel}}</div>
     </div>
   </div>
 
   {{if .Rows}}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>{{.T.RemissionAccountCol}}</th>
-          <th>{{.T.RemissionPeriodCol}}</th>
-          <th class="num">{{.T.RemissionDevicesCol}}</th>
-          <th class="num">{{.T.RemissionAmountCol}}</th>
-          <th>{{.T.RemissionStatusCol}}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {{range .Rows}}
-        <tr>
-          <td>{{.AccountName}}</td>
-          <td>{{.PeriodDisplay}}</td>
-          <td class="num">{{.Remission.DeviceCount}}</td>
-          <td class="num">{{.AmountDisplay}}</td>
-          <td><span class="pill {{.Remission.Status}}">{{.StatusLabel}}</span></td>
-          <td class="row-actions">
-            {{if .Pending}}
-            <form method="post" action="/remissions/{{.Remission.ID}}/pay">
-              <button class="primary" type="submit">{{$.T.RemissionMarkPaidBtn}}</button>
-            </form>
-            <form method="post" action="/remissions/{{.Remission.ID}}/cancel">
-              <button type="submit">{{$.T.RemissionCancelBtn}}</button>
-            </form>
-            {{end}}
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
+  <table class="accounts">
+    <thead>
+      <tr>
+        <th>{{.T.RemissionAccountCol}}</th>
+        <th>{{.T.RemissionPeriodCol}}</th>
+        <th class="num">{{.T.RemissionDevicesCol}}</th>
+        <th class="num">{{.T.RemissionAmountCol}}</th>
+        <th>{{.T.RemissionStatusCol}}</th>
+        <th class="actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <td>{{.AccountName}}</td>
+        <td class="muted">{{.PeriodDisplay}}</td>
+        <td class="num">{{.Remission.DeviceCount}}</td>
+        <td class="num">{{.AmountDisplay}}</td>
+        <td><span class="badge badge-{{.Remission.Status}}">{{.StatusLabel}}</span></td>
+        <td class="row-actions">
+          {{if .Pending}}
+          <form method="post" action="/remissions/{{.Remission.ID}}/pay">
+            <button class="primary" type="submit">{{$.T.RemissionMarkPaidBtn}}</button>
+          </form>
+          <form method="post" action="/remissions/{{.Remission.ID}}/cancel">
+            <button class="danger-link" type="submit">{{$.T.RemissionCancelBtn}}</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>{{.T.TotalsLabel}}</td>
+        <td class="muted">{{len .Rows}}</td>
+        <td></td>
+        <td class="num">{{.Total}}</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
   {{else}}
   <p class="empty-state">{{.T.RemissionEmpty}}</p>
   {{end}}

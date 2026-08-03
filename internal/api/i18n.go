@@ -261,7 +261,6 @@ type uiStrings struct {
 	RemissionPendingSum  string
 	RemissionUnbilledFmt string
 	RemissionIntro       string
-	FilterAll            string
 
 	ConnectionSection string
 	TokenIntro        string
@@ -544,7 +543,6 @@ var translations = map[string]uiStrings{
 		RemissionPendingSum:  "Por cobrar",
 		RemissionUnbilledFmt: "%d cuenta(s) activa(s) sin suscripción: no se les generó remisión.",
 		RemissionIntro:       "Se generan al inicio de cada periodo con los equipos que tenía la cuenta ese día. El importe queda congelado.",
-		FilterAll:            "Todas",
 
 		ConnectionSection: "Conexión con Traccar",
 		TokenIntro:        "La cookie de tu sesión caduca. Sin un token, el sistema deja de poder suspender morosos en cuanto eso pasa, y no avisa.",
@@ -811,7 +809,6 @@ var translations = map[string]uiStrings{
 		RemissionPendingSum:  "Outstanding",
 		RemissionUnbilledFmt: "%d active account(s) with no subscription: no remission was issued for them.",
 		RemissionIntro:       "Issued at the start of each period from the devices the account had that day. The amount is frozen.",
-		FilterAll:            "All",
 
 		ConnectionSection: "Traccar connection",
 		TokenIntro:        "Your login cookie expires. Without a token, the system stops being able to suspend overdue accounts the moment it does, and says nothing.",
