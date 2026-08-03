@@ -388,3 +388,31 @@ func TestRenderExpenses(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderNavDrawer(t *testing.T) {
+	view := dashboardView{
+		T:      stringsFor("es"),
+		Title:  "Panel",
+		Active: "payments",
+		Tenant: billing.Tenant{Name: "gps.example.com"},
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "nav", view); err != nil {
+		t.Fatalf("render nav: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{
+		`id="nav-toggle"`,
+		`class="nav-scrim"`,
+		`class="mobile-bar"`,
+		`for="nav-toggle"`,
+		`class="logout-form nav-logout"`,
+		`gps.example.com`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nav output missing %q", want)
+		}
+	}
+}

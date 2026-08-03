@@ -17,8 +17,19 @@
 </html>
 {{end}}
 {{define "nav"}}
+<input type="checkbox" id="nav-toggle" class="nav-toggle" hidden>
+<label class="nav-scrim" for="nav-toggle" aria-hidden="true"></label>
+
+<div class="mobile-bar">
+  <label class="nav-open" for="nav-toggle" title="{{.T.MenuButton}}" aria-label="{{.T.MenuButton}}">{{template "icon_menu"}}</label>
+  <span class="mobile-bar-title">{{.Tenant.Name}}</span>
+</div>
+
 <aside class="app-nav">
-  <div class="app-nav-brand">traccar-billing</div>
+  <div class="app-nav-brand">
+    <span>traccar-billing</span>
+    <label class="nav-close" for="nav-toggle" title="{{.T.CloseButton}}" aria-label="{{.T.CloseButton}}">{{template "icon_close"}}</label>
+  </div>
   <nav>
     <a href="/dashboard" {{if eq .Active "dashboard"}}class="active"{{end}}>{{.T.NavDashboard}}</a>
     <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>
@@ -27,6 +38,9 @@
     <a href="/concepts" {{if eq .Active "concepts"}}class="active"{{end}}>{{.T.NavConcepts}}</a>
     <a href="/settings" {{if eq .Active "settings"}}class="active"{{end}}>{{.T.NavSettings}}</a>
   </nav>
+  <form class="logout-form nav-logout" method="post" action="/logout">
+    <button type="submit">{{.T.LogoutButton}}</button>
+  </form>
 </aside>
 {{end}}
 

@@ -146,6 +146,8 @@ type uiStrings struct {
 	DevicesLabel       string
 	UnitPriceLabel     string
 	TotalLabel         string
+	MenuButton         string
+	CloseButton        string
 	SortLabel          string
 	TotalsLabel        string
 	QuantityLabel      string
@@ -341,6 +343,8 @@ var translations = map[string]uiStrings{
 		DevicesLabel:       "Dispositivos a cobrar",
 		UnitPriceLabel:     "Precio por dispositivo",
 		TotalLabel:         "Total",
+		MenuButton:         "Menú",
+		CloseButton:        "Cerrar",
 		SortLabel:          "Ordenar por",
 		TotalsLabel:        "Totales",
 		QuantityLabel:      "Cant.",
@@ -533,6 +537,8 @@ var translations = map[string]uiStrings{
 		DevicesLabel:       "Devices to charge",
 		UnitPriceLabel:     "Price per device",
 		TotalLabel:         "Total",
+		MenuButton:         "Menu",
+		CloseButton:        "Close",
 		SortLabel:          "Sort by",
 		TotalsLabel:        "Totals",
 		QuantityLabel:      "Qty",

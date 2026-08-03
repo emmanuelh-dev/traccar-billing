@@ -203,9 +203,29 @@ button.primary:active {
 }
 
 .app-nav-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 14px;
   font-weight: 700;
   padding: 0 10px 16px;
+}
+
+/* The drawer, its scrim and its open/close handles only exist on narrow
+   screens; on desktop the sidebar is always there and they stay hidden. */
+.mobile-bar,
+.nav-scrim,
+.nav-open,
+.nav-close,
+.nav-logout {
+  display: none;
+}
+
+.nav-open svg,
+.nav-close svg {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .app-nav nav {
@@ -243,20 +263,144 @@ button.primary:active {
   .app-shell {
     flex-direction: column;
   }
-  .app-nav {
-    position: static;
-    height: auto;
-    overflow-y: visible;
-    width: auto;
-    flex: 0 0 auto;
-    border-right: none;
+
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 10px 12px;
+    background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
-    padding: 12px;
   }
-  .app-nav nav {
-    flex-direction: row;
+
+  /* Lifted over the sticky bar, which would otherwise cover it. */
+  .lang-switch {
+    top: 11px;
+    right: 8px;
+    z-index: 31;
+  }
+
+  .mobile-bar-title {
+    font-size: 15px;
+    margin-right: 60px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-open,
+  .nav-close {
+    display: block;
+    padding: 4px;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  /* Off-canvas until the toggle is checked, so the menu costs no script. */
+  .app-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 50;
+    width: 240px;
+    max-width: 82vw;
+    flex: none;
+    padding: 16px 12px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  .nav-toggle:checked ~ .app-nav {
+    transform: none;
+  }
+
+  .nav-toggle:checked ~ .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .app-nav nav a {
+    padding: 11px 10px;
+    font-size: 15px;
+  }
+
+  .nav-logout {
+    display: block;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .nav-logout button {
+    width: 100%;
+    padding: 9px;
+  }
+
+  /* The top bar already names the tenant and the drawer carries the logout,
+     so the page header keeps only its title and its own actions. */
+  .dashboard-header .tenant-url,
+  .dashboard-header .logout-form {
+    display: none;
+  }
+
+  .dashboard-header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-actions .primary {
+    flex: 1 0 100%;
+    order: -1;
+    padding: 11px;
+  }
+
+  .sort-form {
+    flex: 1 1 auto;
+  }
+
+  .sort-form select {
+    width: 100%;
+  }
+
+  .view-switch {
+    flex: 1 1 auto;
+  }
+
+  .view-switch .switch-option {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .filter-form,
+  .filter-bar {
+    width: 100%;
     flex-wrap: wrap;
   }
+
+  .filter-form select,
+  .filter-form input[type="date"] {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+
+  .stat-row .stat {
+    flex: 1 1 calc(50% - 6px);
+  }
+
   th.actions,
   td.row-actions {
     position: static;
