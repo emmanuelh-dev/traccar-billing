@@ -42,22 +42,22 @@
     <thead>
       <tr>
         <th>{{.T.ColAccount}}</th>
-        <th>{{.T.ColEmail}}</th>
-        <th class="num">{{.T.ColDevices}}</th>
         <th>{{.T.SellerLabel}}</th>
+        <th class="num">{{.T.ColDevices}}</th>
+        <th class="num">{{.T.ColUnitPrice}}</th>
         <th class="num">{{.T.ColAmount}}</th>
         <th>{{.T.ColStatus}}</th>
         <th>{{.T.ColNextDue}}</th>
-        <th>{{.T.ColDaysLeft}}</th>
         <th class="actions"></th>
       </tr>
     </thead>
     <tbody>
       {{range .Rows}}
       <tr>
-        <td>{{.Account.Name}}</td>
-        <td class="muted">{{.Account.Email}}</td>
-        <td class="num">{{.Account.DeviceCount}}</td>
+        <td class="cell-stack">
+          <span>{{.Account.Name}}</span>
+          <small>{{.Account.Email}}</small>
+        </td>
         <td>
           <button class="link" type="button"
             data-modal="assign-seller"
@@ -65,6 +65,8 @@
             data-name="{{.Account.Name}}"
             data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
         </td>
+        <td class="num">{{.Account.DeviceCount}}</td>
+        <td class="num muted">{{.UnitPriceLabel}}</td>
         <td class="num">{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</td>
         <td>
           {{if .HasSubscription}}
@@ -73,8 +75,12 @@
             <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
           {{end}}
         </td>
-        <td>{{if .HasSubscription}}{{.DefaultDueDate}}{{end}}</td>
-        <td class="muted">{{if .HasSubscription}}{{.DaysLeftLabel}}{{end}}</td>
+        <td class="cell-stack">
+          {{if .HasSubscription}}
+          <span>{{.DefaultDueDate}}</span>
+          <small>{{.DaysLeftLabel}}</small>
+          {{end}}
+        </td>
         <td class="row-actions">
           <button type="button"
             data-modal="configure"

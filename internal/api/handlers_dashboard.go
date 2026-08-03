@@ -23,6 +23,7 @@ type accountRow struct {
 	AmountDisplay   string
 	AmountValue     string
 	UnitPriceValue  string
+	UnitPriceLabel  string
 	FlatFeeValue    string
 	ChargeValue     string
 	MinDevices      int
@@ -123,6 +124,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			row.AmountDisplay = formatAmount(chargeCents, sub.Currency)
 			row.AmountValue = centsValue(sub.AmountCents)
 			row.UnitPriceValue = centsValue(sub.UnitPriceCents)
+			if sub.PerDevice() {
+				row.UnitPriceLabel = formatAmount(sub.UnitPriceCents, sub.Currency)
+			} else {
+				row.UnitPriceLabel = t.FixedAmountLabel
+			}
 			row.FlatFeeValue = centsValue(sub.FlatFeeCents)
 			row.ChargeValue = centsValue(chargeCents)
 			row.MinDevices = sub.MinDevices

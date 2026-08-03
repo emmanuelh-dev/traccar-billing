@@ -163,6 +163,7 @@ type uiStrings struct {
 	AllAccounts    string
 	VoidedCountFmt string
 	NoPaymentsHere string
+	ColUnitPrice   string
 }
 
 var translations = map[string]uiStrings{
@@ -298,6 +299,7 @@ var translations = map[string]uiStrings{
 		AllAccounts:    "Todas las cuentas",
 		VoidedCountFmt: "%d anulados, no suman al total",
 		NoPaymentsHere: "No hay pagos en este periodo.",
+		ColUnitPrice:   "Cobro por equipo",
 	},
 	"en": {
 		Lang:               "en",
@@ -431,6 +433,7 @@ var translations = map[string]uiStrings{
 		AllAccounts:    "All accounts",
 		VoidedCountFmt: "%d voided, not counted in the total",
 		NoPaymentsHere: "No payments in this period.",
+		ColUnitPrice:   "Price per unit",
 	},
 }
 

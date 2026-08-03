@@ -729,3 +729,17 @@ td.row-actions button.danger-link:hover {
 .filter-form button:hover {
   border-color: var(--color-text-muted);
 }
+
+td.cell-stack {
+  line-height: 1.35;
+}
+
+td.cell-stack span {
+  display: block;
+}
+
+td.cell-stack small {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}

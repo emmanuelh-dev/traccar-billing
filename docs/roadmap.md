@@ -78,6 +78,31 @@ Lo que hace que registrar un pago deje de ser adivinar.
 
 ---
 
+## Precio por tipo de equipo (cámaras)
+
+Pendiente a propósito: hoy no hay clientes de cámaras, así que se difiere
+hasta que exista el caso real y se sepa cómo se van a cobrar.
+
+Lo que implicaría, para no tener que redescubrirlo:
+
+- [ ] **Traer el tipo desde Traccar.** El objeto `device` de Traccar expone
+      `category` y `model`; el cliente de `internal/traccar` hoy solo lee
+      `id`, `name`, `uniqueId` y `status` (`internal/traccar/dto.go`). Hay
+      que agregar esos dos campos y propagarlos a `billing.TraccarDevice`.
+- [ ] **Contar por tipo, no en bloque.** `accounts.device_count` es un solo
+      entero. Haría falta una tabla `account_devices` o un desglose
+      `{tipo: cantidad}` que el scheduler recalcule en cada sync.
+- [ ] **Lista de precios por tipo.** `subscriptions.unit_price_cents` es un
+      precio único. Se convertiría en una tabla `subscription_prices`
+      (tipo → precio), con el precio único como default para lo que no
+      tenga tarifa propia.
+- [ ] **Desglose en el cobro.** El modal ya muestra `10 dispositivos × 250`;
+      pasaría a varias líneas, una por tipo, sumando el total.
+
+Ojo: `category` en Traccar es un campo libre elegido por quien da de alta el
+dispositivo, no un catálogo cerrado. Antes de cobrar por él hay que decidir
+si se confía en ese valor o se mapea a tipos propios en el billing.
+
 ## Fase 2 — Remisiones automáticas
 
 El corazón de lo que falta: que el sistema genere solo lo que hay que cobrar.
