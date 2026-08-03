@@ -1,0 +1,45 @@
+{{define "payments"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.PaymentsPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <form class="logout-form" method="post" action="/logout">
+      <button type="submit">{{.T.LogoutButton}}</button>
+    </form>
+  </div>
+
+  {{if .Rows}}
+  <table class="accounts">
+    <thead>
+      <tr>
+        <th>{{.T.PaymentsColDate}}</th>
+        <th>{{.T.PaymentsColAccnt}}</th>
+        <th>{{.T.PaymentsColAmnt}}</th>
+        <th>{{.T.PaymentsColNote}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <td>{{.DateDisplay}}</td>
+        <td>{{.AccountName}}</td>
+        <td class="num">{{.AmountDisplay}}</td>
+        <td>{{.Note}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty-state">{{.T.PaymentsEmpty}}</div>
+  {{end}}
+</div>
+</main>
+</div>
+{{template "footer" .}}
+{{end}}

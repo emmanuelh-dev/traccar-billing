@@ -1,0 +1,1 @@
+ALTER TABLE tenants ADD COLUMN admin_traccar_user_id INTEGER NOT NULL DEFAULT 0;

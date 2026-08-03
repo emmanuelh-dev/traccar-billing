@@ -1,0 +1,523 @@
+:root {
+  --color-bg: #fafaf9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2f2f0;
+  --color-border: #e2e2df;
+  --color-text: #1c1c1b;
+  --color-text-muted: #6b6b68;
+  --color-accent: #0f6e63;
+  --color-accent-contrast: #ffffff;
+  --color-danger: #a02f27;
+  --color-success: #1a7f4e;
+  --color-warning: #8a6200;
+  --radius: 10px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121212;
+    --color-surface: #1a1a1a;
+    --color-surface-2: #202020;
+    --color-border: #2e2e2c;
+    --color-text: #ededec;
+    --color-text-muted: #a3a3a0;
+    --color-accent: #2dd4bf;
+    --color-accent-contrast: #06201c;
+    --color-danger: #ff6b60;
+    --color-success: #4ade80;
+    --color-warning: #facc15;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.lang-switch {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 4px;
+  font-size: 12px;
+  z-index: 10;
+}
+
+.lang-switch a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  padding: 4px 7px;
+  border-radius: 6px;
+}
+
+.lang-switch a:hover {
+  color: var(--color-text);
+}
+
+.lang-switch a.active {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+/* Login */
+
+.login-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 32px;
+}
+
+.login-card h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.login-card .subtitle {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field input {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.field .helper {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.field .error {
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
+.form-error {
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+button.primary {
+  width: 100%;
+  font: inherit;
+  font-weight: 600;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: none;
+  border-radius: 8px;
+  padding: 11px 16px;
+  cursor: pointer;
+}
+
+button.primary:hover {
+  filter: brightness(1.05);
+}
+
+button.primary:active {
+  transform: scale(0.98);
+}
+
+.login-note {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* App shell (sidebar + content) */
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+}
+
+.app-nav {
+  width: 200px;
+  flex: 0 0 200px;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 20px 12px;
+}
+
+.app-nav-brand {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 10px 16px;
+}
+
+.app-nav nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-nav nav a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.app-nav nav a:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
+.app-nav nav a.active {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    flex-direction: column;
+  }
+  .app-nav {
+    width: auto;
+    flex: 0 0 auto;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px;
+  }
+  .app-nav nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Dashboard */
+
+.dashboard {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-header h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.dashboard-header .tenant-url {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.logout-form button {
+  font: inherit;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.logout-form button:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.stat {
+  background: var(--color-surface);
+  padding: 16px 20px;
+}
+
+.stat .value {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat .label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+table.accounts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+table.accounts th {
+  text-align: left;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+table.accounts td {
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+table.accounts tr:last-child td {
+  border-bottom: none;
+}
+
+table.accounts td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+td.row-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+details.configure {
+  display: inline-block;
+  position: relative;
+}
+
+details.configure summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+details.configure summary::-webkit-details-marker {
+  display: none;
+}
+
+details.configure summary:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+details.configure[open] summary {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
+.configure-form {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  width: 240px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  text-align: left;
+}
+
+.configure-form .field {
+  margin-bottom: 12px;
+}
+
+.configure-form input,
+.configure-form select {
+  width: 100%;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.configure-form button.primary {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+details.payments {
+  margin-left: 8px;
+}
+
+.payments-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  width: 320px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  text-align: left;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+table.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.payments-table th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+table.payments-table td {
+  padding: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+table.payments-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.payments-table tr:last-child td {
+  border-bottom: none;
+}
+
+.payments-empty {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 4px 0;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.badge-active {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+}
+
+.badge-overdue {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}
+
+.badge-suspended,
+.badge-canceled {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+.pay-form {
+  display: inline-block;
+  margin-left: 8px;
+}
+
+.pay-form button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.pay-form button:active {
+  transform: scale(0.97);
+}
+
+.empty-state {
+  padding: 48px 12px;
+  text-align: center;
+  color: var(--color-text-muted);
+}

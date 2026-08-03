@@ -1,0 +1,31 @@
+{{define "login"}}
+{{template "header" .}}
+<div class="login-page">
+  <div class="login-card">
+    <h1>traccar-billing</h1>
+    <p class="subtitle">{{.T.LoginSubtitle}}</p>
+
+    {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+    <form method="post" action="/login">
+      <div class="field">
+        <label for="base_url">{{.T.BaseURLLabel}}</label>
+        <input id="base_url" name="base_url" type="url" placeholder="{{.T.BaseURLPlaceholder}}" value="{{.BaseURL}}" required autofocus>
+        <span class="helper">{{.T.BaseURLHelper}}</span>
+      </div>
+      <div class="field">
+        <label for="email">{{.T.EmailLabel}}</label>
+        <input id="email" name="email" type="email" value="{{.Email}}" required>
+      </div>
+      <div class="field">
+        <label for="password">{{.T.PasswordLabel}}</label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <button class="primary" type="submit">{{.T.SignInButton}}</button>
+    </form>
+
+    <p class="login-note">{{.T.LoginNote}}</p>
+  </div>
+</div>
+{{template "footer" .}}
+{{end}}

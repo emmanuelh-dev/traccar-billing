@@ -1,0 +1,27 @@
+{{define "header"}}<!doctype html>
+<html lang="{{.T.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · traccar-billing</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="lang-switch">
+  <a href="?lang=es"{{if eq .T.Lang "es"}} class="active"{{end}}>ES</a>
+  <a href="?lang=en"{{if eq .T.Lang "en"}} class="active"{{end}}>EN</a>
+</div>
+{{end}}
+{{define "footer"}}
+</body>
+</html>
+{{end}}
+{{define "nav"}}
+<aside class="app-nav">
+  <div class="app-nav-brand">traccar-billing</div>
+  <nav>
+    <a href="/dashboard" {{if eq .Active "dashboard"}}class="active"{{end}}>{{.T.NavDashboard}}</a>
+    <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>
+  </nav>
+</aside>
+{{end}}

@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS tenants;

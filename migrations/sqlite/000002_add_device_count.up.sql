@@ -1,0 +1,1 @@
+ALTER TABLE accounts ADD COLUMN device_count INTEGER NOT NULL DEFAULT 0;

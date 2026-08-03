@@ -1,0 +1,7 @@
+/traccar-billing
+/bin/
+.env
+.env.local
+*.db
+*.db-journal
+.DS_Store
