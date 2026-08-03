@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -59,6 +60,9 @@ type paymentsView struct {
 	NetTotal       string
 	ShowNet        bool
 	Redirect       string
+	Sort           string
+	Sorts          []sortOption
+	AccountTotals  []groupTotal
 
 	Period        string
 	FromValue     string
@@ -159,6 +163,8 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sortKey := resolveChoice(w, r, paymentSortCookieName, paymentSorts, "date")
+
 	view := paymentsView{
 		T:        t,
 		Title:    t.PaymentsPageTtl,
@@ -169,6 +175,8 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		Concepts: conceptOpts,
 		Today:    s.now().Format(dueDateFormat),
 		Redirect: r.URL.RequestURI(),
+		Sort:     sortKey,
+		Sorts:    paymentSortOptions(t, sortKey),
 
 		Period:        period,
 		FromValue:     r.URL.Query().Get("from"),
@@ -216,8 +224,91 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 	view.ShowNet = showNet
 	view.TotalWithdrawn = formatAmount(totalWithdrawnCents, currency)
 	view.NetTotal = formatAmount(totalCents-totalWithdrawnCents, currency)
+	view.AccountTotals = paymentAccountTotals(view.Rows, currency)
+	sortPaymentRows(view.Rows, sortKey)
 
 	render(w, http.StatusOK, "payments", view)
+}
+
+var paymentSorts = map[string]bool{"date": true, "account": true, "amount": true, "concept": true}
+
+func paymentSortOptions(t uiStrings, selected string) []sortOption {
+	opts := []sortOption{
+		{Key: "date", Label: t.PaymentsColDate},
+		{Key: "account", Label: t.PaymentsColAccnt},
+		{Key: "concept", Label: t.ColConcept},
+		{Key: "amount", Label: t.PaymentsColAmnt},
+	}
+	for i := range opts {
+		opts[i].Selected = opts[i].Key == selected
+	}
+	return opts
+}
+
+// paymentAccountTotals breaks the period down by account, which is what tells
+// an operator who actually paid. A voided payment is money that never came in,
+// so it stays out. Below three accounts the grand total already says it.
+func paymentAccountTotals(rows []tenantPaymentRow, currency string) []groupTotal {
+	counts := make(map[string]int)
+	cents := make(map[string]int64)
+	var order []string
+	for _, row := range rows {
+		if row.Voided {
+			continue
+		}
+		if _, seen := counts[row.AccountName]; !seen {
+			order = append(order, row.AccountName)
+		}
+		counts[row.AccountName]++
+		cents[row.AccountName] += amountCentsOf(row)
+	}
+	if len(order) < 3 {
+		return nil
+	}
+	sort.Slice(order, func(i, j int) bool { return cents[order[i]] > cents[order[j]] })
+
+	totals := make([]groupTotal, 0, len(order))
+	for _, name := range order {
+		totals = append(totals, groupTotal{
+			Name:          name,
+			Count:         counts[name],
+			AmountDisplay: formatAmount(cents[name], currency),
+		})
+	}
+	return totals
+}
+
+// amountCentsOf reads the row's amount back from its form value, so the
+// subtotals cannot drift from the figures the table is showing.
+func amountCentsOf(row tenantPaymentRow) int64 {
+	cents, err := parseAmountCents(row.AmountValue)
+	if err != nil {
+		return 0
+	}
+	return cents
+}
+
+func sortPaymentRows(rows []tenantPaymentRow, key string) {
+	less := func(i, j int) bool { return rows[i].DateValue > rows[j].DateValue }
+	switch key {
+	case "account":
+		less = func(i, j int) bool {
+			if rows[i].AccountName != rows[j].AccountName {
+				return rows[i].AccountName < rows[j].AccountName
+			}
+			return rows[i].DateValue > rows[j].DateValue
+		}
+	case "concept":
+		less = func(i, j int) bool {
+			if rows[i].ConceptName != rows[j].ConceptName {
+				return rows[i].ConceptName < rows[j].ConceptName
+			}
+			return rows[i].DateValue > rows[j].DateValue
+		}
+	case "amount":
+		less = func(i, j int) bool { return amountCentsOf(rows[i]) > amountCentsOf(rows[j]) }
+	}
+	sort.SliceStable(rows, less)
 }
 
 func (s *Server) chargeAccounts(r *http.Request, tenantID int64) ([]chargeAccount, error) {

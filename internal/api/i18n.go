@@ -13,7 +13,26 @@ const (
 	viewCookieName   = "view"
 	groupCookieName  = "group"
 	mirrorCookieName = "mirror"
+	sortCookieName   = "sort"
+
+	expenseSortCookieName = "esort"
+	paymentSortCookieName = "psort"
 )
+
+// resolveChoice backs a sticky multi-value preference with a cookie: an
+// explicit query param wins and is remembered, otherwise the cookie decides,
+// otherwise the given default. Unknown values fall through so a stale link or
+// a tampered cookie cannot leave the page ordered by nothing.
+func resolveChoice(w http.ResponseWriter, r *http.Request, name string, allowed map[string]bool, fallback string) string {
+	if value := r.URL.Query().Get(name); allowed[value] {
+		http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
+		return value
+	}
+	if cookie, err := r.Cookie(name); err == nil && allowed[cookie.Value] {
+		return cookie.Value
+	}
+	return fallback
+}
 
 // resolveToggle backs a sticky on/off dashboard switch with a cookie, the
 // same way resolveView backs the layout switch: ?name=1 or ?name=0 wins
@@ -127,6 +146,8 @@ type uiStrings struct {
 	DevicesLabel       string
 	UnitPriceLabel     string
 	TotalLabel         string
+	SortLabel          string
+	TotalsLabel        string
 	QuantityLabel      string
 	LineAmountLabel    string
 	AddLineButton      string
@@ -320,6 +341,8 @@ var translations = map[string]uiStrings{
 		DevicesLabel:       "Dispositivos a cobrar",
 		UnitPriceLabel:     "Precio por dispositivo",
 		TotalLabel:         "Total",
+		SortLabel:          "Ordenar por",
+		TotalsLabel:        "Totales",
 		QuantityLabel:      "Cant.",
 		LineAmountLabel:    "Importe",
 		AddLineButton:      "+ agregar línea",
@@ -510,6 +533,8 @@ var translations = map[string]uiStrings{
 		DevicesLabel:       "Devices to charge",
 		UnitPriceLabel:     "Price per device",
 		TotalLabel:         "Total",
+		SortLabel:          "Sort by",
+		TotalsLabel:        "Totals",
 		QuantityLabel:      "Qty",
 		LineAmountLabel:    "Amount",
 		AddLineButton:      "+ add line",

@@ -36,6 +36,18 @@
       <input id="filter-to" name="to" type="date" value="{{.ToValue}}">
       <button type="submit">{{.T.ApplyFilter}}</button>
     </form>
+
+    <form class="sort-form" method="get" action="/expenses">
+      <input type="hidden" name="period" value="{{.Period}}">
+      <input type="hidden" name="from" value="{{.FromValue}}">
+      <input type="hidden" name="to" value="{{.ToValue}}">
+      <label for="expenses-sort">{{.T.SortLabel}}</label>
+      <select id="expenses-sort" name="sort" onchange="this.form.submit()">
+        {{range .Sorts}}
+        <option value="{{.Key}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
+        {{end}}
+      </select>
+    </form>
   </div>
 
   <div class="stat-row">
@@ -97,6 +109,30 @@
       </tr>
       {{end}}
     </tbody>
+    <tfoot>
+      <tr>
+        <td>{{.T.TotalsLabel}}</td>
+        <td class="muted">{{len .Rows}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num">{{.Total}}</td>
+        <td></td>
+      </tr>
+      {{range .SellerTotals}}
+      <tr class="subtotal-row">
+        <td></td>
+        <td>{{.Name}}</td>
+        <td class="muted">{{.Count}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num">{{.AmountDisplay}}</td>
+        <td></td>
+      </tr>
+      {{end}}
+    </tfoot>
   </table>
   </div>
   {{else}}

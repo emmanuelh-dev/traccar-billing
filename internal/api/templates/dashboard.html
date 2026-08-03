@@ -80,6 +80,18 @@
     </tr>
     {{end}}
   </tbody>
+  <tfoot>
+    <tr>
+      <td>{{.T.TotalsLabel}}</td>
+      <td class="muted">{{len .Rows}}</td>
+      <td class="num">{{.DeviceCount}}</td>
+      <td></td>
+      <td class="num">{{.MonthlyDisplay}}</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+  </tfoot>
 </table>
 </div>
 {{end}}
@@ -134,6 +146,14 @@
       <div class="tenant-url">{{.Tenant.BaseURL}}</div>
     </div>
     <div class="header-actions">
+      <form class="sort-form" method="get" action="/dashboard">
+        <label for="dashboard-sort">{{.T.SortLabel}}</label>
+        <select id="dashboard-sort" name="sort" onchange="this.form.submit()">
+          {{range .Sorts}}
+          <option value="{{.Key}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
+          {{end}}
+        </select>
+      </form>
       <div class="view-switch">
         <a class="switch-option {{if .Grouped}}active{{end}}" href="/dashboard?group={{if .Grouped}}0{{else}}1{{end}}"
            title="{{if .Grouped}}{{.T.GroupNone}}{{else}}{{.T.GroupBySeller}}{{end}}">{{template "icon_seller"}}<span>{{.T.GroupBySeller}}</span></a>
@@ -181,7 +201,12 @@
         <span class="group-summary">{{.Summary}}</span>
       </div>
       {{end}}
-      {{if eq $.View "cards"}}{{template "account_cards" .}}{{else}}{{template "account_table" .}}{{end}}
+      {{if eq $.View "cards"}}
+        {{template "account_cards" .}}
+        <div class="group-total">{{.Summary}}</div>
+      {{else}}
+        {{template "account_table" .}}
+      {{end}}
     {{end}}
   {{else}}
   <div class="empty-state">{{.T.EmptyState}}</div>

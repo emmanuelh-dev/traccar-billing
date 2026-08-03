@@ -42,6 +42,19 @@
       </select>
       <button type="submit">{{.T.ApplyFilter}}</button>
     </form>
+
+    <form class="sort-form" method="get" action="/payments">
+      <input type="hidden" name="period" value="{{.Period}}">
+      <input type="hidden" name="from" value="{{.FromValue}}">
+      <input type="hidden" name="to" value="{{.ToValue}}">
+      <input type="hidden" name="account" value="{{.FilterAccount}}">
+      <label for="payments-sort">{{.T.SortLabel}}</label>
+      <select id="payments-sort" name="sort" onchange="this.form.submit()">
+        {{range .Sorts}}
+        <option value="{{.Key}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
+        {{end}}
+      </select>
+    </form>
   </div>
 
   <div class="stat-row">
@@ -136,6 +149,52 @@
       </tr>
       {{end}}
     </tbody>
+    <tfoot>
+      <tr>
+        <td>{{.T.TotalsLabel}}</td>
+        <td class="muted">{{len .Rows}}</td>
+        <td></td>
+        <td></td>
+        <td class="num">{{.Total}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      {{if .ShowNet}}
+      <tr>
+        <td>{{.T.TotalWithdrawn}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num">-{{.TotalWithdrawn}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr class="net-row">
+        <td>{{.T.NetTotal}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num">{{.NetTotal}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      {{end}}
+      {{range .AccountTotals}}
+      <tr class="subtotal-row">
+        <td></td>
+        <td>{{.Name}}</td>
+        <td class="muted">{{.Count}}</td>
+        <td></td>
+        <td class="num">{{.AmountDisplay}}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      {{end}}
+    </tfoot>
   </table>
   </div>
   {{else}}

@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -19,17 +20,43 @@ type expenseRow struct {
 	CategoryLabel string
 }
 
+// groupTotal is one subtotal line under a table, so a period can be read by
+// who collected or spent it without leaving the page.
+type groupTotal struct {
+	Name          string
+	Count         int
+	AmountDisplay string
+}
+
+var expenseSorts = map[string]bool{"date": true, "seller": true, "category": true, "amount": true}
+
+func expenseSortOptions(t uiStrings, selected string) []sortOption {
+	opts := []sortOption{
+		{Key: "date", Label: t.PaymentsColDate},
+		{Key: "seller", Label: t.SellerLabel},
+		{Key: "category", Label: t.CategoryLabel},
+		{Key: "amount", Label: t.PaymentsColAmnt},
+	}
+	for i := range opts {
+		opts[i].Selected = opts[i].Key == selected
+	}
+	return opts
+}
+
 type expensesView struct {
-	T        uiStrings
-	Title    string
-	Active   string
-	Error    string
-	Tenant   billing.Tenant
-	Rows     []expenseRow
-	Sellers  []sellerOption
-	Today    string
-	Total    string
-	Redirect string
+	T            uiStrings
+	Title        string
+	Active       string
+	Error        string
+	Tenant       billing.Tenant
+	Rows         []expenseRow
+	Sellers      []sellerOption
+	SellerTotals []groupTotal
+	Sort         string
+	Sorts        []sortOption
+	Today        string
+	Total        string
+	Redirect     string
 
 	Period     string
 	FromValue  string
@@ -59,6 +86,8 @@ func (s *Server) handleExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sortKey := resolveChoice(w, r, expenseSortCookieName, expenseSorts, "date")
+
 	view := expensesView{
 		T:        t,
 		Title:    t.ExpensesPageTtl,
@@ -66,6 +95,8 @@ func (s *Server) handleExpenses(w http.ResponseWriter, r *http.Request) {
 		Error:    r.URL.Query().Get("error"),
 		Tenant:   tenant,
 		Sellers:  sellerOpts,
+		Sort:     sortKey,
+		Sorts:    expenseSortOptions(t, sortKey),
 		Today:    s.now().Format(dueDateFormat),
 		Redirect: r.URL.RequestURI(),
 
@@ -100,8 +131,66 @@ func (s *Server) handleExpenses(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	view.Total = formatAmount(totalCents, currency)
+	view.SellerTotals = expenseSellerTotals(view.Rows, currency)
+	sortExpenseRows(view.Rows, sortKey)
 
 	render(w, http.StatusOK, "expenses", view)
+}
+
+// expenseSellerTotals answers what each seller cost in the period, which is
+// the reason to record a withdrawal against a seller in the first place. With
+// a single bucket the table's grand total already says it, so it is skipped.
+func expenseSellerTotals(rows []expenseRow, currency string) []groupTotal {
+	if len(rows) == 0 {
+		return nil
+	}
+	order := make([]string, 0, len(rows))
+	counts := make(map[string]int)
+	cents := make(map[string]int64)
+	for _, row := range rows {
+		if _, seen := counts[row.SellerName]; !seen {
+			order = append(order, row.SellerName)
+		}
+		counts[row.SellerName]++
+		cents[row.SellerName] += row.Expense.AmountCents
+	}
+	if len(order) < 2 {
+		return nil
+	}
+	sort.Strings(order)
+
+	totals := make([]groupTotal, 0, len(order))
+	for _, name := range order {
+		totals = append(totals, groupTotal{
+			Name:          name,
+			Count:         counts[name],
+			AmountDisplay: formatAmount(cents[name], currency),
+		})
+	}
+	return totals
+}
+
+func sortExpenseRows(rows []expenseRow, key string) {
+	less := func(i, j int) bool { return rows[i].Expense.SpentAt.After(rows[j].Expense.SpentAt) }
+	switch key {
+	case "seller":
+		less = func(i, j int) bool {
+			if rows[i].SellerName != rows[j].SellerName {
+				return rows[i].SellerName < rows[j].SellerName
+			}
+			return rows[i].Expense.SpentAt.After(rows[j].Expense.SpentAt)
+		}
+	case "category":
+		less = func(i, j int) bool {
+			if rows[i].Expense.Category != rows[j].Expense.Category {
+				return rows[i].Expense.Category < rows[j].Expense.Category
+			}
+			return rows[i].Expense.SpentAt.After(rows[j].Expense.SpentAt)
+		}
+	case "amount":
+		less = func(i, j int) bool { return rows[i].Expense.AmountCents > rows[j].Expense.AmountCents }
+	}
+	sort.SliceStable(rows, less)
 }
 
 func (s *Server) parseExpenseForm(r *http.Request, tenantID int64) (billing.Expense, error) {
