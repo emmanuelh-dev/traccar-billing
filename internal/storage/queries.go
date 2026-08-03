@@ -264,8 +264,11 @@ func (r *sqlRepository) DeleteAccount(ctx context.Context, tenantID, accountID i
 	}
 
 	if _, err := r.q().ExecContext(ctx,
-		`DELETE FROM payments WHERE subscription_id IN (SELECT id FROM subscriptions WHERE account_id = ?)`,
+		`DELETE FROM payment_items WHERE payment_id IN (SELECT id FROM payments WHERE account_id = ?)`,
 		accountID); err != nil {
+		return fmt.Errorf("storage: delete account payment items: %w", err)
+	}
+	if _, err := r.q().ExecContext(ctx, `DELETE FROM payments WHERE account_id = ?`, accountID); err != nil {
 		return fmt.Errorf("storage: delete account payments: %w", err)
 	}
 	if _, err := r.q().ExecContext(ctx, `DELETE FROM subscriptions WHERE account_id = ?`, accountID); err != nil {
@@ -279,7 +282,7 @@ func (r *sqlRepository) DeleteAccount(ctx context.Context, tenantID, accountID i
 
 const subscriptionColumns = `id, account_id, status, billing_mode, anchor_day, due_day, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at`
 
-const paymentColumns = `id, subscription_id, concept_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, voided_at, void_reason, created_at, updated_at`
+const paymentColumns = `id, account_id, subscription_id, concept_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, voided_at, void_reason, created_at, updated_at`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -302,13 +305,14 @@ func scanSubscriptionInto(sc scanner) (billing.Subscription, error) {
 
 func scanPaymentInto(sc scanner, extra ...any) (billing.Payment, error) {
 	var p billing.Payment
-	var conceptID sql.NullInt64
+	var subscriptionID, conceptID sql.NullInt64
 	var voidedAt, updatedAt sql.NullTime
-	dest := []any{&p.ID, &p.SubscriptionID, &conceptID, &p.AmountCents, &p.UnitPriceCents, &p.DeviceCount, &p.Currency,
+	dest := []any{&p.ID, &p.AccountID, &subscriptionID, &conceptID, &p.AmountCents, &p.UnitPriceCents, &p.DeviceCount, &p.Currency,
 		&p.Method, &p.Reference, &p.PaidAt, &p.Note, &voidedAt, &p.VoidReason, &p.CreatedAt, &updatedAt}
 	if err := sc.Scan(append(dest, extra...)...); err != nil {
 		return billing.Payment{}, err
 	}
+	p.SubscriptionID = subscriptionID.Int64
 	p.ConceptID = conceptID.Int64
 	p.VoidedAt = scanTime(voidedAt)
 	p.UpdatedAt = scanTime(updatedAt)
@@ -389,11 +393,15 @@ func (r *sqlRepository) ListSubscriptionsDueBefore(ctx context.Context, tenantID
 }
 
 func (r *sqlRepository) RecordPayment(ctx context.Context, p billing.Payment) (billing.Payment, error) {
+	p, err := r.resolvePaymentAccount(ctx, p)
+	if err != nil {
+		return billing.Payment{}, err
+	}
 	now := time.Now().UTC()
 	res, err := r.q().ExecContext(ctx,
-		`INSERT INTO payments (subscription_id, concept_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.SubscriptionID, nullInt64(p.ConceptID), p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, now, now)
+		`INSERT INTO payments (account_id, subscription_id, concept_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.AccountID, nullInt64(p.SubscriptionID), nullInt64(p.ConceptID), p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, now, now)
 	if err != nil {
 		return billing.Payment{}, fmt.Errorf("storage: record payment: %w", err)
 	}
@@ -418,10 +426,9 @@ func (r *sqlRepository) getPaymentByID(ctx context.Context, id int64) (billing.P
 
 func (r *sqlRepository) GetPayment(ctx context.Context, tenantID, paymentID int64) (billing.Payment, error) {
 	p, err := scanPaymentInto(r.q().QueryRowContext(ctx,
-		`SELECT p.id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at
+		`SELECT p.id, p.account_id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at
 		 FROM payments p
-		 JOIN subscriptions s ON s.id = p.subscription_id
-		 JOIN accounts a ON a.id = s.account_id
+		 JOIN accounts a ON a.id = p.account_id
 		 WHERE a.tenant_id = ? AND p.id = ?`, tenantID, paymentID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return billing.Payment{}, billing.ErrNotFound
@@ -432,11 +439,33 @@ func (r *sqlRepository) GetPayment(ctx context.Context, tenantID, paymentID int6
 	return p, nil
 }
 
+// resolvePaymentAccount fills AccountID from the subscription when the
+// caller only knows the subscription, which is how every pre-000010 caller
+// still builds a payment. account_id is NOT NULL, so leaving it at zero
+// would fail on the insert with an opaque constraint error instead.
+func (r *sqlRepository) resolvePaymentAccount(ctx context.Context, p billing.Payment) (billing.Payment, error) {
+	if p.AccountID > 0 || p.SubscriptionID == 0 {
+		return p, nil
+	}
+	if err := r.q().QueryRowContext(ctx,
+		`SELECT account_id FROM subscriptions WHERE id = ?`, p.SubscriptionID).Scan(&p.AccountID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return billing.Payment{}, billing.ErrNotFound
+		}
+		return billing.Payment{}, fmt.Errorf("storage: resolve payment account: %w", err)
+	}
+	return p, nil
+}
+
 func (r *sqlRepository) UpdatePayment(ctx context.Context, p billing.Payment) (billing.Payment, error) {
+	p, err := r.resolvePaymentAccount(ctx, p)
+	if err != nil {
+		return billing.Payment{}, err
+	}
 	res, err := r.q().ExecContext(ctx,
-		`UPDATE payments SET concept_id = ?, amount_cents = ?, unit_price_cents = ?, device_count = ?, currency = ?, method = ?, reference = ?, paid_at = ?, note = ?, updated_at = ?
+		`UPDATE payments SET account_id = ?, subscription_id = ?, concept_id = ?, amount_cents = ?, unit_price_cents = ?, device_count = ?, currency = ?, method = ?, reference = ?, paid_at = ?, note = ?, updated_at = ?
 		 WHERE id = ? AND voided_at IS NULL`,
-		nullInt64(p.ConceptID), p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, time.Now().UTC(), p.ID)
+		p.AccountID, nullInt64(p.SubscriptionID), nullInt64(p.ConceptID), p.AmountCents, p.UnitPriceCents, p.DeviceCount, p.Currency, p.Method, p.Reference, p.PaidAt, p.Note, time.Now().UTC(), p.ID)
 	if err != nil {
 		return billing.Payment{}, fmt.Errorf("storage: update payment: %w", err)
 	}
@@ -489,10 +518,9 @@ func (r *sqlRepository) ListPaymentsBySubscription(ctx context.Context, subscrip
 }
 
 func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.TenantPayment, error) {
-	query := `SELECT p.id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name, COALESCE(c.name, ''), COALESCE(c.recurring, 1)
+	query := `SELECT p.id, p.account_id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.name, COALESCE(c.name, ''), COALESCE(c.recurring, 1)
 		 FROM payments p
-		 JOIN subscriptions s ON s.id = p.subscription_id
-		 JOIN accounts a ON a.id = s.account_id
+		 JOIN accounts a ON a.id = p.account_id
 		 LEFT JOIN concepts c ON c.id = p.concept_id
 		 WHERE a.tenant_id = ?`
 	args := []any{tenantID}
@@ -506,7 +534,7 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 		args = append(args, filter.To.UTC())
 	}
 	if filter.AccountID > 0 {
-		query += ` AND a.id = ?`
+		query += ` AND p.account_id = ?`
 		args = append(args, filter.AccountID)
 	}
 	query += ` ORDER BY p.paid_at DESC, p.id DESC`
@@ -521,7 +549,7 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 	for rows.Next() {
 		var tp billing.TenantPayment
 		var conceptRecurring int
-		p, err := scanPaymentInto(rows, &tp.AccountID, &tp.AccountName, &tp.ConceptName, &conceptRecurring)
+		p, err := scanPaymentInto(rows, &tp.AccountName, &tp.ConceptName, &conceptRecurring)
 		if err != nil {
 			return nil, fmt.Errorf("storage: scan tenant payment: %w", err)
 		}
@@ -785,6 +813,175 @@ func (r *sqlRepository) DeleteConcept(ctx context.Context, tenantID, conceptID i
 	res, err := r.q().ExecContext(ctx, `DELETE FROM concepts WHERE id = ? AND tenant_id = ?`, conceptID, tenantID)
 	if err != nil {
 		return fmt.Errorf("storage: delete concept: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.ErrNotFound
+	}
+	return nil
+}
+
+const paymentItemColumns = `id, payment_id, concept_id, description, quantity, unit_price_cents, amount_cents, position, created_at`
+
+func scanPaymentItemInto(sc scanner) (billing.PaymentItem, error) {
+	var item billing.PaymentItem
+	var conceptID sql.NullInt64
+	if err := sc.Scan(&item.ID, &item.PaymentID, &conceptID, &item.Description, &item.Quantity, &item.UnitPriceCents, &item.AmountCents, &item.Position, &item.CreatedAt); err != nil {
+		return billing.PaymentItem{}, err
+	}
+	item.ConceptID = conceptID.Int64
+	return item, nil
+}
+
+func (r *sqlRepository) ListPaymentItems(ctx context.Context, paymentID int64) ([]billing.PaymentItem, error) {
+	rows, err := r.q().QueryContext(ctx,
+		`SELECT `+paymentItemColumns+` FROM payment_items WHERE payment_id = ? ORDER BY position ASC, id ASC`, paymentID)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list payment items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []billing.PaymentItem
+	for rows.Next() {
+		item, err := scanPaymentItemInto(rows)
+		if err != nil {
+			return nil, fmt.Errorf("storage: scan payment item: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *sqlRepository) ReplacePaymentItems(ctx context.Context, paymentID int64, items []billing.PaymentItem) ([]billing.PaymentItem, error) {
+	var result []billing.PaymentItem
+	err := r.WithTx(ctx, func(txRepo billing.Repository) error {
+		tx, ok := txRepo.(*sqlRepository)
+		if !ok {
+			return fmt.Errorf("storage: unexpected repository type %T", txRepo)
+		}
+		if _, err := tx.q().ExecContext(ctx, `DELETE FROM payment_items WHERE payment_id = ?`, paymentID); err != nil {
+			return fmt.Errorf("storage: delete payment items: %w", err)
+		}
+
+		now := time.Now().UTC()
+		result = make([]billing.PaymentItem, 0, len(items))
+		for pos, item := range items {
+			item.PaymentID = paymentID
+			item.Position = pos
+			res, err := tx.q().ExecContext(ctx,
+				`INSERT INTO payment_items (payment_id, concept_id, description, quantity, unit_price_cents, amount_cents, position, created_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				paymentID, nullInt64(item.ConceptID), item.Description, item.Quantity, item.UnitPriceCents, item.AmountCents, item.Position, now)
+			if err != nil {
+				return fmt.Errorf("storage: create payment item: %w", err)
+			}
+			id, err := res.LastInsertId()
+			if err != nil {
+				return fmt.Errorf("storage: create payment item: %w", err)
+			}
+			item.ID = id
+			item.CreatedAt = now
+			result = append(result, item)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+const expenseColumns = `id, tenant_id, seller_id, category, amount_cents, currency, spent_at, method, reference, note, created_at, updated_at`
+
+func scanExpenseInto(sc scanner) (billing.Expense, error) {
+	var e billing.Expense
+	var sellerID sql.NullInt64
+	if err := sc.Scan(&e.ID, &e.TenantID, &sellerID, &e.Category, &e.AmountCents, &e.Currency, &e.SpentAt, &e.Method, &e.Reference, &e.Note, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		return billing.Expense{}, err
+	}
+	e.SellerID = sellerID.Int64
+	return e, nil
+}
+
+func (r *sqlRepository) CreateExpense(ctx context.Context, e billing.Expense) (billing.Expense, error) {
+	e = e.Normalized()
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`INSERT INTO expenses (tenant_id, seller_id, category, amount_cents, currency, spent_at, method, reference, note, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.TenantID, nullInt64(e.SellerID), e.Category, e.AmountCents, e.Currency, e.SpentAt, e.Method, e.Reference, e.Note, now, now)
+	if err != nil {
+		return billing.Expense{}, fmt.Errorf("storage: create expense: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return billing.Expense{}, fmt.Errorf("storage: create expense: %w", err)
+	}
+	return r.GetExpense(ctx, e.TenantID, id)
+}
+
+func (r *sqlRepository) UpdateExpense(ctx context.Context, e billing.Expense) (billing.Expense, error) {
+	e = e.Normalized()
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE expenses SET seller_id = ?, category = ?, amount_cents = ?, currency = ?, spent_at = ?, method = ?, reference = ?, note = ?, updated_at = ?
+		 WHERE id = ? AND tenant_id = ?`,
+		nullInt64(e.SellerID), e.Category, e.AmountCents, e.Currency, e.SpentAt, e.Method, e.Reference, e.Note, now, e.ID, e.TenantID)
+	if err != nil {
+		return billing.Expense{}, fmt.Errorf("storage: update expense: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.Expense{}, billing.ErrNotFound
+	}
+	return r.GetExpense(ctx, e.TenantID, e.ID)
+}
+
+func (r *sqlRepository) GetExpense(ctx context.Context, tenantID, expenseID int64) (billing.Expense, error) {
+	e, err := scanExpenseInto(r.q().QueryRowContext(ctx,
+		`SELECT `+expenseColumns+` FROM expenses WHERE tenant_id = ? AND id = ?`, tenantID, expenseID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return billing.Expense{}, billing.ErrNotFound
+	}
+	if err != nil {
+		return billing.Expense{}, fmt.Errorf("storage: get expense: %w", err)
+	}
+	return e, nil
+}
+
+func (r *sqlRepository) ListExpenses(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.Expense, error) {
+	query := `SELECT ` + expenseColumns + ` FROM expenses WHERE tenant_id = ?`
+	args := []any{tenantID}
+
+	if !filter.From.IsZero() {
+		query += ` AND spent_at >= ?`
+		args = append(args, filter.From.UTC())
+	}
+	if !filter.To.IsZero() {
+		query += ` AND spent_at < ?`
+		args = append(args, filter.To.UTC())
+	}
+	query += ` ORDER BY spent_at DESC, id DESC`
+
+	rows, err := r.q().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list expenses: %w", err)
+	}
+	defer rows.Close()
+
+	var expenses []billing.Expense
+	for rows.Next() {
+		e, err := scanExpenseInto(rows)
+		if err != nil {
+			return nil, fmt.Errorf("storage: scan expense: %w", err)
+		}
+		expenses = append(expenses, e)
+	}
+	return expenses, rows.Err()
+}
+
+func (r *sqlRepository) DeleteExpense(ctx context.Context, tenantID, expenseID int64) error {
+	res, err := r.q().ExecContext(ctx, `DELETE FROM expenses WHERE id = ? AND tenant_id = ?`, expenseID, tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: delete expense: %w", err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return billing.ErrNotFound

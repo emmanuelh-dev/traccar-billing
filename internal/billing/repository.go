@@ -59,6 +59,19 @@ type Repository interface {
 	DeletePayment(ctx context.Context, tenantID, paymentID int64) error
 	ListPaymentsBySubscription(ctx context.Context, subscriptionID int64) ([]Payment, error)
 	ListPaymentsByTenant(ctx context.Context, tenantID int64, filter PaymentFilter) ([]TenantPayment, error)
+
+	ListPaymentItems(ctx context.Context, paymentID int64) ([]PaymentItem, error)
+	// ReplacePaymentItems clears existing items for a payment and inserts the new ones,
+	// setting Position based on slice index, and returning the persisted items with IDs.
+	ReplacePaymentItems(ctx context.Context, paymentID int64, items []PaymentItem) ([]PaymentItem, error)
+
+	CreateExpense(ctx context.Context, e Expense) (Expense, error)
+	UpdateExpense(ctx context.Context, e Expense) (Expense, error)
+	GetExpense(ctx context.Context, tenantID, expenseID int64) (Expense, error)
+	// ListExpenses retrieves expenses for a tenant, applying From/To date filters on spent_at
+	// while ignoring AccountID in PaymentFilter.
+	ListExpenses(ctx context.Context, tenantID int64, filter PaymentFilter) ([]Expense, error)
+	DeleteExpense(ctx context.Context, tenantID, expenseID int64) error
 }
 
 type PaymentFilter struct {
@@ -69,7 +82,6 @@ type PaymentFilter struct {
 
 type TenantPayment struct {
 	Payment
-	AccountID        int64
 	AccountName      string
 	ConceptName      string
 	ConceptRecurring bool

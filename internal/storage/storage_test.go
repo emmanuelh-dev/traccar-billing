@@ -644,3 +644,158 @@ func TestConceptsCRUD(t *testing.T) {
 		t.Errorf("GetConcept(unused) after delete error = %v, want ErrNotFound", err)
 	}
 }
+
+func TestPaymentWithoutSubscription(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Acme Fleet", BaseURL: "https://acme.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+	account, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenant.ID, TraccarUserID: 5, Name: "Carlos", Email: "carlos@example.com"})
+	if err != nil {
+		t.Fatalf("UpsertAccount() error = %v", err)
+	}
+
+	paidAt := time.Now().UTC().Truncate(time.Second)
+	p, err := repo.RecordPayment(ctx, billing.Payment{
+		AccountID:   account.ID,
+		AmountCents: 150000,
+		Currency:    "MXN",
+		Method:      "transfer",
+		PaidAt:      paidAt,
+		Note:        "Venta de equipo",
+	})
+	if err != nil {
+		t.Fatalf("RecordPayment() error = %v", err)
+	}
+	if p.SubscriptionID != 0 {
+		t.Errorf("SubscriptionID = %d, want 0", p.SubscriptionID)
+	}
+	if p.AccountID != account.ID {
+		t.Errorf("AccountID = %d, want %d", p.AccountID, account.ID)
+	}
+
+	listed, err := repo.ListPaymentsByTenant(ctx, tenant.ID, billing.PaymentFilter{})
+	if err != nil {
+		t.Fatalf("ListPaymentsByTenant() error = %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("ListPaymentsByTenant() len = %d, want 1", len(listed))
+	}
+	if listed[0].AccountName != "Carlos" {
+		t.Errorf("AccountName = %q, want Carlos", listed[0].AccountName)
+	}
+	if listed[0].SubscriptionID != 0 {
+		t.Errorf("SubscriptionID = %d, want 0", listed[0].SubscriptionID)
+	}
+}
+
+func TestReplacePaymentItems(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Acme", BaseURL: "https://acme.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+	account, err := repo.UpsertAccount(ctx, billing.Account{TenantID: tenant.ID, TraccarUserID: 1, Name: "Bob", Email: "bob@example.com"})
+	if err != nil {
+		t.Fatalf("UpsertAccount() error = %v", err)
+	}
+	p, err := repo.RecordPayment(ctx, billing.Payment{
+		AccountID:   account.ID,
+		AmountCents: 3000,
+		Currency:    "MXN",
+		PaidAt:      time.Now().UTC().Truncate(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("RecordPayment() error = %v", err)
+	}
+
+	initialItems := []billing.PaymentItem{
+		{Description: "Item 1", Quantity: 1, UnitPriceCents: 1000},
+		{Description: "Item 2", Quantity: 2, UnitPriceCents: 1000},
+	}
+	firstSet, err := repo.ReplacePaymentItems(ctx, p.ID, initialItems)
+	if err != nil {
+		t.Fatalf("ReplacePaymentItems(initial) error = %v", err)
+	}
+	if len(firstSet) != 2 {
+		t.Fatalf("ReplacePaymentItems(initial) len = %d, want 2", len(firstSet))
+	}
+
+	newItems := []billing.PaymentItem{
+		{Description: "Line A", Quantity: 1, UnitPriceCents: 500},
+		{Description: "Line B", Quantity: 1, UnitPriceCents: 1000},
+		{Description: "Line C", Quantity: 1, UnitPriceCents: 1500},
+	}
+	replaced, err := repo.ReplacePaymentItems(ctx, p.ID, newItems)
+	if err != nil {
+		t.Fatalf("ReplacePaymentItems(3 items) error = %v", err)
+	}
+	if len(replaced) != 3 {
+		t.Fatalf("ReplacePaymentItems(3 items) len = %d, want 3", len(replaced))
+	}
+
+	listed, err := repo.ListPaymentItems(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("ListPaymentItems() error = %v", err)
+	}
+	if len(listed) != 3 {
+		t.Fatalf("ListPaymentItems() len = %d, want 3", len(listed))
+	}
+
+	for i, item := range listed {
+		if item.Position != i {
+			t.Errorf("item[%d] Position = %d, want %d", i, item.Position, i)
+		}
+	}
+}
+
+func TestListExpensesFiltersByDateRange(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Acme", BaseURL: "https://acme.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	july := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
+	august := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
+
+	if _, err := repo.CreateExpense(ctx, billing.Expense{
+		TenantID:    tenant.ID,
+		Category:    "Gasolina",
+		AmountCents: 50000,
+		SpentAt:     july,
+	}); err != nil {
+		t.Fatalf("CreateExpense(july) error = %v", err)
+	}
+
+	augustExpense, err := repo.CreateExpense(ctx, billing.Expense{
+		TenantID:    tenant.ID,
+		Category:    "Peajes",
+		AmountCents: 20000,
+		SpentAt:     august,
+	})
+	if err != nil {
+		t.Fatalf("CreateExpense(august) error = %v", err)
+	}
+
+	augustOnly, err := repo.ListExpenses(ctx, tenant.ID, billing.PaymentFilter{
+		From: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("ListExpenses() error = %v", err)
+	}
+	if len(augustOnly) != 1 {
+		t.Fatalf("ListExpenses(august) len = %d, want 1", len(augustOnly))
+	}
+	if augustOnly[0].ID != augustExpense.ID {
+		t.Errorf("ListExpenses(august) got ID %d, want %d", augustOnly[0].ID, augustExpense.ID)
+	}
+}

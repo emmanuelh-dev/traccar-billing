@@ -229,6 +229,34 @@ func (r *fakeRepo) ListPaymentsByTenant(ctx context.Context, tenantID int64, fil
 	return nil, errors.New("not implemented")
 }
 
+func (r *fakeRepo) ListPaymentItems(ctx context.Context, paymentID int64) ([]billing.PaymentItem, error) {
+	return nil, nil
+}
+
+func (r *fakeRepo) ReplacePaymentItems(ctx context.Context, paymentID int64, items []billing.PaymentItem) ([]billing.PaymentItem, error) {
+	return nil, nil
+}
+
+func (r *fakeRepo) CreateExpense(ctx context.Context, e billing.Expense) (billing.Expense, error) {
+	return billing.Expense{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) UpdateExpense(ctx context.Context, e billing.Expense) (billing.Expense, error) {
+	return billing.Expense{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) GetExpense(ctx context.Context, tenantID, expenseID int64) (billing.Expense, error) {
+	return billing.Expense{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) ListExpenses(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.Expense, error) {
+	return nil, nil
+}
+
+func (r *fakeRepo) DeleteExpense(ctx context.Context, tenantID, expenseID int64) error {
+	return errors.New("not implemented")
+}
+
 type fakeClient struct {
 	users         []billing.TraccarUser
 	devices       []billing.TraccarDevice
