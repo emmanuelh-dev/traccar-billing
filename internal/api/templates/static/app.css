@@ -251,9 +251,10 @@ button.primary:active {
 /* Dashboard */
 
 .dashboard {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 24px;
+  min-width: 0;
 }
 
 .dashboard-header {
@@ -292,7 +293,7 @@ button.primary:active {
 
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1px;
   background: var(--color-border);
   border: 1px solid var(--color-border);
@@ -319,7 +320,9 @@ button.primary:active {
 
 table.accounts {
   width: 100%;
-  border-collapse: collapse;
+  min-width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
 }
 
@@ -329,6 +332,8 @@ table.accounts th {
   color: var(--color-text-muted);
   font-weight: 600;
   padding: 8px 12px;
+  white-space: nowrap;
+  background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -336,21 +341,42 @@ table.accounts td {
   padding: 12px;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
+  white-space: nowrap;
+  background: var(--color-bg);
+}
+
+table.accounts td.muted,
+table.accounts th.wide {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 table.accounts tr:last-child td {
   border-bottom: none;
 }
 
+table.accounts th.num,
 table.accounts td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
+th.actions,
 td.row-actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
   text-align: right;
   white-space: nowrap;
+  background: var(--color-bg);
+  border-left: 1px solid var(--color-border);
+  box-shadow: -12px 0 12px -12px rgba(0, 0, 0, 0.45);
+}
+
+th.actions {
+  z-index: 3;
 }
 
 td.row-actions button {
@@ -392,6 +418,13 @@ td.row-actions button.primary {
 
 .table-scroll {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.table-scroll table.accounts tr:last-child td {
+  border-bottom: none;
 }
 
 td.muted {
