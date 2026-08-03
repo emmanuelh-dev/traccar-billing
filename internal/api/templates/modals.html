@@ -21,9 +21,9 @@
     <div class="field">
       <label for="charge-concept">{{.T.ConceptLabel}}</label>
       <select id="charge-concept" name="concept_id">
-        <option value="0">{{.T.NoConceptOption}}</option>
+        <option value="0" data-recurring="true">{{.T.NoConceptOption}}</option>
         {{range .Concepts}}
-        <option value="{{.ID}}" data-amount="{{.AmountValue}}" data-currency="{{.Currency}}">{{.Name}}</option>
+        <option value="{{.ID}}" data-amount="{{.AmountValue}}" data-currency="{{.Currency}}" data-recurring="{{.Recurring}}">{{.Name}}</option>
         {{end}}
       </select>
     </div>
@@ -103,9 +103,9 @@
     <div class="field">
       <label for="payment-concept">{{.T.ConceptLabel}}</label>
       <select id="payment-concept" name="concept_id">
-        <option value="0">{{.T.NoConceptOption}}</option>
+        <option value="0" data-recurring="true">{{.T.NoConceptOption}}</option>
         {{range .Concepts}}
-        <option value="{{.ID}}" data-amount="{{.AmountValue}}" data-currency="{{.Currency}}">{{.Name}}</option>
+        <option value="{{.ID}}" data-amount="{{.AmountValue}}" data-currency="{{.Currency}}" data-recurring="{{.Recurring}}">{{.Name}}</option>
         {{end}}
       </select>
     </div>
@@ -461,10 +461,15 @@
   const CONCEPT_EDIT_TITLE = "{{.T.EditConceptTitle}}";
   const DEVICES_WORD = "{{.T.DevicesWord}}";
   const EACH_WORD = "{{.T.EachWord}}";
+  const ONE_OFF_CHARGE_FMT = "{{.T.OneOffChargeFmt}}";
 
   function money(value) {
     const n = parseFloat(value);
     return isNaN(n) ? "0.00" : n.toFixed(2);
+  }
+
+  function formatOneOff(name, totalWithCurrency) {
+    return ONE_OFF_CHARGE_FMT.replace("%s", name).replace("%s", totalWithCurrency);
   }
 
   function breakdown(devicesEl, unitEl, amountEl, currency) {
@@ -506,11 +511,62 @@
   const chargeCurrency = $("charge-currency");
   const chargeNoSub = $("charge-nosub");
 
+  function isConceptNonRecurring(selectEl) {
+    const opt = selectEl ? selectEl.selectedOptions[0] : null;
+    return opt && opt.value !== "0" && opt.dataset.recurring === "false";
+  }
+
   function refreshChargeSummary() {
-    $("charge-summary").textContent = breakdown(chargeDevices, chargeUnit, chargeAmount, chargeCurrency.value);
+    const opt = chargeConcept ? chargeConcept.selectedOptions[0] : null;
+    if (isConceptNonRecurring(chargeConcept)) {
+      const conceptName = opt ? opt.textContent.trim() : "";
+      const totalStr = money(chargeAmount.value) + " " + chargeCurrency.value;
+      $("charge-summary").textContent = formatOneOff(conceptName, totalStr);
+    } else {
+      $("charge-summary").textContent = breakdown(chargeDevices, chargeUnit, chargeAmount, chargeCurrency.value);
+    }
+  }
+
+  function updateChargeConceptState() {
+    const opt = chargeConcept ? chargeConcept.selectedOptions[0] : null;
+    if (isConceptNonRecurring(chargeConcept)) {
+      chargeDevices.disabled = true;
+      chargeDevices.classList.add("is-off");
+      chargeDevices.value = "";
+      chargeUnit.disabled = true;
+      chargeUnit.classList.add("is-off");
+      chargeUnit.value = "";
+      const amt = parseFloat(opt.dataset.amount);
+      if (!isNaN(amt)) {
+        chargeAmount.value = opt.dataset.amount;
+      }
+      if (opt.dataset.currency) chargeCurrency.value = opt.dataset.currency;
+    } else {
+      chargeDevices.disabled = false;
+      chargeDevices.classList.remove("is-off");
+      chargeUnit.disabled = false;
+      chargeUnit.classList.remove("is-off");
+      const accOpt = chargeAccount ? chargeAccount.selectedOptions[0] : null;
+      if (accOpt) {
+        chargeDevices.value = accOpt.dataset.devices;
+        chargeUnit.value = accOpt.dataset.unit;
+        if (opt && opt.value !== "0") {
+          const amt = parseFloat(opt.dataset.amount);
+          if (!isNaN(amt) && amt > 0) {
+            chargeAmount.value = opt.dataset.amount;
+            if (opt.dataset.currency) chargeCurrency.value = opt.dataset.currency;
+          }
+        } else {
+          chargeAmount.value = accOpt.dataset.amount;
+          chargeCurrency.value = accOpt.dataset.currency;
+        }
+      }
+    }
+    refreshChargeSummary();
   }
 
   function recomputeCharge() {
+    if (isConceptNonRecurring(chargeConcept)) return;
     const devices = parseFloat(chargeDevices.value);
     const unit = parseFloat(chargeUnit.value);
     if (!isNaN(devices) && !isNaN(unit) && unit > 0) {
@@ -523,13 +579,9 @@
     const option = chargeAccount.selectedOptions[0];
     if (!option) return;
     chargeForm.action = "/accounts/" + option.value + "/pay";
-    chargeDevices.value = option.dataset.devices;
-    chargeUnit.value = option.dataset.unit;
-    chargeAmount.value = option.dataset.amount;
-    chargeCurrency.value = option.dataset.currency;
     chargeNoSub.hidden = option.dataset.hassub === "true";
     if (chargeConcept) chargeConcept.value = "0";
-    refreshChargeSummary();
+    updateChargeConceptState();
   }
 
   if (chargeAccount) {
@@ -541,15 +593,16 @@
   }
 
   if (chargeConcept) {
-    chargeConcept.addEventListener("change", () => {
-      const opt = chargeConcept.selectedOptions[0];
-      if (opt && opt.value !== "0") {
-        const amt = parseFloat(opt.dataset.amount);
-        if (!isNaN(amt) && amt > 0) {
-          chargeAmount.value = opt.dataset.amount;
-          if (opt.dataset.currency) chargeCurrency.value = opt.dataset.currency;
-          refreshChargeSummary();
-        }
+    chargeConcept.addEventListener("change", updateChargeConceptState);
+  }
+
+  if (chargeForm) {
+    chargeForm.addEventListener("submit", () => {
+      if (isConceptNonRecurring(chargeConcept)) {
+        chargeDevices.disabled = false;
+        chargeDevices.value = "0";
+        chargeUnit.disabled = false;
+        chargeUnit.value = "0.00";
       }
     });
   }
@@ -558,13 +611,54 @@
   const payUnit = $("payment-unit");
   const payAmount = $("payment-amount");
   const payConcept = $("payment-concept");
+  const payForm = $("payment-form");
   let payCurrency = "";
+  let payOrigDevices = "0";
+  let payOrigUnit = "0.00";
 
   function refreshPaymentSummary() {
-    $("payment-summary").textContent = breakdown(payDevices, payUnit, payAmount, payCurrency);
+    const opt = payConcept ? payConcept.selectedOptions[0] : null;
+    if (isConceptNonRecurring(payConcept)) {
+      const conceptName = opt ? opt.textContent.trim() : "";
+      const totalStr = money(payAmount.value) + " " + payCurrency;
+      $("payment-summary").textContent = formatOneOff(conceptName, totalStr);
+    } else {
+      $("payment-summary").textContent = breakdown(payDevices, payUnit, payAmount, payCurrency);
+    }
+  }
+
+  function updatePaymentConceptState() {
+    const opt = payConcept ? payConcept.selectedOptions[0] : null;
+    if (isConceptNonRecurring(payConcept)) {
+      payDevices.disabled = true;
+      payDevices.classList.add("is-off");
+      payDevices.value = "";
+      payUnit.disabled = true;
+      payUnit.classList.add("is-off");
+      payUnit.value = "";
+      const amt = parseFloat(opt.dataset.amount);
+      if (!isNaN(amt)) {
+        payAmount.value = opt.dataset.amount;
+      }
+    } else {
+      payDevices.disabled = false;
+      payDevices.classList.remove("is-off");
+      payUnit.disabled = false;
+      payUnit.classList.remove("is-off");
+      payDevices.value = payOrigDevices;
+      payUnit.value = payOrigUnit;
+      if (opt && opt.value !== "0") {
+        const amt = parseFloat(opt.dataset.amount);
+        if (!isNaN(amt) && amt > 0) {
+          payAmount.value = opt.dataset.amount;
+        }
+      }
+    }
+    refreshPaymentSummary();
   }
 
   function recomputePayment() {
+    if (isConceptNonRecurring(payConcept)) return;
     const devices = parseFloat(payDevices.value);
     const unit = parseFloat(payUnit.value);
     if (!isNaN(devices) && !isNaN(unit) && unit > 0) {
@@ -580,15 +674,16 @@
   }
 
   if (payConcept) {
-    payConcept.addEventListener("change", () => {
-      const opt = payConcept.selectedOptions[0];
-      if (opt && opt.value !== "0") {
-        const amt = parseFloat(opt.dataset.amount);
-        if (!isNaN(amt) && amt > 0) {
-          payAmount.value = opt.dataset.amount;
-          if (opt.dataset.currency) payCurrency = opt.dataset.currency;
-          refreshPaymentSummary();
-        }
+    payConcept.addEventListener("change", updatePaymentConceptState);
+  }
+
+  if (payForm) {
+    payForm.addEventListener("submit", () => {
+      if (isConceptNonRecurring(payConcept)) {
+        payDevices.disabled = false;
+        payDevices.value = "0";
+        payUnit.disabled = false;
+        payUnit.value = "0.00";
       }
     });
   }
@@ -621,16 +716,18 @@
       const form = $("payment-form");
       form.action = "/payments/" + data.payment;
       $("payment-account").textContent = data.name || "";
+      payOrigDevices = data.devices || "0";
+      payOrigUnit = data.unit || "0.00";
       if ($("payment-concept")) $("payment-concept").value = data.concept || "0";
-      $("payment-devices").value = data.devices || 0;
-      $("payment-unit").value = data.unit || "0.00";
+      $("payment-devices").value = payOrigDevices;
+      $("payment-unit").value = payOrigUnit;
       $("payment-amount").value = data.amount || "0.00";
       $("payment-date").value = data.date || "";
       $("payment-method").value = data.method || "cash";
       $("payment-reference").value = data.reference || "";
       $("payment-note").value = data.note || "";
       payCurrency = data.currency || "";
-      refreshPaymentSummary();
+      updatePaymentConceptState();
       openModal($("payment-dialog"));
       return;
     }

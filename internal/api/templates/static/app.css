@@ -565,6 +565,13 @@ dialog.modal::backdrop {
   outline-offset: 1px;
 }
 
+.modal-form input.is-off,
+.modal-form select.is-off {
+  opacity: 0.5;
+  background: var(--color-surface-2);
+  cursor: not-allowed;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

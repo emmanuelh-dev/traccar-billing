@@ -22,24 +22,25 @@ type chargeAccount struct {
 }
 
 type tenantPaymentRow struct {
-	ID            int64
-	AccountID     int64
-	AccountName   string
-	ConceptID     int64
-	ConceptName   string
-	DateDisplay   string
-	DateValue     string
-	AmountDisplay string
-	AmountValue   string
-	UnitPriceVal  string
-	Currency      string
-	Breakdown     string
-	Devices       int
-	Method        string
-	Reference     string
-	Note          string
-	Voided        bool
-	VoidReason    string
+	ID               int64
+	AccountID        int64
+	AccountName      string
+	ConceptID        int64
+	ConceptName      string
+	ConceptRecurring bool
+	DateDisplay      string
+	DateValue        string
+	AmountDisplay    string
+	AmountValue      string
+	UnitPriceVal     string
+	Currency         string
+	Breakdown        string
+	Devices          int
+	Method           string
+	Reference        string
+	Note             string
+	Voided           bool
+	VoidReason       string
 }
 
 type paymentsView struct {
@@ -169,24 +170,25 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		}
 		paidAt := p.PaidAt.In(s.loc)
 		view.Rows = append(view.Rows, tenantPaymentRow{
-			ID:            p.ID,
-			AccountID:     p.AccountID,
-			AccountName:   p.AccountName,
-			ConceptID:     p.ConceptID,
-			ConceptName:   p.ConceptName,
-			DateDisplay:   paidAt.Format(dueDateFormat),
-			DateValue:     paidAt.Format(dueDateFormat),
-			AmountDisplay: formatAmount(p.AmountCents, p.Currency),
-			AmountValue:   centsValue(p.AmountCents),
-			UnitPriceVal:  centsValue(p.UnitPriceCents),
-			Currency:      p.Currency,
-			Breakdown:     breakdownLabel(t, p.DeviceCount, p.UnitPriceCents, p.Currency),
-			Devices:       p.DeviceCount,
-			Method:        p.Method,
-			Reference:     p.Reference,
-			Note:          p.Note,
-			Voided:        p.Voided(),
-			VoidReason:    p.VoidReason,
+			ID:               p.ID,
+			AccountID:        p.AccountID,
+			AccountName:      p.AccountName,
+			ConceptID:        p.ConceptID,
+			ConceptName:      p.ConceptName,
+			ConceptRecurring: p.ConceptRecurring,
+			DateDisplay:      paidAt.Format(dueDateFormat),
+			DateValue:        paidAt.Format(dueDateFormat),
+			AmountDisplay:    formatAmount(p.AmountCents, p.Currency),
+			AmountValue:      centsValue(p.AmountCents),
+			UnitPriceVal:     centsValue(p.UnitPriceCents),
+			Currency:         p.Currency,
+			Breakdown:        breakdownLabel(t, p.DeviceCount, p.UnitPriceCents, p.Currency),
+			Devices:          p.DeviceCount,
+			Method:           p.Method,
+			Reference:        p.Reference,
+			Note:             p.Note,
+			Voided:           p.Voided(),
+			VoidReason:       p.VoidReason,
 		})
 	}
 	view.Total = formatAmount(totalCents, currency)
@@ -264,9 +266,11 @@ func (s *Server) handleEditPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payment.AmountCents = *req.AmountCents
+	var isNonRecurring bool
 	if req.ConceptID != nil {
 		if *req.ConceptID > 0 {
-			if _, err := s.repo.GetConcept(r.Context(), tenant.ID, *req.ConceptID); err != nil {
+			c, err := s.repo.GetConcept(r.Context(), tenant.ID, *req.ConceptID)
+			if err != nil {
 				if errors.Is(err, billing.ErrNotFound) {
 					redirectPageError(w, r, "concept not found")
 					return
@@ -275,14 +279,20 @@ func (s *Server) handleEditPayment(w http.ResponseWriter, r *http.Request) {
 				redirectPageError(w, r, "internal error")
 				return
 			}
+			isNonRecurring = !c.Recurring
 		}
 		payment.ConceptID = *req.ConceptID
 	}
-	if req.DeviceCount != nil {
-		payment.DeviceCount = *req.DeviceCount
-	}
-	if req.UnitPriceCents != nil {
-		payment.UnitPriceCents = *req.UnitPriceCents
+	if isNonRecurring {
+		payment.DeviceCount = 0
+		payment.UnitPriceCents = 0
+	} else {
+		if req.DeviceCount != nil {
+			payment.DeviceCount = *req.DeviceCount
+		}
+		if req.UnitPriceCents != nil {
+			payment.UnitPriceCents = *req.UnitPriceCents
+		}
 	}
 	if req.PaidAt != nil {
 		payment.PaidAt = *req.PaidAt

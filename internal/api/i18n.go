@@ -238,6 +238,8 @@ type uiStrings struct {
 	RecurringNo      string
 	NoConceptOption  string
 	ColConcept       string
+	OneOffChargeFmt  string
+	OneOffBadge      string
 }
 
 var translations = map[string]uiStrings{
@@ -354,22 +356,23 @@ var translations = map[string]uiStrings{
 		AssignSellerTtl: "Asignar vendedor",
 		UnassignOption:  "— sin vendedor —",
 
-		NavConcepts:      "Conceptos",
-		ConceptsPageTtl:  "Conceptos de cobro",
-		ConceptsEmpty:    "Todavía no hay conceptos registrados. Da de alta uno para poder asociarlo a los pagos.",
-		NewConceptButton: "Nuevo concepto",
-		NewConceptTitle:  "Nuevo concepto",
-		EditConceptTitle: "Editar concepto",
-		ConceptLabel:     "Concepto",
-		ConceptNameLabel: "Nombre",
-		SlugLabel:        "Slug / Clave",
-		SlugHint:         "Identificador único (minúsculas, sin acentos ni espacios). Se genera automáticamente si se deja en blanco.",
-		RecurringLabel:   "Recurrente",
-		RecurringYes:     "Sí",
-		RecurringNo:      "No",
-		NoConceptOption:  "— sin concepto —",
-		ColConcept:       "Concepto",
-
+		NavConcepts:       "Conceptos",
+		ConceptsPageTtl:   "Conceptos de cobro",
+		ConceptsEmpty:     "Todavía no hay conceptos registrados. Da de alta uno para poder asociarlo a los pagos.",
+		NewConceptButton:  "Nuevo concepto",
+		NewConceptTitle:   "Nuevo concepto",
+		EditConceptTitle:  "Editar concepto",
+		ConceptLabel:      "Concepto",
+		ConceptNameLabel:  "Nombre",
+		SlugLabel:         "Slug / Clave",
+		SlugHint:          "Identificador único (minúsculas, sin acentos ni espacios). Se genera automáticamente si se deja en blanco.",
+		RecurringLabel:    "Recurrente",
+		RecurringYes:      "Sí",
+		RecurringNo:       "No",
+		NoConceptOption:   "— sin concepto —",
+		ColConcept:        "Concepto",
+		OneOffChargeFmt:   "%s — cargo único de %s (no renueva la mensualidad)",
+		OneOffBadge:       "cargo único",
 		DeleteButton:      "Eliminar",
 		DeletePaymentTtl:  "Eliminar pago",
 		DeleteWarning:     "El pago se borra por completo y no se puede recuperar. Si solo quieres corregirlo, usa Anular y queda en el historial. Si este pago ya había movido la fecha de corte, ajústala en Configurar cobro.",
@@ -540,6 +543,8 @@ var translations = map[string]uiStrings{
 		RecurringNo:      "No",
 		NoConceptOption:  "— no concept —",
 		ColConcept:       "Concept",
+		OneOffChargeFmt:  "%s — one-off charge of %s (does not renew subscription)",
+		OneOffBadge:      "one-off charge",
 
 		DeleteButton:      "Delete",
 		DeletePaymentTtl:  "Delete payment",

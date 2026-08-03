@@ -213,8 +213,8 @@ func TestRenderPayments(t *testing.T) {
 				VoidReason:    "duplicado",
 			},
 		},
-		Accounts: []chargeAccount{
-			{ID: 7, Name: "Cristian Palomo", Devices: 11, UnitPriceValue: "200.00", AmountValue: "2200.00", Currency: "MXN", PeriodDays: 30, HasSubscription: true},
+		Concepts: []conceptOption{
+			{ID: 1, Name: "Instalación", AmountValue: "500.00", Currency: "MXN", Recurring: false},
 		},
 	}
 
@@ -235,6 +235,7 @@ func TestRenderPayments(t *testing.T) {
 		"duplicado",
 		"Concepto",
 		"Mensualidad",
+		`data-recurring="false"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("payments output missing %q", want)

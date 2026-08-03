@@ -489,7 +489,7 @@ func (r *sqlRepository) ListPaymentsBySubscription(ctx context.Context, subscrip
 }
 
 func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64, filter billing.PaymentFilter) ([]billing.TenantPayment, error) {
-	query := `SELECT p.id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name, COALESCE(c.name, '')
+	query := `SELECT p.id, p.subscription_id, p.concept_id, p.amount_cents, p.unit_price_cents, p.device_count, p.currency, p.method, p.reference, p.paid_at, p.note, p.voided_at, p.void_reason, p.created_at, p.updated_at, a.id, a.name, COALESCE(c.name, ''), COALESCE(c.recurring, 1)
 		 FROM payments p
 		 JOIN subscriptions s ON s.id = p.subscription_id
 		 JOIN accounts a ON a.id = s.account_id
@@ -520,11 +520,13 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 	var payments []billing.TenantPayment
 	for rows.Next() {
 		var tp billing.TenantPayment
-		p, err := scanPaymentInto(rows, &tp.AccountID, &tp.AccountName, &tp.ConceptName)
+		var conceptRecurring int
+		p, err := scanPaymentInto(rows, &tp.AccountID, &tp.AccountName, &tp.ConceptName, &conceptRecurring)
 		if err != nil {
 			return nil, fmt.Errorf("storage: scan tenant payment: %w", err)
 		}
 		tp.Payment = p
+		tp.ConceptRecurring = conceptRecurring != 0
 		payments = append(payments, tp)
 	}
 	return payments, rows.Err()

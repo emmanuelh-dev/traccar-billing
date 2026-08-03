@@ -69,7 +69,8 @@ type PaymentFilter struct {
 
 type TenantPayment struct {
 	Payment
-	AccountID   int64
-	AccountName string
-	ConceptName string
+	AccountID        int64
+	AccountName      string
+	ConceptName      string
+	ConceptRecurring bool
 }

@@ -189,9 +189,100 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var conceptID int64
+	if req.ConceptID != nil {
+		conceptID = *req.ConceptID
+	}
+	var concept billing.Concept
+	// A concept id arrives from the browser, so it has to be proven to
+	// belong to this tenant before it lands on a payment row.
+	if conceptID > 0 {
+		var cErr error
+		concept, cErr = s.repo.GetConcept(r.Context(), tenant.ID, conceptID)
+		if cErr != nil {
+			if errors.Is(cErr, billing.ErrNotFound) {
+				s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "concept not found")
+				return
+			}
+			s.logger.Error("api: get concept for payment", "error", cErr)
+			s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "internal error")
+			return
+		}
+	}
+
 	sub, err := s.repo.GetSubscriptionByAccountID(r.Context(), account.ID)
-	switch {
-	case errors.Is(err, billing.ErrNotFound):
+	hasSub := true
+	if errors.Is(err, billing.ErrNotFound) {
+		hasSub = false
+	} else if err != nil {
+		s.logger.Error("api: get subscription", "error", err)
+		s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "failed to get subscription")
+		return
+	}
+
+	paidAt := s.now()
+	if req.PaidAt != nil {
+		paidAt = *req.PaidAt
+	}
+
+	// One-off non-recurring charges (e.g. installation/uninstallation) do not
+	// advance the billing cycle or alter subscription state.
+	if conceptID > 0 && !concept.Recurring {
+		if !hasSub {
+			s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "account has no billing set up yet")
+			return
+		}
+
+		amountCents := concept.AmountCents
+		if req.AmountCents != nil {
+			amountCents = *req.AmountCents
+		}
+
+		currency := sub.Currency
+		if req.Currency != "" {
+			currency = req.Currency
+		}
+
+		var payment billing.Payment
+		err = s.repo.WithTx(r.Context(), func(tx billing.Repository) error {
+			var txErr error
+			payment, txErr = tx.RecordPayment(r.Context(), billing.Payment{
+				SubscriptionID: sub.ID,
+				ConceptID:      conceptID,
+				AmountCents:    amountCents,
+				UnitPriceCents: 0,
+				DeviceCount:    0,
+				Currency:       currency,
+				Method:         req.Method,
+				Reference:      req.Reference,
+				PaidAt:         paidAt,
+				Note:           req.Note,
+			})
+			return txErr
+		})
+		if err != nil {
+			s.logger.Error("api: record payment", "error", err)
+			s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "failed to record payment")
+			return
+		}
+
+		// Deliberately no syncTraccarAccess here: paying an installation
+		// does not settle the monthly bill, so a suspended account stays
+		// suspended until its subscription is actually paid.
+
+		if !isJSON {
+			http.Redirect(w, r, redirectTarget(r, "/dashboard"), http.StatusSeeOther)
+			return
+		}
+		writeJSON(w, http.StatusOK, accountDetail{
+			Account:      account,
+			Subscription: &sub,
+			Payments:     []billing.Payment{payment},
+		})
+		return
+	}
+
+	if !hasSub {
 		if req.AmountCents == nil || req.PeriodDays == nil {
 			s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "account has no billing set up yet")
 			return
@@ -203,11 +294,7 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 			Currency:    currencyOrDefault(req.Currency),
 			PeriodDays:  *req.PeriodDays,
 		}
-	case err != nil:
-		s.logger.Error("api: get subscription", "error", err)
-		s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "failed to get subscription")
-		return
-	default:
+	} else {
 		if req.PeriodDays != nil {
 			sub.PeriodDays = *req.PeriodDays
 		}
@@ -228,29 +315,6 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 	amountCents := billing.ChargeCents(sub, devices)
 	if req.AmountCents != nil {
 		amountCents = *req.AmountCents
-	}
-
-	paidAt := s.now()
-	if req.PaidAt != nil {
-		paidAt = *req.PaidAt
-	}
-
-	var conceptID int64
-	if req.ConceptID != nil {
-		conceptID = *req.ConceptID
-	}
-	// A concept id arrives from the browser, so it has to be proven to
-	// belong to this tenant before it lands on a payment row.
-	if conceptID > 0 {
-		if _, err := s.repo.GetConcept(r.Context(), tenant.ID, conceptID); err != nil {
-			if errors.Is(err, billing.ErrNotFound) {
-				s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "concept not found")
-				return
-			}
-			s.logger.Error("api: get concept for payment", "error", err)
-			s.respondPayFailure(w, r, isJSON, http.StatusInternalServerError, "internal error")
-			return
-		}
 	}
 
 	var updatedSub billing.Subscription

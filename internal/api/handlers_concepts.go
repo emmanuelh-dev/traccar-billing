@@ -20,6 +20,7 @@ type conceptOption struct {
 	AmountCents int64
 	AmountValue string
 	Currency    string
+	Recurring   bool
 }
 
 type conceptsView struct {
@@ -191,6 +192,7 @@ func (s *Server) conceptOptions(r *http.Request, tenantID int64) ([]conceptOptio
 				AmountCents: concept.AmountCents,
 				AmountValue: centsValue(concept.AmountCents),
 				Currency:    concept.Currency,
+				Recurring:   concept.Recurring,
 			})
 		}
 	}
