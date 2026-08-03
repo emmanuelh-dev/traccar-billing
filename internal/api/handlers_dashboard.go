@@ -52,6 +52,7 @@ type dashboardView struct {
 	Sellers  []sellerOption
 	Today    string
 	Redirect string
+	View     string
 
 	SessionExpired bool
 }
@@ -86,6 +87,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Sellers:  sellerOpts,
 		Today:    now.Format(dueDateFormat),
 		Redirect: "/dashboard",
+		View:     resolveView(w, r),
 
 		SessionExpired: !tenant.HasValidSession(time.Now()),
 	}
@@ -100,9 +102,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			FlatFeeValue:   "0.00",
 			AmountValue:    "0.00",
 			ChargeValue:    "0.00",
-			BillingMode:    string(billing.ModeRolling),
-			AnchorDay:      1,
-			DueDay:         5,
+			BillingMode:    string(billing.ModeCalendar),
+			AnchorDay:      defaultAnchorDay,
+			DueDay:         defaultDueDay,
+			GraceDays:      defaultGraceDays,
 			SellerID:       account.SellerID,
 			SellerName:     sellerNames[account.SellerID],
 		}

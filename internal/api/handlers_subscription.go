@@ -15,8 +15,11 @@ import (
 )
 
 const (
-	dueDateFormat   = "2006-01-02"
-	defaultCurrency = "MXN"
+	dueDateFormat    = "2006-01-02"
+	defaultCurrency  = "MXN"
+	defaultGraceDays = 5
+	defaultAnchorDay = 1
+	defaultDueDay    = 5
 )
 
 // handleConfigureSubscription creates or edits a subscription's billing
@@ -74,14 +77,14 @@ func (s *Server) handleConfigureSubscription(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	minDevices := optionalInt(r.FormValue("min_devices"), 0)
-	graceDays := optionalInt(r.FormValue("grace_days"), 0)
+	graceDays := optionalInt(r.FormValue("grace_days"), defaultGraceDays)
 	currency := currencyOrDefault(r.FormValue("currency"))
 
 	mode := billing.ModeRolling
-	anchorDay, dueDay := 1, 5
+	anchorDay, dueDay := defaultAnchorDay, defaultDueDay
 	var nextDueAt time.Time
 
-	if r.FormValue("billing_mode") == string(billing.ModeCalendar) {
+	if r.FormValue("billing_mode") != string(billing.ModeRolling) {
 		mode = billing.ModeCalendar
 		anchorDay = clampDayOfMonth(optionalInt(r.FormValue("anchor_day"), 1))
 		dueDay = clampDayOfMonth(optionalInt(r.FormValue("due_day"), 5))

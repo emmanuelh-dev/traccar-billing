@@ -130,3 +130,40 @@ func TestRenderPayments(t *testing.T) {
 		t.Error("payments output is missing the delete action")
 	}
 }
+
+func TestRenderDashboardCardView(t *testing.T) {
+	view := dashboardView{
+		T:        stringsFor("es"),
+		Title:    "Dashboard",
+		Active:   "dashboard",
+		View:     "cards",
+		Tenant:   billing.Tenant{Name: "gps.example.com"},
+		Today:    "2026-08-02",
+		Redirect: "/dashboard",
+		Rows: []accountRow{{
+			Account:         billing.Account{ID: 7, Name: "Cristian Palomo", Email: "c@example.com", DeviceCount: 11},
+			Subscription:    billing.Subscription{Status: billing.StatusActive, Currency: "MXN"},
+			HasSubscription: true,
+			StatusLabel:     "al corriente",
+			AmountDisplay:   "MXN 2200.00",
+			UnitPriceLabel:  "MXN 200.00",
+			DefaultDueDate:  "2026-09-05",
+			SellerName:      "Ana",
+		}},
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "dashboard", view); err != nil {
+		t.Fatalf("render dashboard cards: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{`class="card-grid"`, "account-card", "MXN 200.00", "Ana", "/dashboard?view=table"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("card view missing %q", want)
+		}
+	}
+	if strings.Contains(out, `class="table-scroll"`) {
+		t.Error("card view still rendered the table")
+	}
+}

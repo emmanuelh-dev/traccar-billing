@@ -70,6 +70,10 @@ func (s *Server) resolvePeriod(r *http.Request) (string, billing.PaymentFilter) 
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, s.loc)
 
 	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "current"
+	}
+
 	switch period {
 	case "current":
 		return period, billing.PaymentFilter{From: monthStart, To: monthStart.AddDate(0, 1, 0)}

@@ -8,7 +8,26 @@ import (
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
 
-const langCookieName = "lang"
+const (
+	langCookieName = "lang"
+	viewCookieName = "view"
+)
+
+var supportedViews = map[string]bool{"table": true, "cards": true}
+
+// resolveView remembers whether the operator prefers the dense table or
+// stacked cards, the same way resolveLang remembers the language: an
+// explicit ?view= wins and is persisted, otherwise the cookie decides.
+func resolveView(w http.ResponseWriter, r *http.Request) string {
+	if view := r.URL.Query().Get("view"); supportedViews[view] {
+		http.SetCookie(w, &http.Cookie{Name: viewCookieName, Value: view, Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
+		return view
+	}
+	if cookie, err := r.Cookie(viewCookieName); err == nil && supportedViews[cookie.Value] {
+		return cookie.Value
+	}
+	return "table"
+}
 
 var supportedLangs = map[string]bool{"es": true, "en": true}
 
@@ -164,6 +183,8 @@ type uiStrings struct {
 	VoidedCountFmt string
 	NoPaymentsHere string
 	ColUnitPrice   string
+	ViewCards      string
+	ViewTable      string
 }
 
 var translations = map[string]uiStrings{
@@ -300,6 +321,8 @@ var translations = map[string]uiStrings{
 		VoidedCountFmt: "%d anulados, no suman al total",
 		NoPaymentsHere: "No hay pagos en este periodo.",
 		ColUnitPrice:   "Cobro por equipo",
+		ViewCards:      "Ver como tarjetas",
+		ViewTable:      "Ver como tabla",
 	},
 	"en": {
 		Lang:               "en",
@@ -434,6 +457,8 @@ var translations = map[string]uiStrings{
 		VoidedCountFmt: "%d voided, not counted in the total",
 		NoPaymentsHere: "No payments in this period.",
 		ColUnitPrice:   "Price per unit",
+		ViewCards:      "Card view",
+		ViewTable:      "Table view",
 	},
 }
 

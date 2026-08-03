@@ -213,8 +213,8 @@
     <div class="field">
       <label for="configure-mode">{{.T.BillingModeLabel}}</label>
       <select id="configure-mode" name="billing_mode">
-        <option value="rolling">{{.T.ModeRollingLabel}}</option>
         <option value="calendar">{{.T.ModeCalendarLabel}}</option>
+        <option value="rolling">{{.T.ModeRollingLabel}}</option>
       </select>
     </div>
 
@@ -541,7 +541,7 @@
       $("configure-period").value = data.period || 30;
       $("configure-due").value = data.due || "";
       $("configure-grace").value = data.grace || 0;
-      $("configure-mode").value = data.mode || "rolling";
+      $("configure-mode").value = data.mode || "calendar";
       $("configure-anchor").value = data.anchor || 1;
       $("configure-dueday").value = data.dueday || 5;
       applyBillingMode();

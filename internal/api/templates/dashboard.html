@@ -10,6 +10,11 @@
       <div class="tenant-url">{{.Tenant.BaseURL}}</div>
     </div>
     <div class="header-actions">
+      {{if eq .View "cards"}}
+      <a class="btn-icon view-toggle" href="/dashboard?view=table" title="{{.T.ViewTable}}" aria-label="{{.T.ViewTable}}">{{template "icon_table"}}</a>
+      {{else}}
+      <a class="btn-icon view-toggle" href="/dashboard?view=cards" title="{{.T.ViewCards}}" aria-label="{{.T.ViewCards}}">{{template "icon_cards"}}</a>
+      {{end}}
       <button class="primary" type="button" data-modal="charge">{{.T.PayButton}}</button>
       <form class="logout-form" method="post" action="/logout">
         <button type="submit">{{.T.LogoutButton}}</button>
@@ -37,6 +42,64 @@
   </div>
 
   {{if .Rows}}
+  {{if eq .View "cards"}}
+  <div class="card-grid">
+    {{range .Rows}}
+    <article class="account-card">
+      <header>
+        <div class="account-card-name">
+          <strong>{{.Account.Name}}</strong>
+          <small>{{.Account.Email}}</small>
+        </div>
+        {{if .HasSubscription}}
+          <span class="badge badge-{{.Subscription.Status}}">{{.StatusLabel}}</span>
+        {{else}}
+          <span class="badge badge-suspended">{{$.T.NoSubscription}}</span>
+        {{end}}
+      </header>
+
+      <dl>
+        <div><dt>{{$.T.SellerLabel}}</dt><dd>
+          <button class="link" type="button"
+            data-modal="assign-seller"
+            data-account="{{.Account.ID}}"
+            data-name="{{.Account.Name}}"
+            data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
+        </dd></div>
+        <div><dt>{{$.T.ColDevices}}</dt><dd>{{.Account.DeviceCount}}</dd></div>
+        <div><dt>{{$.T.ColUnitPrice}}</dt><dd>{{.UnitPriceLabel}}</dd></div>
+        <div><dt>{{$.T.ColAmount}}</dt><dd>{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</dd></div>
+        <div><dt>{{$.T.ColNextDue}}</dt><dd>{{if .HasSubscription}}{{.DefaultDueDate}} <small>{{.DaysLeftLabel}}</small>{{end}}</dd></div>
+      </dl>
+
+      <footer class="row-actions">
+        <button type="button"
+            data-modal="configure"
+            data-account="{{.Account.ID}}"
+            data-name="{{.Account.Name}}"
+            data-unit="{{.UnitPriceValue}}"
+            data-amount="{{.AmountValue}}"
+            data-flat="{{.FlatFeeValue}}"
+            data-min="{{.MinDevices}}"
+            data-grace="{{.GraceDays}}"
+            data-currency="{{.Currency}}"
+            data-period="{{.DefaultPeriod}}"
+            data-due="{{.DefaultDueDate}}"
+            data-mode="{{.BillingMode}}"
+            data-anchor="{{.AnchorDay}}"
+            data-dueday="{{.DueDay}}"
+            class="btn-icon" title="{{$.T.ConfigureLabel}}" aria-label="{{$.T.ConfigureLabel}}">{{template "icon_configure"}}</button>
+          {{if .HasSubscription}}
+          <button class="btn-icon primary" type="button"
+            data-modal="charge"
+            data-account="{{.Account.ID}}"
+            title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
+          {{end}}
+      </footer>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
   <div class="table-scroll">
   <table class="accounts">
     <thead>
@@ -110,6 +173,7 @@
     </tbody>
   </table>
   </div>
+  {{end}}
   {{else}}
   <div class="empty-state">{{.T.EmptyState}}</div>
   {{end}}

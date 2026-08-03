@@ -20,8 +20,8 @@ func TestResolvePeriod(t *testing.T) {
 		wantFrom   string
 		wantTo     string
 	}{
-		{name: "no period means everything", query: "", wantPeriod: "all"},
 		{name: "unknown period means everything", query: "?period=garbage", wantPeriod: "all"},
+		{name: "all is explicit", query: "?period=all", wantPeriod: "all"},
 		{
 			name:       "explicit range is inclusive of the end day",
 			query:      "?period=range&from=2026-07-01&to=2026-07-31",
@@ -79,6 +79,14 @@ func TestResolvePeriodMonthShortcuts(t *testing.T) {
 	}
 	if !currentFilter.To.Equal(currentFilter.From.AddDate(0, 1, 0)) {
 		t.Errorf("current to = %v, want one month after %v", currentFilter.To, currentFilter.From)
+	}
+
+	defaultPeriod, defaultFilter := s.resolvePeriod(httptest.NewRequest("GET", "/payments", nil))
+	if defaultPeriod != "current" {
+		t.Errorf("period with no query = %q, want current", defaultPeriod)
+	}
+	if !defaultFilter.From.Equal(currentFilter.From) || !defaultFilter.To.Equal(currentFilter.To) {
+		t.Errorf("default filter = %v..%v, want the current month %v..%v", defaultFilter.From, defaultFilter.To, currentFilter.From, currentFilter.To)
 	}
 
 	_, prevFilter := s.resolvePeriod(httptest.NewRequest("GET", "/payments?period=previous", nil))
