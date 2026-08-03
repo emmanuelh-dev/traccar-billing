@@ -56,6 +56,9 @@ func TestRenderDashboard(t *testing.T) {
 		`data-devices="11"`,
 		`data-unit="200.00"`,
 		"Cristian Palomo",
+		`class="btn-icon"`,
+		`aria-label="Configurar cobro"`,
+		"<svg",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("dashboard output missing %q", want)

@@ -100,18 +100,21 @@
             data-method="{{.Method}}"
             data-reference="{{.Reference}}"
             data-note="{{.Note}}"
-            data-currency="{{.Currency}}">{{$.T.EditButton}}</button>
+            data-currency="{{.Currency}}"
+            class="btn-icon" title="{{$.T.EditButton}}" aria-label="{{$.T.EditButton}}">{{template "icon_edit"}}</button>
           <button type="button"
             data-modal="void"
             data-payment="{{.ID}}"
             data-name="{{.AccountName}}"
-            data-amount="{{.AmountDisplay}}">{{$.T.VoidButton}}</button>
+            data-amount="{{.AmountDisplay}}"
+            class="btn-icon" title="{{$.T.VoidButton}}" aria-label="{{$.T.VoidButton}}">{{template "icon_void"}}</button>
           {{end}}
-          <button class="danger-link" type="button"
+          <button class="btn-icon danger-link" type="button"
             data-modal="delete"
             data-payment="{{.ID}}"
             data-name="{{.AccountName}}"
-            data-amount="{{.AmountDisplay}}">{{$.T.DeleteButton}}</button>
+            data-amount="{{.AmountDisplay}}"
+            title="{{$.T.DeleteButton}}" aria-label="{{$.T.DeleteButton}}">{{template "icon_delete"}}</button>
         </td>
       </tr>
       {{end}}

@@ -63,7 +63,8 @@
             data-phone="{{.Seller.Phone}}"
             data-commission="{{.CommissionValue}}"
             data-active="{{if .Seller.Active}}1{{else}}0{{end}}"
-            data-note="{{.Seller.Note}}">{{$.T.EditButton}}</button>
+            data-note="{{.Seller.Note}}"
+            class="btn-icon" title="{{$.T.EditButton}}" aria-label="{{$.T.EditButton}}">{{template "icon_edit"}}</button>
         </td>
       </tr>
       {{end}}

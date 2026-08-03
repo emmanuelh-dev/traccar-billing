@@ -96,11 +96,13 @@
             data-due="{{.DefaultDueDate}}"
             data-mode="{{.BillingMode}}"
             data-anchor="{{.AnchorDay}}"
-            data-dueday="{{.DueDay}}">{{$.T.ConfigureLabel}}</button>
+            data-dueday="{{.DueDay}}"
+            class="btn-icon" title="{{$.T.ConfigureLabel}}" aria-label="{{$.T.ConfigureLabel}}">{{template "icon_configure"}}</button>
           {{if .HasSubscription}}
-          <button class="primary" type="button"
+          <button class="btn-icon primary" type="button"
             data-modal="charge"
-            data-account="{{.Account.ID}}">{{$.T.PayButton}}</button>
+            data-account="{{.Account.ID}}"
+            title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
           {{end}}
         </td>
       </tr>

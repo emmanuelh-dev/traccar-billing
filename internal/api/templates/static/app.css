@@ -257,6 +257,19 @@ button.primary:active {
     flex-direction: row;
     flex-wrap: wrap;
   }
+  th.actions,
+  td.row-actions {
+    position: static;
+    box-shadow: none;
+    border-left: none;
+  }
+  .dashboard {
+    padding: 16px;
+  }
+  td.cell-stack span,
+  td.cell-stack small {
+    max-width: 150px;
+  }
 }
 
 /* Dashboard */
@@ -304,19 +317,18 @@ button.primary:active {
 }
 
 .stat-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1px;
-  background: var(--color-border);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
 .stat {
+  flex: 1 1 160px;
   background: var(--color-surface);
-  padding: 16px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
 }
 
 .stat .value {
@@ -402,6 +414,31 @@ td.row-actions button {
   padding: 4px 9px;
   margin-left: 4px;
   cursor: pointer;
+}
+
+td.row-actions button.btn-icon.primary {
+  width: 30px;
+  padding: 0;
+}
+
+button.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+button.btn-icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 td.row-actions button:hover {
@@ -757,4 +794,11 @@ td.cell-stack small {
   display: block;
   font-size: 12px;
   color: var(--color-text-muted);
+}
+
+td.cell-stack span,
+td.cell-stack small {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
