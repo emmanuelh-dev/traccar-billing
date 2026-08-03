@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -103,7 +104,29 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenant.SessionCookie = session.Cookie
+	tenant.SessionExpiresAt = session.ExpiresAt
+	s.syncNow(r.Context(), tenant)
+
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}
+
+// syncNow pulls the tenant's accounts before the dashboard renders, so a
+// freshly connected server is not blank until the scheduler's next tick.
+// A failure only costs the operator that wait: the scheduler retries.
+func (s *Server) syncNow(ctx context.Context, tenant billing.Tenant) {
+	if s.syncer == nil {
+		return
+	}
+
+	syncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), loginSyncTimeout)
+	defer cancel()
+
+	if err := s.syncer.SyncTenant(syncCtx, tenant); err != nil {
+		s.logger.Warn("api: initial sync after login failed", "tenant_id", tenant.ID, "error", err)
+		return
+	}
+	s.logger.Info("api: initial sync after login", "tenant_id", tenant.ID)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {

@@ -80,9 +80,37 @@ pago, que no tiene por qué coincidir con la configuración vigente de la
 suscripción. `voided_at` permite corregir sin borrar: los pagos no se
 eliminan nunca.
 
+### 000006 — bajas y ciclo por calendario
+
+```sql
+ALTER TABLE accounts ADD COLUMN archived_at DATETIME;
+ALTER TABLE subscriptions ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'rolling';
+ALTER TABLE subscriptions ADD COLUMN anchor_day INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE subscriptions ADD COLUMN due_day INTEGER NOT NULL DEFAULT 5;
+```
+
+`ListAccountsByTenant` excluye las archivadas; `UpsertAccount` limpia
+`archived_at`, así que un usuario que reaparece en Traccar revive con su
+historial. El scheduler solo archiva **después de un fetch completo y
+exitoso**: una lista parcial archivaría todo lo que no alcanzó a ver.
+
+### 000007 — vendedores
+
+```sql
+CREATE TABLE sellers (
+    id, tenant_id, name, email, phone,
+    commission_bp INTEGER NOT NULL DEFAULT 0,
+    active, note, created_at, updated_at
+);
+ALTER TABLE accounts ADD COLUMN seller_id INTEGER REFERENCES sellers(id);
+```
+
+`commission_bp` son puntos base (1000 = 10%), enteros como todo el dinero.
+`seller_id` es nullable: una cuenta sin vendedor es válida.
+
 ## Esquema objetivo
 
-### Migración 6 — remisiones
+### Migración 8 — remisiones
 
 ```sql
 CREATE TABLE statements (
@@ -135,7 +163,7 @@ Y la unicidad que el código ya asume:
 CREATE UNIQUE INDEX idx_subscriptions_account_unique ON subscriptions(account_id);
 ```
 
-### Migración 7 — preparación fiscal (sin timbrar)
+### Migración 9 — preparación fiscal (sin timbrar)
 
 ```sql
 ALTER TABLE accounts ADD COLUMN tax_id      TEXT NOT NULL DEFAULT '';
@@ -152,11 +180,9 @@ Se capturan y se guardan desde ya; el timbrado con un PAC llega después
 ([roadmap.md](roadmap.md), Fase 5). Cuando llegue, no hay que migrar datos
 históricos ni pedirle el RFC a nadie otra vez.
 
-### Migración 8 — bajas y auditoría
+### Migración 10 — auditoría
 
 ```sql
-ALTER TABLE accounts ADD COLUMN archived_at DATETIME;
-
 CREATE TABLE audit_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id  INTEGER NOT NULL,

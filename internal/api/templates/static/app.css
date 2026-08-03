@@ -546,3 +546,75 @@ dialog.modal::backdrop {
   text-align: center;
   color: var(--color-text-muted);
 }
+
+.session-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.session-banner strong {
+  font-size: 14px;
+  color: var(--color-danger);
+}
+
+.session-banner p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.session-banner .reconnect {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #fff;
+  background: var(--color-danger);
+  border-radius: 8px;
+  padding: 9px 16px;
+}
+
+button.link {
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--color-border);
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+button.link:hover {
+  color: var(--color-text);
+  border-bottom-color: var(--color-text-muted);
+}
+
+td.row-actions button.danger-link {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+td.row-actions button.danger-link:hover {
+  color: #fff;
+  background: var(--color-danger);
+  border-color: transparent;
+}
+
+.modal-total {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--color-surface-2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: -6px 0 16px;
+  min-height: 20px;
+}

@@ -22,6 +22,13 @@ type Repository interface {
 	UpsertAccount(ctx context.Context, a Account) (Account, error)
 	GetAccount(ctx context.Context, tenantID, accountID int64) (Account, error)
 	ListAccountsByTenant(ctx context.Context, tenantID int64) ([]Account, error)
+	ArchiveAccount(ctx context.Context, accountID int64, archivedAt time.Time) error
+	AssignAccountSeller(ctx context.Context, tenantID, accountID, sellerID int64) error
+
+	CreateSeller(ctx context.Context, s Seller) (Seller, error)
+	UpdateSeller(ctx context.Context, s Seller) (Seller, error)
+	GetSeller(ctx context.Context, tenantID, sellerID int64) (Seller, error)
+	ListSellers(ctx context.Context, tenantID int64) ([]Seller, error)
 
 	UpsertSubscription(ctx context.Context, s Subscription) (Subscription, error)
 	GetSubscription(ctx context.Context, id int64) (Subscription, error)
@@ -32,6 +39,7 @@ type Repository interface {
 	GetPayment(ctx context.Context, tenantID, paymentID int64) (Payment, error)
 	UpdatePayment(ctx context.Context, p Payment) (Payment, error)
 	VoidPayment(ctx context.Context, paymentID int64, voidedAt time.Time, reason string) error
+	DeletePayment(ctx context.Context, tenantID, paymentID int64) error
 	ListPaymentsBySubscription(ctx context.Context, subscriptionID int64) ([]Payment, error)
 	ListPaymentsByTenant(ctx context.Context, tenantID int64) ([]TenantPayment, error)
 }

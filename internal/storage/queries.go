@@ -154,6 +154,20 @@ func (r *sqlRepository) ListTenants(ctx context.Context) ([]billing.Tenant, erro
 	return tenants, rows.Err()
 }
 
+const accountColumns = `id, tenant_id, traccar_user_id, name, email, device_count, seller_id, archived_at, created_at, updated_at`
+
+func scanAccountInto(sc scanner) (billing.Account, error) {
+	var a billing.Account
+	var archivedAt sql.NullTime
+	var sellerID sql.NullInt64
+	if err := sc.Scan(&a.ID, &a.TenantID, &a.TraccarUserID, &a.Name, &a.Email, &a.DeviceCount, &sellerID, &archivedAt, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		return billing.Account{}, err
+	}
+	a.SellerID = sellerID.Int64
+	a.ArchivedAt = scanTime(archivedAt)
+	return a, nil
+}
+
 func (r *sqlRepository) UpsertAccount(ctx context.Context, a billing.Account) (billing.Account, error) {
 	now := time.Now().UTC()
 
@@ -161,11 +175,11 @@ func (r *sqlRepository) UpsertAccount(ctx context.Context, a billing.Account) (b
 	if r.dialect == "mysql" {
 		query = `INSERT INTO accounts (tenant_id, traccar_user_id, name, email, device_count, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), device_count = VALUES(device_count), updated_at = VALUES(updated_at)`
+			ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), device_count = VALUES(device_count), updated_at = VALUES(updated_at), archived_at = NULL`
 	} else {
 		query = `INSERT INTO accounts (tenant_id, traccar_user_id, name, email, device_count, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(tenant_id, traccar_user_id) DO UPDATE SET name = excluded.name, email = excluded.email, device_count = excluded.device_count, updated_at = excluded.updated_at`
+			ON CONFLICT(tenant_id, traccar_user_id) DO UPDATE SET name = excluded.name, email = excluded.email, device_count = excluded.device_count, updated_at = excluded.updated_at, archived_at = NULL`
 	}
 
 	if _, err := r.q().ExecContext(ctx, query, a.TenantID, a.TraccarUserID, a.Name, a.Email, a.DeviceCount, now, now); err != nil {
@@ -173,19 +187,16 @@ func (r *sqlRepository) UpsertAccount(ctx context.Context, a billing.Account) (b
 	}
 
 	return r.scanAccount(r.q().QueryRowContext(ctx,
-		`SELECT id, tenant_id, traccar_user_id, name, email, device_count, created_at, updated_at
-		 FROM accounts WHERE tenant_id = ? AND traccar_user_id = ?`, a.TenantID, a.TraccarUserID))
+		`SELECT `+accountColumns+` FROM accounts WHERE tenant_id = ? AND traccar_user_id = ?`, a.TenantID, a.TraccarUserID))
 }
 
 func (r *sqlRepository) GetAccount(ctx context.Context, tenantID, accountID int64) (billing.Account, error) {
 	return r.scanAccount(r.q().QueryRowContext(ctx,
-		`SELECT id, tenant_id, traccar_user_id, name, email, device_count, created_at, updated_at
-		 FROM accounts WHERE tenant_id = ? AND id = ?`, tenantID, accountID))
+		`SELECT `+accountColumns+` FROM accounts WHERE tenant_id = ? AND id = ?`, tenantID, accountID))
 }
 
 func (r *sqlRepository) scanAccount(row *sql.Row) (billing.Account, error) {
-	var a billing.Account
-	err := row.Scan(&a.ID, &a.TenantID, &a.TraccarUserID, &a.Name, &a.Email, &a.DeviceCount, &a.CreatedAt, &a.UpdatedAt)
+	a, err := scanAccountInto(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return billing.Account{}, billing.ErrNotFound
 	}
@@ -197,8 +208,7 @@ func (r *sqlRepository) scanAccount(row *sql.Row) (billing.Account, error) {
 
 func (r *sqlRepository) ListAccountsByTenant(ctx context.Context, tenantID int64) ([]billing.Account, error) {
 	rows, err := r.q().QueryContext(ctx,
-		`SELECT id, tenant_id, traccar_user_id, name, email, device_count, created_at, updated_at
-		 FROM accounts WHERE tenant_id = ? ORDER BY id`, tenantID)
+		`SELECT `+accountColumns+` FROM accounts WHERE tenant_id = ? AND archived_at IS NULL ORDER BY id`, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("storage: list accounts: %w", err)
 	}
@@ -206,8 +216,8 @@ func (r *sqlRepository) ListAccountsByTenant(ctx context.Context, tenantID int64
 
 	var accounts []billing.Account
 	for rows.Next() {
-		var a billing.Account
-		if err := rows.Scan(&a.ID, &a.TenantID, &a.TraccarUserID, &a.Name, &a.Email, &a.DeviceCount, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		a, err := scanAccountInto(rows)
+		if err != nil {
 			return nil, fmt.Errorf("storage: scan account: %w", err)
 		}
 		accounts = append(accounts, a)
@@ -215,7 +225,16 @@ func (r *sqlRepository) ListAccountsByTenant(ctx context.Context, tenantID int64
 	return accounts, rows.Err()
 }
 
-const subscriptionColumns = `id, account_id, status, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at`
+func (r *sqlRepository) ArchiveAccount(ctx context.Context, accountID int64, archivedAt time.Time) error {
+	if _, err := r.q().ExecContext(ctx,
+		`UPDATE accounts SET archived_at = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL`,
+		archivedAt, time.Now().UTC(), accountID); err != nil {
+		return fmt.Errorf("storage: archive account: %w", err)
+	}
+	return nil
+}
+
+const subscriptionColumns = `id, account_id, status, billing_mode, anchor_day, due_day, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at`
 
 const paymentColumns = `id, subscription_id, amount_cents, unit_price_cents, device_count, currency, method, reference, paid_at, note, voided_at, void_reason, created_at, updated_at`
 
@@ -225,14 +244,15 @@ type scanner interface {
 
 func scanSubscriptionInto(sc scanner) (billing.Subscription, error) {
 	var s billing.Subscription
-	var status string
+	var status, mode string
 	var lastPaidAt sql.NullTime
-	err := sc.Scan(&s.ID, &s.AccountID, &status, &s.AmountCents, &s.UnitPriceCents, &s.FlatFeeCents,
-		&s.MinDevices, &s.GraceDays, &s.Currency, &s.PeriodDays, &lastPaidAt, &s.NextDueAt, &s.CreatedAt, &s.UpdatedAt)
+	err := sc.Scan(&s.ID, &s.AccountID, &status, &mode, &s.AnchorDay, &s.DueDay, &s.AmountCents, &s.UnitPriceCents,
+		&s.FlatFeeCents, &s.MinDevices, &s.GraceDays, &s.Currency, &s.PeriodDays, &lastPaidAt, &s.NextDueAt, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return billing.Subscription{}, err
 	}
 	s.Status = billing.SubscriptionStatus(status)
+	s.BillingMode = billing.BillingMode(mode)
 	s.LastPaidAt = scanTime(lastPaidAt)
 	return s, nil
 }
@@ -255,10 +275,10 @@ func (r *sqlRepository) UpsertSubscription(ctx context.Context, s billing.Subscr
 
 	if s.ID == 0 {
 		res, err := r.q().ExecContext(ctx,
-			`INSERT INTO subscriptions (account_id, status, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			s.AccountID, string(s.Status), s.AmountCents, s.UnitPriceCents, s.FlatFeeCents, s.MinDevices, s.GraceDays,
-			s.Currency, s.PeriodDays, nullTime(s.LastPaidAt), s.NextDueAt, now, now)
+			`INSERT INTO subscriptions (account_id, status, billing_mode, anchor_day, due_day, amount_cents, unit_price_cents, flat_fee_cents, min_devices, grace_days, currency, period_days, last_paid_at, next_due_at, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			s.AccountID, string(s.Status), string(s.BillingMode), s.AnchorDay, s.DueDay, s.AmountCents, s.UnitPriceCents,
+			s.FlatFeeCents, s.MinDevices, s.GraceDays, s.Currency, s.PeriodDays, nullTime(s.LastPaidAt), s.NextDueAt, now, now)
 		if err != nil {
 			return billing.Subscription{}, fmt.Errorf("storage: create subscription: %w", err)
 		}
@@ -270,10 +290,10 @@ func (r *sqlRepository) UpsertSubscription(ctx context.Context, s billing.Subscr
 	}
 
 	if _, err := r.q().ExecContext(ctx,
-		`UPDATE subscriptions SET status = ?, amount_cents = ?, unit_price_cents = ?, flat_fee_cents = ?, min_devices = ?, grace_days = ?, currency = ?, period_days = ?, last_paid_at = ?, next_due_at = ?, updated_at = ?
+		`UPDATE subscriptions SET status = ?, billing_mode = ?, anchor_day = ?, due_day = ?, amount_cents = ?, unit_price_cents = ?, flat_fee_cents = ?, min_devices = ?, grace_days = ?, currency = ?, period_days = ?, last_paid_at = ?, next_due_at = ?, updated_at = ?
 		 WHERE id = ?`,
-		string(s.Status), s.AmountCents, s.UnitPriceCents, s.FlatFeeCents, s.MinDevices, s.GraceDays,
-		s.Currency, s.PeriodDays, nullTime(s.LastPaidAt), s.NextDueAt, now, s.ID); err != nil {
+		string(s.Status), string(s.BillingMode), s.AnchorDay, s.DueDay, s.AmountCents, s.UnitPriceCents,
+		s.FlatFeeCents, s.MinDevices, s.GraceDays, s.Currency, s.PeriodDays, nullTime(s.LastPaidAt), s.NextDueAt, now, s.ID); err != nil {
 		return billing.Subscription{}, fmt.Errorf("storage: update subscription: %w", err)
 	}
 	return r.GetSubscription(ctx, s.ID)
@@ -302,7 +322,7 @@ func (r *sqlRepository) scanSubscription(row *sql.Row) (billing.Subscription, er
 
 func (r *sqlRepository) ListSubscriptionsDueBefore(ctx context.Context, tenantID int64, cutoff time.Time) ([]billing.Subscription, error) {
 	rows, err := r.q().QueryContext(ctx,
-		`SELECT s.id, s.account_id, s.status, s.amount_cents, s.unit_price_cents, s.flat_fee_cents, s.min_devices, s.grace_days, s.currency, s.period_days, s.last_paid_at, s.next_due_at, s.created_at, s.updated_at
+		`SELECT s.id, s.account_id, s.status, s.billing_mode, s.anchor_day, s.due_day, s.amount_cents, s.unit_price_cents, s.flat_fee_cents, s.min_devices, s.grace_days, s.currency, s.period_days, s.last_paid_at, s.next_due_at, s.created_at, s.updated_at
 		 FROM subscriptions s
 		 JOIN accounts a ON a.id = s.account_id
 		 WHERE a.tenant_id = ? AND s.next_due_at < ?
@@ -394,6 +414,16 @@ func (r *sqlRepository) VoidPayment(ctx context.Context, paymentID int64, voided
 	return nil
 }
 
+func (r *sqlRepository) DeletePayment(ctx context.Context, tenantID, paymentID int64) error {
+	if _, err := r.GetPayment(ctx, tenantID, paymentID); err != nil {
+		return err
+	}
+	if _, err := r.q().ExecContext(ctx, `DELETE FROM payments WHERE id = ?`, paymentID); err != nil {
+		return fmt.Errorf("storage: delete payment: %w", err)
+	}
+	return nil
+}
+
 func (r *sqlRepository) ListPaymentsBySubscription(ctx context.Context, subscriptionID int64) ([]billing.Payment, error) {
 	rows, err := r.q().QueryContext(ctx,
 		`SELECT `+paymentColumns+` FROM payments WHERE subscription_id = ? ORDER BY paid_at DESC, id DESC`, subscriptionID)
@@ -437,4 +467,105 @@ func (r *sqlRepository) ListPaymentsByTenant(ctx context.Context, tenantID int64
 		payments = append(payments, tp)
 	}
 	return payments, rows.Err()
+}
+
+const sellerColumns = `id, tenant_id, name, email, phone, commission_bp, active, note, created_at, updated_at`
+
+func scanSellerInto(sc scanner) (billing.Seller, error) {
+	var s billing.Seller
+	var active int
+	if err := sc.Scan(&s.ID, &s.TenantID, &s.Name, &s.Email, &s.Phone, &s.CommissionBP, &active, &s.Note, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		return billing.Seller{}, err
+	}
+	s.Active = active != 0
+	return s, nil
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func (r *sqlRepository) CreateSeller(ctx context.Context, s billing.Seller) (billing.Seller, error) {
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`INSERT INTO sellers (tenant_id, name, email, phone, commission_bp, active, note, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.TenantID, s.Name, s.Email, s.Phone, s.CommissionBP, boolToInt(s.Active), s.Note, now, now)
+	if err != nil {
+		return billing.Seller{}, fmt.Errorf("storage: create seller: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return billing.Seller{}, fmt.Errorf("storage: create seller: %w", err)
+	}
+	return r.GetSeller(ctx, s.TenantID, id)
+}
+
+func (r *sqlRepository) UpdateSeller(ctx context.Context, s billing.Seller) (billing.Seller, error) {
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE sellers SET name = ?, email = ?, phone = ?, commission_bp = ?, active = ?, note = ?, updated_at = ?
+		 WHERE id = ? AND tenant_id = ?`,
+		s.Name, s.Email, s.Phone, s.CommissionBP, boolToInt(s.Active), s.Note, time.Now().UTC(), s.ID, s.TenantID)
+	if err != nil {
+		return billing.Seller{}, fmt.Errorf("storage: update seller: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.Seller{}, billing.ErrNotFound
+	}
+	return r.GetSeller(ctx, s.TenantID, s.ID)
+}
+
+func (r *sqlRepository) GetSeller(ctx context.Context, tenantID, sellerID int64) (billing.Seller, error) {
+	s, err := scanSellerInto(r.q().QueryRowContext(ctx,
+		`SELECT `+sellerColumns+` FROM sellers WHERE tenant_id = ? AND id = ?`, tenantID, sellerID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return billing.Seller{}, billing.ErrNotFound
+	}
+	if err != nil {
+		return billing.Seller{}, fmt.Errorf("storage: get seller: %w", err)
+	}
+	return s, nil
+}
+
+func (r *sqlRepository) ListSellers(ctx context.Context, tenantID int64) ([]billing.Seller, error) {
+	rows, err := r.q().QueryContext(ctx,
+		`SELECT `+sellerColumns+` FROM sellers WHERE tenant_id = ? ORDER BY active DESC, name`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list sellers: %w", err)
+	}
+	defer rows.Close()
+
+	var sellers []billing.Seller
+	for rows.Next() {
+		s, err := scanSellerInto(rows)
+		if err != nil {
+			return nil, fmt.Errorf("storage: scan seller: %w", err)
+		}
+		sellers = append(sellers, s)
+	}
+	return sellers, rows.Err()
+}
+
+func (r *sqlRepository) AssignAccountSeller(ctx context.Context, tenantID, accountID, sellerID int64) error {
+	var seller any
+	if sellerID > 0 {
+		if _, err := r.GetSeller(ctx, tenantID, sellerID); err != nil {
+			return err
+		}
+		seller = sellerID
+	}
+
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE accounts SET seller_id = ?, updated_at = ? WHERE id = ? AND tenant_id = ?`,
+		seller, time.Now().UTC(), accountID, tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: assign account seller: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.ErrNotFound
+	}
+	return nil
 }

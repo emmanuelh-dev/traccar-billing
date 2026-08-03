@@ -29,6 +29,8 @@ type tenantPaymentRow struct {
 	AmountDisplay string
 	AmountValue   string
 	UnitPriceVal  string
+	Currency      string
+	Breakdown     string
 	Devices       int
 	Method        string
 	Reference     string
@@ -48,6 +50,8 @@ type paymentsView struct {
 	Today    string
 	Total    string
 	Redirect string
+
+	SessionExpired bool
 }
 
 func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +81,8 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 		Accounts: accounts,
 		Today:    s.now().Format(dueDateFormat),
 		Redirect: "/payments",
+
+		SessionExpired: !tenant.HasValidSession(time.Now()),
 	}
 
 	var totalCents int64
@@ -96,6 +102,8 @@ func (s *Server) handlePayments(w http.ResponseWriter, r *http.Request) {
 			AmountDisplay: formatAmount(p.AmountCents, p.Currency),
 			AmountValue:   centsValue(p.AmountCents),
 			UnitPriceVal:  centsValue(p.UnitPriceCents),
+			Currency:      p.Currency,
+			Breakdown:     breakdownLabel(t, p.DeviceCount, p.UnitPriceCents, p.Currency),
 			Devices:       p.DeviceCount,
 			Method:        p.Method,
 			Reference:     p.Reference,
@@ -242,6 +250,41 @@ func (s *Server) handleVoidPayment(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectTarget(r, "/payments"), http.StatusSeeOther)
 }
 
+func (s *Server) handleDeletePayment(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+
+	paymentID, err := parseIDParam(r, "id")
+	if err != nil {
+		redirectPageError(w, r, "invalid payment id")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectPageError(w, r, "invalid form")
+		return
+	}
+
+	err = s.repo.DeletePayment(r.Context(), tenant.ID, paymentID)
+	if errors.Is(err, billing.ErrNotFound) {
+		redirectPageError(w, r, "payment not found")
+		return
+	}
+	if err != nil {
+		s.logger.Error("api: delete payment", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+	s.logger.Info("api: deleted payment", "tenant_id", tenant.ID, "payment_id", paymentID)
+
+	http.Redirect(w, r, redirectTarget(r, "/payments"), http.StatusSeeOther)
+}
+
 func centsValue(cents int64) string {
 	return fmt.Sprintf("%.2f", float64(cents)/100)
+}
+
+func breakdownLabel(t uiStrings, devices int, unitPriceCents int64, currency string) string {
+	if devices <= 0 || unitPriceCents <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d %s x %s %s %s", devices, t.DevicesWord, currency, centsValue(unitPriceCents), t.EachWord)
 }

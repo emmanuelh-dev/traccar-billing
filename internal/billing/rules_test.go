@@ -156,3 +156,46 @@ func TestIsOverdueWithGrace(t *testing.T) {
 		t.Error("IsOverdue() past the grace period = false, want true")
 	}
 }
+
+func TestCalendarCycleDoesNotDriftOnLatePayment(t *testing.T) {
+	sub := Subscription{
+		BillingMode: ModeCalendar,
+		DueDay:      5,
+		AnchorDay:   1,
+		PeriodDays:  30,
+		NextDueAt:   time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC),
+	}
+
+	paidLate := time.Date(2026, 8, 19, 0, 0, 0, 0, time.UTC)
+	got := ApplyPayment(sub, paidLate)
+
+	want := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	if !got.NextDueAt.Equal(want) {
+		t.Errorf("ApplyPayment() NextDueAt = %v, want %v", got.NextDueAt, want)
+	}
+}
+
+func TestRollingCycleDriftsOnLatePayment(t *testing.T) {
+	sub := Subscription{
+		PeriodDays: 30,
+		NextDueAt:  time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC),
+	}
+
+	paidLate := time.Date(2026, 8, 19, 0, 0, 0, 0, time.UTC)
+	got := ApplyPayment(sub, paidLate)
+
+	want := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
+	if !got.NextDueAt.Equal(want) {
+		t.Errorf("ApplyPayment() NextDueAt = %v, want %v", got.NextDueAt, want)
+	}
+}
+
+func TestNextCalendarDueClampsShortMonths(t *testing.T) {
+	from := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
+	got := NextCalendarDue(from, 31)
+
+	want := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("NextCalendarDue() = %v, want %v", got, want)
+	}
+}

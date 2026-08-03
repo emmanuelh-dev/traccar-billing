@@ -1,0 +1,82 @@
+{{define "sellers"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.SellersPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <div class="header-actions">
+      <button class="primary" type="button" data-modal="seller-new">{{.T.NewSellerButton}}</button>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  {{if .Rows}}
+  <div class="table-scroll">
+  <table class="accounts">
+    <thead>
+      <tr>
+        <th>{{.T.SellerNameLabel}}</th>
+        <th>{{.T.EmailLabel}}</th>
+        <th>{{.T.PhoneLabel}}</th>
+        <th class="num">{{.T.ColAccountsNum}}</th>
+        <th class="num">{{.T.ColDevices}}</th>
+        <th class="num">{{.T.ColMonthly}}</th>
+        <th class="num">{{.T.ColCommission}}</th>
+        <th>{{.T.ActiveLabel}}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <td>{{.Seller.Name}}</td>
+        <td class="muted">{{.Seller.Email}}</td>
+        <td class="muted">{{.Seller.Phone}}</td>
+        <td class="num">{{.AccountCount}}</td>
+        <td class="num">{{.DeviceCount}}</td>
+        <td class="num">{{.MonthlyDisplay}}</td>
+        <td class="num">{{.CommissionAmount}} <span class="muted">({{.CommissionLabel}})</span></td>
+        <td>
+          {{if .Seller.Active}}
+            <span class="badge badge-active">{{$.T.ActiveYes}}</span>
+          {{else}}
+            <span class="badge badge-suspended">{{$.T.ActiveNo}}</span>
+          {{end}}
+        </td>
+        <td class="row-actions">
+          <button type="button"
+            data-modal="seller-edit"
+            data-seller="{{.Seller.ID}}"
+            data-name="{{.Seller.Name}}"
+            data-email="{{.Seller.Email}}"
+            data-phone="{{.Seller.Phone}}"
+            data-commission="{{.CommissionValue}}"
+            data-active="{{if .Seller.Active}}1{{else}}0{{end}}"
+            data-note="{{.Seller.Note}}">{{$.T.EditButton}}</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}
+  <div class="empty-state">{{.T.SellersEmpty}}</div>
+  {{end}}
+</div>
+</main>
+</div>
+{{template "seller_dialog" .}}
+{{template "modal_script" .}}
+{{template "footer" .}}
+{{end}}

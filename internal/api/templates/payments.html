@@ -17,6 +17,8 @@
     </div>
   </div>
 
+  {{template "session_banner" .}}
+
   {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
 
   <div class="stat-row">
@@ -37,7 +39,7 @@
       <tr>
         <th>{{.T.PaymentsColDate}}</th>
         <th>{{.T.PaymentsColAccnt}}</th>
-        <th class="num">{{.T.ColDevices}}</th>
+        <th>{{.T.ColBreakdown}}</th>
         <th class="num">{{.T.PaymentsColAmnt}}</th>
         <th>{{.T.MethodLabel}}</th>
         <th>{{.T.PaymentsColNote}}</th>
@@ -49,7 +51,7 @@
       <tr {{if .Voided}}class="voided"{{end}}>
         <td>{{.DateDisplay}}</td>
         <td>{{.AccountName}}</td>
-        <td class="num">{{if .Devices}}{{.Devices}}{{end}}</td>
+        <td class="muted">{{.Breakdown}}</td>
         <td class="num">{{.AmountDisplay}}</td>
         <td class="muted">{{.Method}}</td>
         <td class="muted">
@@ -68,13 +70,19 @@
             data-date="{{.DateValue}}"
             data-method="{{.Method}}"
             data-reference="{{.Reference}}"
-            data-note="{{.Note}}">{{$.T.EditButton}}</button>
+            data-note="{{.Note}}"
+            data-currency="{{.Currency}}">{{$.T.EditButton}}</button>
           <button type="button"
             data-modal="void"
             data-payment="{{.ID}}"
             data-name="{{.AccountName}}"
             data-amount="{{.AmountDisplay}}">{{$.T.VoidButton}}</button>
           {{end}}
+          <button class="danger-link" type="button"
+            data-modal="delete"
+            data-payment="{{.ID}}"
+            data-name="{{.AccountName}}"
+            data-amount="{{.AmountDisplay}}">{{$.T.DeleteButton}}</button>
         </td>
       </tr>
       {{end}}
@@ -90,6 +98,7 @@
 {{template "charge_dialog" .}}
 {{template "payment_dialog" .}}
 {{template "void_dialog" .}}
+{{template "delete_dialog" .}}
 {{template "modal_script" .}}
 {{template "footer" .}}
 {{end}}

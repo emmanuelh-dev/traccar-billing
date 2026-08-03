@@ -50,7 +50,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 
 	for _, t := range tenants {
 		tenantCtx, cancel := context.WithTimeout(ctx, tenantSyncTimeout)
-		if err := s.syncTenant(tenantCtx, t); err != nil {
+		if err := s.SyncTenant(tenantCtx, t); err != nil {
 			s.logger.Error("scheduler: sync tenant failed", "tenant_id", t.ID, "error", err)
 		}
 		if err := s.checkOverdue(tenantCtx, t); err != nil {
@@ -60,7 +60,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	}
 }
 
-func (s *Scheduler) syncTenant(ctx context.Context, t billing.Tenant) error {
+func (s *Scheduler) SyncTenant(ctx context.Context, t billing.Tenant) error {
 	if !t.HasValidSession(time.Now()) {
 		s.logger.Warn("scheduler: tenant has no valid session, skipping sync", "tenant_id", t.ID)
 		return nil
@@ -78,12 +78,14 @@ func (s *Scheduler) syncTenant(ctx context.Context, t billing.Tenant) error {
 	}
 
 	totalDevices := 0
+	seen := make(map[int64]bool, len(users))
 	for _, u := range users {
 		devices, err := s.client.FetchDevicesForUser(ctx, baseURL, session, u.ID)
 		if err != nil {
 			return s.handleFetchError(ctx, t, "fetch devices", err)
 		}
 		totalDevices += len(devices)
+		seen[u.ID] = true
 
 		if _, err := s.repo.UpsertAccount(ctx, billing.Account{
 			TenantID:      t.ID,
@@ -96,8 +98,36 @@ func (s *Scheduler) syncTenant(ctx context.Context, t billing.Tenant) error {
 		}
 	}
 
-	s.logger.Info("scheduler: synced tenant", "tenant_id", t.ID, "users", len(users), "devices", totalDevices)
+	archived, err := s.archiveMissing(ctx, t, seen)
+	if err != nil {
+		return err
+	}
+
+	s.logger.Info("scheduler: synced tenant", "tenant_id", t.ID, "users", len(users), "devices", totalDevices, "archived", archived)
 	return nil
+}
+
+// archiveMissing runs only after a complete, successful user fetch: a
+// partial list would otherwise archive every account it failed to see.
+func (s *Scheduler) archiveMissing(ctx context.Context, t billing.Tenant, seen map[int64]bool) (int, error) {
+	accounts, err := s.repo.ListAccountsByTenant(ctx, t.ID)
+	if err != nil {
+		return 0, fmt.Errorf("list accounts to archive: %w", err)
+	}
+
+	now := time.Now().UTC()
+	archived := 0
+	for _, account := range accounts {
+		if seen[account.TraccarUserID] {
+			continue
+		}
+		if err := s.repo.ArchiveAccount(ctx, account.ID, now); err != nil {
+			return archived, fmt.Errorf("archive account %d: %w", account.ID, err)
+		}
+		s.logger.Info("scheduler: archived account, user gone from traccar", "tenant_id", t.ID, "account_id", account.ID, "traccar_user_id", account.TraccarUserID)
+		archived++
+	}
+	return archived, nil
 }
 
 // handleFetchError clears the tenant's stored session on an expired/invalid

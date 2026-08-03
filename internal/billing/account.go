@@ -9,6 +9,12 @@ type Account struct {
 	Name          string
 	Email         string
 	DeviceCount   int
+	SellerID      int64
+	ArchivedAt    time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+func (a Account) Archived() bool {
+	return !a.ArchivedAt.IsZero()
 }

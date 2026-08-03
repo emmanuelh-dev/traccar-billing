@@ -17,6 +17,8 @@
     </div>
   </div>
 
+  {{template "session_banner" .}}
+
   {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
 
   <div class="stat-row">
@@ -42,6 +44,7 @@
         <th>{{.T.ColAccount}}</th>
         <th>{{.T.ColEmail}}</th>
         <th class="num">{{.T.ColDevices}}</th>
+        <th>{{.T.SellerLabel}}</th>
         <th class="num">{{.T.ColAmount}}</th>
         <th>{{.T.ColStatus}}</th>
         <th>{{.T.ColNextDue}}</th>
@@ -55,6 +58,13 @@
         <td>{{.Account.Name}}</td>
         <td class="muted">{{.Account.Email}}</td>
         <td class="num">{{.Account.DeviceCount}}</td>
+        <td>
+          <button class="link" type="button"
+            data-modal="assign-seller"
+            data-account="{{.Account.ID}}"
+            data-name="{{.Account.Name}}"
+            data-seller="{{.SellerID}}">{{if .SellerName}}{{.SellerName}}{{else}}{{$.T.NoSeller}}{{end}}</button>
+        </td>
         <td class="num">{{if .HasSubscription}}{{.AmountDisplay}}{{end}}</td>
         <td>
           {{if .HasSubscription}}
@@ -77,7 +87,10 @@
             data-grace="{{.GraceDays}}"
             data-currency="{{.Currency}}"
             data-period="{{.DefaultPeriod}}"
-            data-due="{{.DefaultDueDate}}">{{$.T.ConfigureLabel}}</button>
+            data-due="{{.DefaultDueDate}}"
+            data-mode="{{.BillingMode}}"
+            data-anchor="{{.AnchorDay}}"
+            data-dueday="{{.DueDay}}">{{$.T.ConfigureLabel}}</button>
           {{if .HasSubscription}}
           <button class="primary" type="button"
             data-modal="charge"
@@ -97,6 +110,7 @@
 </div>
 {{template "charge_dialog" .}}
 {{template "configure_dialog" .}}
+{{template "assign_seller_dialog" .}}
 {{template "modal_script" .}}
 {{template "footer" .}}
 {{end}}

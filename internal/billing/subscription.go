@@ -11,10 +11,20 @@ const (
 	StatusCanceled  SubscriptionStatus = "canceled"
 )
 
+type BillingMode string
+
+const (
+	ModeRolling  BillingMode = "rolling"
+	ModeCalendar BillingMode = "calendar"
+)
+
 type Subscription struct {
 	ID             int64
 	AccountID      int64
 	Status         SubscriptionStatus
+	BillingMode    BillingMode
+	AnchorDay      int
+	DueDay         int
 	AmountCents    int64
 	UnitPriceCents int64
 	FlatFeeCents   int64
@@ -30,4 +40,8 @@ type Subscription struct {
 
 func (s Subscription) PerDevice() bool {
 	return s.UnitPriceCents > 0
+}
+
+func (s Subscription) Calendar() bool {
+	return s.BillingMode == ModeCalendar
 }

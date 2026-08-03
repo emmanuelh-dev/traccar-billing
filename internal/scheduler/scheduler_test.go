@@ -19,6 +19,7 @@ type fakeRepo struct {
 	subscriptions     []billing.Subscription
 	upsertAccountCall int
 	sessionUpdates    []billing.Session
+	archived          []int64
 }
 
 func (r *fakeRepo) CreateTenant(ctx context.Context, t billing.Tenant) (billing.Tenant, error) {
@@ -78,7 +79,13 @@ func (r *fakeRepo) GetAccount(ctx context.Context, tenantID, accountID int64) (b
 }
 
 func (r *fakeRepo) ListAccountsByTenant(ctx context.Context, tenantID int64) ([]billing.Account, error) {
-	return r.accounts, nil
+	var live []billing.Account
+	for _, a := range r.accounts {
+		if a.ArchivedAt.IsZero() {
+			live = append(live, a)
+		}
+	}
+	return live, nil
 }
 
 func (r *fakeRepo) UpsertSubscription(ctx context.Context, s billing.Subscription) (billing.Subscription, error) {
@@ -116,6 +123,41 @@ func (r *fakeRepo) RecordPayment(ctx context.Context, p billing.Payment) (billin
 
 func (r *fakeRepo) ListPaymentsBySubscription(ctx context.Context, subscriptionID int64) ([]billing.Payment, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (r *fakeRepo) ArchiveAccount(ctx context.Context, accountID int64, archivedAt time.Time) error {
+	for i := range r.accounts {
+		if r.accounts[i].ID == accountID {
+			r.accounts[i].ArchivedAt = archivedAt
+			r.archived = append(r.archived, accountID)
+			return nil
+		}
+	}
+	return billing.ErrNotFound
+}
+
+func (r *fakeRepo) AssignAccountSeller(ctx context.Context, tenantID, accountID, sellerID int64) error {
+	return errors.New("not implemented")
+}
+
+func (r *fakeRepo) CreateSeller(ctx context.Context, s billing.Seller) (billing.Seller, error) {
+	return billing.Seller{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) UpdateSeller(ctx context.Context, s billing.Seller) (billing.Seller, error) {
+	return billing.Seller{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) GetSeller(ctx context.Context, tenantID, sellerID int64) (billing.Seller, error) {
+	return billing.Seller{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) ListSellers(ctx context.Context, tenantID int64) ([]billing.Seller, error) {
+	return nil, nil
+}
+
+func (r *fakeRepo) DeletePayment(ctx context.Context, tenantID, paymentID int64) error {
+	return errors.New("not implemented")
 }
 
 func (r *fakeRepo) WithTx(ctx context.Context, fn func(billing.Repository) error) error {
@@ -193,7 +235,7 @@ func TestSyncTenantSkipsWithoutValidSession(t *testing.T) {
 
 	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api"}
 
-	if err := s.syncTenant(context.Background(), tenant); err != nil {
+	if err := s.SyncTenant(context.Background(), tenant); err != nil {
 		t.Fatalf("syncTenant() error = %v", err)
 	}
 	if client.fetchCalled != 0 {
@@ -216,7 +258,7 @@ func TestSyncTenantUpsertsAccountsPerUser(t *testing.T) {
 
 	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api", SessionCookie: "JSESSIONID=abc", SessionExpiresAt: time.Now().Add(time.Hour)}
 
-	if err := s.syncTenant(context.Background(), tenant); err != nil {
+	if err := s.SyncTenant(context.Background(), tenant); err != nil {
 		t.Fatalf("syncTenant() error = %v", err)
 	}
 	if repo.upsertAccountCall != 2 {
@@ -231,7 +273,7 @@ func TestSyncTenantClearsSessionOnUnauthorized(t *testing.T) {
 
 	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api", SessionCookie: "JSESSIONID=expired", SessionExpiresAt: time.Now().Add(time.Hour)}
 
-	if err := s.syncTenant(context.Background(), tenant); err != nil {
+	if err := s.SyncTenant(context.Background(), tenant); err != nil {
 		t.Fatalf("syncTenant() error = %v, want nil (unauthorized is handled, not escalated)", err)
 	}
 	if len(repo.sessionUpdates) != 1 {
@@ -340,5 +382,42 @@ func TestRunOnceContinuesAfterTenantFailure(t *testing.T) {
 
 	if client.fetchCalled != 2 {
 		t.Errorf("FetchUsers called %d times, want 2 (both tenants attempted despite the first failing)", client.fetchCalled)
+	}
+}
+
+func TestSyncTenantArchivesAccountsGoneFromTraccar(t *testing.T) {
+	repo := &fakeRepo{
+		accounts: []billing.Account{
+			{ID: 10, TenantID: 1, TraccarUserID: 1, Name: "Ada"},
+			{ID: 11, TenantID: 1, TraccarUserID: 99, Name: "Borrado"},
+		},
+	}
+	client := &fakeClient{users: []billing.TraccarUser{{ID: 1, Name: "Ada"}}}
+	s := New(repo, client, time.Minute, silentLogger())
+
+	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api", SessionCookie: "JSESSIONID=abc", SessionExpiresAt: time.Now().Add(time.Hour)}
+
+	if err := s.SyncTenant(context.Background(), tenant); err != nil {
+		t.Fatalf("SyncTenant() error = %v", err)
+	}
+	if len(repo.archived) != 1 || repo.archived[0] != 11 {
+		t.Fatalf("archived = %v, want [11]", repo.archived)
+	}
+}
+
+func TestSyncTenantDoesNotArchiveOnFetchFailure(t *testing.T) {
+	repo := &fakeRepo{
+		accounts: []billing.Account{{ID: 10, TenantID: 1, TraccarUserID: 1, Name: "Ada"}},
+	}
+	client := &fakeClient{fetchErr: errors.New("traccar down")}
+	s := New(repo, client, time.Minute, silentLogger())
+
+	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api", SessionCookie: "JSESSIONID=abc", SessionExpiresAt: time.Now().Add(time.Hour)}
+
+	if err := s.SyncTenant(context.Background(), tenant); err == nil {
+		t.Fatal("SyncTenant() error = nil, want the fetch failure")
+	}
+	if len(repo.archived) != 0 {
+		t.Fatalf("archived = %v, want none when the user fetch failed", repo.archived)
 	}
 }

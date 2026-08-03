@@ -46,6 +46,8 @@
       </div>
     </div>
 
+    <p class="modal-total" id="charge-summary"></p>
+
     <div class="field-row">
       <div class="field">
         <label for="charge-date">{{.T.PaidAtLabel}}</label>
@@ -110,6 +112,8 @@
       </div>
     </div>
 
+    <p class="modal-total" id="payment-summary"></p>
+
     <div class="field-row">
       <div class="field">
         <label for="payment-method">{{.T.MethodLabel}}</label>
@@ -160,6 +164,22 @@
 </dialog>
 {{end}}
 
+{{define "delete_dialog"}}
+<dialog id="delete-dialog" class="modal">
+  <form id="delete-form" class="modal-form" method="post">
+    <h2>{{.T.DeletePaymentTtl}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="delete-account"></p>
+    <p class="modal-warning">{{.T.DeleteWarning}}</p>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="danger" type="submit">{{.T.DeleteConfirmWord}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
 {{define "configure_dialog"}}
 <dialog id="configure-dialog" class="modal">
   <form id="configure-form" class="modal-form" method="post">
@@ -190,6 +210,25 @@
       </div>
     </div>
 
+    <div class="field">
+      <label for="configure-mode">{{.T.BillingModeLabel}}</label>
+      <select id="configure-mode" name="billing_mode">
+        <option value="rolling">{{.T.ModeRollingLabel}}</option>
+        <option value="calendar">{{.T.ModeCalendarLabel}}</option>
+      </select>
+    </div>
+
+    <div class="field-row" id="configure-calendar-fields" hidden>
+      <div class="field">
+        <label for="configure-anchor">{{.T.AnchorDayLabel}}</label>
+        <input id="configure-anchor" name="anchor_day" type="number" min="1" max="31" step="1">
+      </div>
+      <div class="field">
+        <label for="configure-dueday">{{.T.DueDayLabel}}</label>
+        <input id="configure-dueday" name="due_day" type="number" min="1" max="31" step="1">
+      </div>
+    </div>
+
     <div class="field-row">
       <div class="field">
         <label for="configure-currency">{{.T.CurrencyLabel}}</label>
@@ -206,9 +245,9 @@
     </div>
 
     <div class="field-row">
-      <div class="field">
+      <div class="field" id="configure-due-field">
         <label for="configure-due">{{.T.DueDateLabel}}</label>
-        <input id="configure-due" name="next_due_at" type="date" required>
+        <input id="configure-due" name="next_due_at" type="date">
       </div>
       <div class="field">
         <label for="configure-grace">{{.T.GraceDaysLabel}}</label>
@@ -224,10 +263,109 @@
 </dialog>
 {{end}}
 
+{{define "seller_dialog"}}
+<dialog id="seller-dialog" class="modal">
+  <form id="seller-form" class="modal-form" method="post">
+    <h2 id="seller-title">{{.T.NewSellerTitle}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+
+    <div class="field">
+      <label for="seller-name">{{.T.SellerNameLabel}}</label>
+      <input id="seller-name" name="name" type="text" autocomplete="off" required>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="seller-email">{{.T.EmailLabel}}</label>
+        <input id="seller-email" name="email" type="email" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="seller-phone">{{.T.PhoneLabel}}</label>
+        <input id="seller-phone" name="phone" type="text" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="seller-commission">{{.T.CommissionLabel}}</label>
+        <input id="seller-commission" name="commission" type="number" min="0" max="100" step="0.01">
+      </div>
+      <div class="field">
+        <label for="seller-active">{{.T.ActiveLabel}}</label>
+        <select id="seller-active" name="active">
+          <option value="1">{{.T.ActiveYes}}</option>
+          <option value="0">{{.T.ActiveNo}}</option>
+        </select>
+      </div>
+    </div>
+    <p class="field-hint">{{.T.CommissionHint}}</p>
+
+    <div class="field">
+      <label for="seller-note">{{.T.NoteLabel}}</label>
+      <input id="seller-note" name="note" type="text" autocomplete="off">
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="primary" type="submit">{{.T.SaveButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "assign_seller_dialog"}}
+<dialog id="assign-seller-dialog" class="modal">
+  <form id="assign-seller-form" class="modal-form" method="post">
+    <h2>{{.T.AssignSellerTtl}}</h2>
+    <input type="hidden" name="redirect_to" value="{{.Redirect}}">
+    <p class="modal-account" id="assign-seller-account"></p>
+
+    <div class="field">
+      <label for="assign-seller-select">{{.T.SellerLabel}}</label>
+      <select id="assign-seller-select" name="seller_id">
+        <option value="0">{{.T.UnassignOption}}</option>
+        {{range .Sellers}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" data-close-modal>{{.T.CancelButton}}</button>
+      <button class="primary" type="submit">{{.T.SaveButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
 {{define "modal_script"}}
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
+  const SELLER_NEW_TITLE = "{{.T.NewSellerTitle}}";
+  const SELLER_EDIT_TITLE = "{{.T.EditSellerTitle}}";
+  const DEVICES_WORD = "{{.T.DevicesWord}}";
+  const EACH_WORD = "{{.T.EachWord}}";
+
+  function money(value) {
+    const n = parseFloat(value);
+    return isNaN(n) ? "0.00" : n.toFixed(2);
+  }
+
+  function breakdown(devicesEl, unitEl, amountEl, currency) {
+    const devices = parseInt(devicesEl.value, 10);
+    const unit = parseFloat(unitEl.value);
+    const total = money(amountEl.value);
+    if (isNaN(devices) || isNaN(unit) || unit <= 0) {
+      return total + " " + currency;
+    }
+    const computed = devices * unit;
+    let text = devices + " " + DEVICES_WORD + " x " + money(unit) + " " + EACH_WORD + " = " + money(computed) + " " + currency;
+    if (Math.abs(computed - parseFloat(total)) >= 0.01) {
+      text += "  (" + total + " " + currency + ")";
+    }
+    return text;
+  }
 
   function openModal(dialog) {
     if (dialog && typeof dialog.showModal === "function") dialog.showModal();
@@ -252,11 +390,17 @@
   const chargeCurrency = $("charge-currency");
   const chargeNoSub = $("charge-nosub");
 
+  function refreshChargeSummary() {
+    $("charge-summary").textContent = breakdown(chargeDevices, chargeUnit, chargeAmount, chargeCurrency.value);
+  }
+
   function recomputeCharge() {
     const devices = parseFloat(chargeDevices.value);
     const unit = parseFloat(chargeUnit.value);
-    if (isNaN(devices) || isNaN(unit) || unit <= 0) return;
-    chargeAmount.value = (devices * unit).toFixed(2);
+    if (!isNaN(devices) && !isNaN(unit) && unit > 0) {
+      chargeAmount.value = (devices * unit).toFixed(2);
+    }
+    refreshChargeSummary();
   }
 
   function applyChargeAccount() {
@@ -268,12 +412,52 @@
     chargeAmount.value = option.dataset.amount;
     chargeCurrency.value = option.dataset.currency;
     chargeNoSub.hidden = option.dataset.hassub === "true";
+    refreshChargeSummary();
   }
 
   if (chargeAccount) {
     chargeAccount.addEventListener("change", applyChargeAccount);
     chargeDevices.addEventListener("input", recomputeCharge);
     chargeUnit.addEventListener("input", recomputeCharge);
+    chargeAmount.addEventListener("input", refreshChargeSummary);
+    chargeCurrency.addEventListener("change", refreshChargeSummary);
+  }
+
+  const payDevices = $("payment-devices");
+  const payUnit = $("payment-unit");
+  const payAmount = $("payment-amount");
+  let payCurrency = "";
+
+  function refreshPaymentSummary() {
+    $("payment-summary").textContent = breakdown(payDevices, payUnit, payAmount, payCurrency);
+  }
+
+  function recomputePayment() {
+    const devices = parseFloat(payDevices.value);
+    const unit = parseFloat(payUnit.value);
+    if (!isNaN(devices) && !isNaN(unit) && unit > 0) {
+      payAmount.value = (devices * unit).toFixed(2);
+    }
+    refreshPaymentSummary();
+  }
+
+  if (payDevices) {
+    payDevices.addEventListener("input", recomputePayment);
+    payUnit.addEventListener("input", recomputePayment);
+    payAmount.addEventListener("input", refreshPaymentSummary);
+  }
+
+  function applyBillingMode() {
+    const mode = $("configure-mode");
+    if (!mode) return;
+    const calendar = mode.value === "calendar";
+    $("configure-calendar-fields").hidden = !calendar;
+    $("configure-due-field").hidden = calendar;
+    $("configure-due").required = !calendar;
+  }
+
+  if ($("configure-mode")) {
+    $("configure-mode").addEventListener("change", applyBillingMode);
   }
 
   function fillAndOpen(trigger) {
@@ -298,6 +482,8 @@
       $("payment-method").value = data.method || "cash";
       $("payment-reference").value = data.reference || "";
       $("payment-note").value = data.note || "";
+      payCurrency = data.currency || "";
+      refreshPaymentSummary();
       openModal($("payment-dialog"));
       return;
     }
@@ -308,6 +494,38 @@
       $("void-account").textContent = (data.name || "") + " — " + (data.amount || "");
       $("void-reason").value = "";
       openModal($("void-dialog"));
+      return;
+    }
+
+    if (kind === "delete") {
+      const form = $("delete-form");
+      form.action = "/payments/" + data.payment + "/delete";
+      $("delete-account").textContent = (data.name || "") + " — " + (data.amount || "");
+      openModal($("delete-dialog"));
+      return;
+    }
+
+    if (kind === "seller-new" || kind === "seller-edit") {
+      const form = $("seller-form");
+      const editing = kind === "seller-edit";
+      form.action = editing ? "/sellers/" + data.seller : "/sellers";
+      $("seller-title").textContent = editing ? SELLER_EDIT_TITLE : SELLER_NEW_TITLE;
+      $("seller-name").value = data.name || "";
+      $("seller-email").value = data.email || "";
+      $("seller-phone").value = data.phone || "";
+      $("seller-commission").value = data.commission || "0.00";
+      $("seller-active").value = data.active || "1";
+      $("seller-note").value = data.note || "";
+      openModal($("seller-dialog"));
+      return;
+    }
+
+    if (kind === "assign-seller") {
+      const form = $("assign-seller-form");
+      form.action = "/accounts/" + data.account + "/seller";
+      $("assign-seller-account").textContent = data.name || "";
+      $("assign-seller-select").value = data.seller || "0";
+      openModal($("assign-seller-dialog"));
       return;
     }
 
@@ -323,6 +541,10 @@
       $("configure-period").value = data.period || 30;
       $("configure-due").value = data.due || "";
       $("configure-grace").value = data.grace || 0;
+      $("configure-mode").value = data.mode || "rolling";
+      $("configure-anchor").value = data.anchor || 1;
+      $("configure-dueday").value = data.dueday || 5;
+      applyBillingMode();
       openModal($("configure-dialog"));
     }
   }

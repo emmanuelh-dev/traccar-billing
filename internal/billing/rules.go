@@ -20,9 +20,36 @@ func NextDueDate(from time.Time, periodDays int) time.Time {
 	return from.AddDate(0, 0, periodDays)
 }
 
+func DayOfMonth(year int, month time.Month, day int, loc *time.Location) time.Time {
+	lastDay := time.Date(year, month+1, 0, 0, 0, 0, 0, loc).Day()
+	if day > lastDay {
+		day = lastDay
+	}
+	if day < 1 {
+		day = 1
+	}
+	return time.Date(year, month, day, 0, 0, 0, 0, loc)
+}
+
+func NextCalendarDue(after time.Time, dueDay int) time.Time {
+	year, month, _ := after.Date()
+	candidate := DayOfMonth(year, month, dueDay, after.Location())
+	if candidate.After(after) {
+		return candidate
+	}
+	return DayOfMonth(year, month+1, dueDay, after.Location())
+}
+
+func AdvanceDue(sub Subscription, paidAt time.Time) time.Time {
+	if sub.Calendar() {
+		return NextCalendarDue(sub.NextDueAt, sub.DueDay)
+	}
+	return NextDueDate(paidAt, sub.PeriodDays)
+}
+
 func ApplyPayment(sub Subscription, paidAt time.Time) Subscription {
 	sub.LastPaidAt = paidAt
-	sub.NextDueAt = NextDueDate(paidAt, sub.PeriodDays)
+	sub.NextDueAt = AdvanceDue(sub, paidAt)
 	sub.Status = StatusActive
 	return sub
 }

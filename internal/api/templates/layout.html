@@ -22,6 +22,19 @@
   <nav>
     <a href="/dashboard" {{if eq .Active "dashboard"}}class="active"{{end}}>{{.T.NavDashboard}}</a>
     <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>
+    <a href="/sellers" {{if eq .Active "sellers"}}class="active"{{end}}>{{.T.NavSellers}}</a>
   </nav>
 </aside>
+{{end}}
+
+{{define "session_banner"}}
+{{if .SessionExpired}}
+<div class="session-banner">
+  <div>
+    <strong>{{.T.SessionExpiredTtl}}</strong>
+    <p>{{.T.SessionExpiredMsg}}</p>
+  </div>
+  <a class="reconnect" href="/login">{{.T.ReconnectButton}}</a>
+</div>
+{{end}}
 {{end}}

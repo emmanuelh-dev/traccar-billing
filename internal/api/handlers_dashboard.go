@@ -31,6 +31,11 @@ type accountRow struct {
 	DefaultDueDate  string
 	DefaultPeriod   int
 	Currency        string
+	SellerID        int64
+	SellerName      string
+	BillingMode     string
+	AnchorDay       int
+	DueDay          int
 	PaymentCount    int
 }
 
@@ -43,8 +48,11 @@ type dashboardView struct {
 	Stats    dashboardStats
 	Rows     []accountRow
 	Accounts []chargeAccount
+	Sellers  []sellerOption
 	Today    string
 	Redirect string
+
+	SessionExpired bool
 }
 
 const defaultPeriodDays = 30
@@ -61,14 +69,24 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sellerOpts, sellerNames, err := s.sellerOptions(r, tenant.ID)
+	if err != nil {
+		s.logger.Error("api: list sellers for dashboard", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	view := dashboardView{
 		T:        t,
 		Title:    t.DashboardTitle,
 		Active:   "dashboard",
 		Tenant:   tenant,
 		Error:    r.URL.Query().Get("error"),
+		Sellers:  sellerOpts,
 		Today:    now.Format(dueDateFormat),
 		Redirect: "/dashboard",
+
+		SessionExpired: !tenant.HasValidSession(time.Now()),
 	}
 
 	for _, account := range accounts {
@@ -81,6 +99,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			FlatFeeValue:   "0.00",
 			AmountValue:    "0.00",
 			ChargeValue:    "0.00",
+			BillingMode:    string(billing.ModeRolling),
+			AnchorDay:      1,
+			DueDay:         5,
+			SellerID:       account.SellerID,
+			SellerName:     sellerNames[account.SellerID],
 		}
 		view.Stats.Total++
 
@@ -108,6 +131,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			row.DaysLeftLabel = t.daysLeftLabel(daysUntil(sub.NextDueAt, now))
 			row.DefaultDueDate = sub.NextDueAt.In(s.loc).Format(dueDateFormat)
 			row.DefaultPeriod = sub.PeriodDays
+			if sub.BillingMode != "" {
+				row.BillingMode = string(sub.BillingMode)
+			}
+			if sub.AnchorDay > 0 {
+				row.AnchorDay = sub.AnchorDay
+			}
+			if sub.DueDay > 0 {
+				row.DueDay = sub.DueDay
+			}
 
 			payments, err := s.repo.ListPaymentsBySubscription(r.Context(), sub.ID)
 			if err != nil {

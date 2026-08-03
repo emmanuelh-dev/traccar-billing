@@ -113,6 +113,44 @@ type uiStrings struct {
 	VoidReasonLabel    string
 	VoidWarning        string
 	TotalCollected     string
+
+	BillingModeLabel  string
+	ModeRollingLabel  string
+	ModeCalendarLabel string
+	AnchorDayLabel    string
+	DueDayLabel       string
+	SessionExpiredTtl string
+	SessionExpiredMsg string
+	ReconnectButton   string
+
+	NavSellers      string
+	SellersPageTtl  string
+	SellersEmpty    string
+	NewSellerButton string
+	NewSellerTitle  string
+	EditSellerTitle string
+	SellerLabel     string
+	SellerNameLabel string
+	PhoneLabel      string
+	CommissionLabel string
+	CommissionHint  string
+	ActiveLabel     string
+	ActiveYes       string
+	ActiveNo        string
+	NoSeller        string
+	ColAccountsNum  string
+	ColMonthly      string
+	ColCommission   string
+	AssignSellerTtl string
+	UnassignOption  string
+
+	DeleteButton      string
+	DeletePaymentTtl  string
+	DeleteWarning     string
+	DeleteConfirmWord string
+	DevicesWord       string
+	EachWord          string
+	ColBreakdown      string
 }
 
 var translations = map[string]uiStrings{
@@ -198,6 +236,44 @@ var translations = map[string]uiStrings{
 		VoidReasonLabel:    "Motivo",
 		VoidWarning:        "El pago se conserva en el historial marcado como anulado. Si ya había movido la fecha de corte, ajústala en Configurar cobro.",
 		TotalCollected:     "Total cobrado",
+
+		BillingModeLabel:  "Tipo de ciclo",
+		ModeRollingLabel:  "Por días corridos (desde el pago)",
+		ModeCalendarLabel: "Por calendario (día fijo del mes)",
+		AnchorDayLabel:    "Día de generación",
+		DueDayLabel:       "Día de vencimiento",
+		SessionExpiredTtl: "Sesión de Traccar vencida",
+		SessionExpiredMsg: "No se están sincronizando las cuentas ni suspendiendo a los morosos. Vuelve a conectar tu servidor para reanudarlo.",
+		ReconnectButton:   "Reconectar",
+
+		NavSellers:      "Vendedores",
+		SellersPageTtl:  "Vendedores",
+		SellersEmpty:    "Todavía no hay vendedores. Da de alta uno para poder asignarle cuentas.",
+		NewSellerButton: "Nuevo vendedor",
+		NewSellerTitle:  "Nuevo vendedor",
+		EditSellerTitle: "Editar vendedor",
+		SellerLabel:     "Vendedor",
+		SellerNameLabel: "Nombre",
+		PhoneLabel:      "Teléfono",
+		CommissionLabel: "Comisión (%)",
+		CommissionHint:  "Porcentaje sobre el cobro mensual de sus cuentas. Se muestra como referencia; todavía no genera pagos de comisión.",
+		ActiveLabel:     "Activo",
+		ActiveYes:       "Sí",
+		ActiveNo:        "No",
+		NoSeller:        "sin vendedor",
+		ColAccountsNum:  "Cuentas",
+		ColMonthly:      "Cobro mensual",
+		ColCommission:   "Comisión",
+		AssignSellerTtl: "Asignar vendedor",
+		UnassignOption:  "— sin vendedor —",
+
+		DeleteButton:      "Eliminar",
+		DeletePaymentTtl:  "Eliminar pago",
+		DeleteWarning:     "El pago se borra por completo y no se puede recuperar. Si solo quieres corregirlo, usa Anular y queda en el historial. Si este pago ya había movido la fecha de corte, ajústala en Configurar cobro.",
+		DeleteConfirmWord: "Sí, eliminar",
+		DevicesWord:       "dispositivos",
+		EachWord:          "c/u",
+		ColBreakdown:      "Concepto",
 	},
 	"en": {
 		Lang:               "en",
@@ -281,6 +357,44 @@ var translations = map[string]uiStrings{
 		VoidReasonLabel:    "Reason",
 		VoidWarning:        "The payment stays in the history marked as voided. If it already moved the due date, adjust it in Set up billing.",
 		TotalCollected:     "Total collected",
+
+		BillingModeLabel:  "Cycle type",
+		ModeRollingLabel:  "Rolling days (from the payment)",
+		ModeCalendarLabel: "Calendar (fixed day of month)",
+		AnchorDayLabel:    "Generated on day",
+		DueDayLabel:       "Due on day",
+		SessionExpiredTtl: "Traccar session expired",
+		SessionExpiredMsg: "Accounts are not syncing and overdue users are not being suspended. Reconnect your server to resume.",
+		ReconnectButton:   "Reconnect",
+
+		NavSellers:      "Sellers",
+		SellersPageTtl:  "Sellers",
+		SellersEmpty:    "No sellers yet. Add one so you can assign accounts to them.",
+		NewSellerButton: "New seller",
+		NewSellerTitle:  "New seller",
+		EditSellerTitle: "Edit seller",
+		SellerLabel:     "Seller",
+		SellerNameLabel: "Name",
+		PhoneLabel:      "Phone",
+		CommissionLabel: "Commission (%)",
+		CommissionHint:  "Percentage of the monthly billing of their accounts. Shown for reference; it does not generate commission payouts yet.",
+		ActiveLabel:     "Active",
+		ActiveYes:       "Yes",
+		ActiveNo:        "No",
+		NoSeller:        "no seller",
+		ColAccountsNum:  "Accounts",
+		ColMonthly:      "Monthly billing",
+		ColCommission:   "Commission",
+		AssignSellerTtl: "Assign seller",
+		UnassignOption:  "— no seller —",
+
+		DeleteButton:      "Delete",
+		DeletePaymentTtl:  "Delete payment",
+		DeleteWarning:     "The payment is removed for good and cannot be recovered. If you only want to correct it, use Void and it stays in the history. If this payment already moved the due date, adjust it in Set up billing.",
+		DeleteConfirmWord: "Yes, delete",
+		DevicesWord:       "devices",
+		EachWord:          "each",
+		ColBreakdown:      "Covers",
 	},
 }
 

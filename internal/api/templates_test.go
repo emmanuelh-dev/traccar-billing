@@ -120,7 +120,10 @@ func TestRenderPayments(t *testing.T) {
 		}
 	}
 
-	if strings.Contains(out, `data-payment="4"`) {
-		t.Error("payments output offers actions on a voided payment")
+	if strings.Contains(out, `data-modal="void"\n            data-payment="4"`) {
+		t.Error("payments output offers void on an already voided payment")
+	}
+	if !strings.Contains(out, `data-modal="delete"`) {
+		t.Error("payments output is missing the delete action")
 	}
 }

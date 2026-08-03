@@ -21,7 +21,7 @@ Bugs de dinero y de operación. Es lo más barato y lo que más duele hoy.
       capturaste. Debe guardarse el monto real y aplicarse contra el saldo.
 - [x] **Periodo de gracia.** `grace_days` en la suscripción; `IsOverdue` corta
       un segundo después del vencimiento, sin margen.
-- [ ] **Bajas en el sync.** `scheduler.syncTenant` solo hace upsert: si borras
+- [x] **Bajas en el sync.** `scheduler.syncTenant` solo hace upsert: si borras
       un usuario en Traccar, la cuenta sigue viva y cobrable. Marcar
       `archived_at` cuando el usuario ya no aparece.
 - [~] **Zona horaria.** Hecho a medias: variable `TIMEZONE` global (`America/Mexico_City` en producción). Falta que sea por tenant, que es lo que necesita un producto multi-cliente. Antes: `time.Parse("2006-01-02", …)` da medianoche
@@ -29,7 +29,7 @@ Bugs de dinero y de operación. Es lo más barato y lo que más duele hoy.
 - [x] **Moneda consistente.** Default `MXN` en `handlers_subscription.go:71`
       pero `USD` en `currencyOrDefault` y en el esquema. Una sola fuente:
       moneda por tenant.
-- [ ] **Aviso de sesión de Traccar vencida.** Hoy solo hay un `Warn` en el log
+- [x] **Aviso de sesión de Traccar vencida.** Hoy solo hay un `Warn` en el log
       y los morosos dejan de cortarse en silencio. Banner rojo en el
       dashboard con botón para reconectar.
 
@@ -55,11 +55,11 @@ Lo que hace que registrar un pago deje de ser adivinar.
 
       El total se recalcula en el servidor al guardar; el JS es comodidad, no
       la fuente de verdad.
-- [ ] **Modo de ciclo por calendario.** `billing_mode = calendar` con
+- [x] **Modo de ciclo por calendario.** `billing_mode = calendar` con
       `anchor_day` y `due_day` (el caso "cada primero, vence el 5"), además
       del modo `rolling` actual por días corridos. Ver
       [billing-rules.md](billing-rules.md).
-- [ ] **Sync inmediato al conectar.** Hoy, al iniciar sesión con un servidor
+- [x] **Sync inmediato al conectar.** Hoy, al iniciar sesión con un servidor
       Traccar nuevo, las cuentas no aparecen hasta el siguiente tick del
       scheduler (hasta 15 min de "lag"). Correr `syncTenant` en el momento del
       login, con timeout, y mostrar el estado mientras corre.
@@ -111,6 +111,18 @@ Lo que más baja la morosidad, más que cualquier otra función de esta lista.
 - [ ] WhatsApp como canal opcional.
 
 ---
+
+## Vendedores
+
+- [x] **Alta de vendedores** con nombre, correo, teléfono, comisión y activo,
+      en su propia pestaña `/sellers`.
+- [x] **Asignar un vendedor a cada cuenta** desde el dashboard, con columna
+      propia y desasignación.
+- [x] **Totales por vendedor**: cuentas, dispositivos, cobro mensual y
+      comisión calculada.
+- [ ] Filtrar el dashboard y los pagos por vendedor.
+- [ ] Liquidación de comisiones: hoy el porcentaje solo se muestra como
+      referencia, no genera un pago a liquidar ni lleva historial.
 
 ## Fase 4 — Producto para vender
 

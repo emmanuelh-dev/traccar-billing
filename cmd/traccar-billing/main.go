@@ -55,6 +55,7 @@ func run(logger *slog.Logger) error {
 
 	sched := scheduler.New(repo, client, cfg.SyncInterval, logger)
 	server := api.NewServer(repo, client, cfg.SessionSecret, cfg.Location, logger)
+	server.SetSyncer(sched)
 
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.HTTPPort,

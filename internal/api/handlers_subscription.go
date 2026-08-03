@@ -75,12 +75,24 @@ func (s *Server) handleConfigureSubscription(w http.ResponseWriter, r *http.Requ
 	}
 	minDevices := optionalInt(r.FormValue("min_devices"), 0)
 	graceDays := optionalInt(r.FormValue("grace_days"), 0)
-	nextDueAt, err := time.ParseInLocation(dueDateFormat, r.FormValue("next_due_at"), s.loc)
-	if err != nil {
-		redirectPageError(w, r, "invalid due date")
-		return
-	}
 	currency := currencyOrDefault(r.FormValue("currency"))
+
+	mode := billing.ModeRolling
+	anchorDay, dueDay := 1, 5
+	var nextDueAt time.Time
+
+	if r.FormValue("billing_mode") == string(billing.ModeCalendar) {
+		mode = billing.ModeCalendar
+		anchorDay = clampDayOfMonth(optionalInt(r.FormValue("anchor_day"), 1))
+		dueDay = clampDayOfMonth(optionalInt(r.FormValue("due_day"), 5))
+		nextDueAt = billing.NextCalendarDue(s.now(), dueDay)
+	} else {
+		nextDueAt, err = time.ParseInLocation(dueDateFormat, r.FormValue("next_due_at"), s.loc)
+		if err != nil {
+			redirectPageError(w, r, "invalid due date")
+			return
+		}
+	}
 
 	sub, err := s.repo.GetSubscriptionByAccountID(r.Context(), account.ID)
 	if err != nil && !errors.Is(err, billing.ErrNotFound) {
@@ -90,6 +102,9 @@ func (s *Server) handleConfigureSubscription(w http.ResponseWriter, r *http.Requ
 	}
 
 	sub.AccountID = account.ID
+	sub.BillingMode = mode
+	sub.AnchorDay = anchorDay
+	sub.DueDay = dueDay
 	sub.AmountCents = amountCents
 	sub.UnitPriceCents = unitPriceCents
 	sub.FlatFeeCents = flatFeeCents
@@ -154,6 +169,16 @@ func orZero(raw string) string {
 		return "0"
 	}
 	return raw
+}
+
+func clampDayOfMonth(day int) int {
+	if day < 1 {
+		return 1
+	}
+	if day > 31 {
+		return 31
+	}
+	return day
 }
 
 func optionalInt(raw string, fallback int) int {
