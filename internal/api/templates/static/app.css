@@ -5,8 +5,9 @@
   --color-border: #e2e2df;
   --color-text: #1c1c1b;
   --color-text-muted: #6b6b68;
-  --color-accent: #0f6e63;
+  --color-accent: #1052BA;
   --color-accent-contrast: #ffffff;
+  --color-accent-text: #1052BA;
   --color-danger: #a02f27;
   --color-success: #1a7f4e;
   --color-warning: #8a6200;
@@ -22,8 +23,9 @@
     --color-border: #2e2e2c;
     --color-text: #ededec;
     --color-text-muted: #a3a3a0;
-    --color-accent: #2dd4bf;
-    --color-accent-contrast: #06201c;
+    --color-accent: #1052BA;
+    --color-accent-contrast: #ffffff;
+    --color-accent-text: #6ea8fb;
     --color-danger: #ff6b60;
     --color-success: #4ade80;
     --color-warning: #facc15;
@@ -73,7 +75,7 @@ body {
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 /* Login */
@@ -156,12 +158,13 @@ a {
 button.primary {
   width: 100%;
   font: inherit;
+  font-size: 14px;
   font-weight: 600;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   border: none;
-  border-radius: 8px;
-  padding: 11px 16px;
+  border-radius: 7px;
+  padding: 9px 14px;
   cursor: pointer;
 }
 
@@ -278,11 +281,12 @@ button.primary:active {
 
 .logout-form button {
   font: inherit;
+  font-size: 13px;
   background: transparent;
   color: var(--color-text-muted);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border-radius: 7px;
+  padding: 5px 11px;
   cursor: pointer;
 }
 
@@ -381,13 +385,14 @@ th.actions {
 
 td.row-actions button {
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.2;
   color: var(--color-text-muted);
   background: transparent;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 6px 12px;
-  margin-left: 6px;
+  border-radius: 5px;
+  padding: 4px 9px;
+  margin-left: 4px;
   cursor: pointer;
 }
 
@@ -398,6 +403,8 @@ td.row-actions button:hover {
 
 td.row-actions button.primary {
   width: auto;
+  font-size: 12px;
+  padding: 4px 9px;
   font-weight: 600;
   color: var(--color-accent-contrast);
   background: var(--color-accent);
@@ -413,7 +420,7 @@ td.row-actions button.primary {
 .header-actions button.primary {
   width: auto;
   font-size: 13px;
-  padding: 8px 14px;
+  padding: 6px 12px;
 }
 
 .table-scroll {
@@ -522,13 +529,13 @@ dialog.modal::backdrop {
 
 .modal-actions button {
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   width: auto;
   color: var(--color-text-muted);
   background: transparent;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 9px 18px;
+  border-radius: 7px;
+  padding: 7px 15px;
   cursor: pointer;
 }
 
@@ -588,7 +595,7 @@ dialog.modal::backdrop {
   background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
   border: 1px solid var(--color-danger);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 12px 14px;
   margin-bottom: 18px;
 }
 
@@ -610,8 +617,8 @@ dialog.modal::backdrop {
   text-decoration: none;
   color: #fff;
   background: var(--color-danger);
-  border-radius: 8px;
-  padding: 9px 16px;
+  border-radius: 7px;
+  padding: 7px 14px;
 }
 
 button.link {
@@ -642,9 +649,9 @@ td.row-actions button.danger-link:hover {
 }
 
 .modal-total {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   background: var(--color-surface-2);
   border-radius: 8px;
   padding: 10px 12px;
@@ -667,12 +674,12 @@ td.row-actions button.danger-link:hover {
 }
 
 .filter-chips a {
-  font-size: 13px;
+  font-size: 12px;
   text-decoration: none;
   color: var(--color-text-muted);
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 5px 12px;
 }
 
 .filter-chips a:hover {
@@ -702,12 +709,12 @@ td.row-actions button.danger-link:hover {
 .filter-form input,
 .filter-form select {
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 7px;
+  padding: 5px 9px;
 }
 
 .filter-form select {
@@ -716,13 +723,13 @@ td.row-actions button.danger-link:hover {
 
 .filter-form button {
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text);
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 6px 14px;
+  border-radius: 7px;
+  padding: 5px 12px;
   cursor: pointer;
 }
 
