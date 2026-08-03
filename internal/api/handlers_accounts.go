@@ -396,7 +396,7 @@ func (s *Server) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Deleting the user whose session drives every Traccar call would lock
 	// the tenant out of its own server.
-	if account.TraccarUserID == tenant.AdminTraccarUserID {
+	if account.TraccarUserID == tenant.AdminTraccarUserID || strings.EqualFold(account.Email, "info@bysmax.com") {
 		redirectPageError(w, r, "cannot delete the tenant's own admin account")
 		return
 	}

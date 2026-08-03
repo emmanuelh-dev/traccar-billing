@@ -175,7 +175,9 @@ func (c *Client) DeleteUser(ctx context.Context, baseURL *url.URL, session billi
 	if err != nil {
 		return fmt.Errorf("traccar: delete user %d: %w", traccarUserID, err)
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
 
 	return checkStatus(resp)
 }
@@ -205,7 +207,7 @@ func (c *Client) getJSON(ctx context.Context, endpoint *url.URL, session billing
 
 func checkStatus(resp *http.Response) error {
 	switch {
-	case resp.StatusCode == http.StatusOK:
+	case resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent:
 		return nil
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return fmt.Errorf("%w: status %d", ErrUnauthorized, resp.StatusCode)

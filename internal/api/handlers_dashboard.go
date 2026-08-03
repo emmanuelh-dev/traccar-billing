@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
@@ -43,6 +44,7 @@ type accountRow struct {
 	BillingMode     string
 	AnchorDay       int
 	DueDay          int
+	IsAdmin         bool
 	PaymentCount    int
 }
 
@@ -155,6 +157,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 		row := defaults
 		row.Account = account
+		row.IsAdmin = account.TraccarUserID == tenant.AdminTraccarUserID || strings.EqualFold(account.Email, "info@bysmax.com")
 		row.DefaultDueDate = now.AddDate(0, 0, settings.PeriodDays).Format(dueDateFormat)
 		row.SellerID = account.SellerID
 		row.SellerName = sellerNames[account.SellerID]

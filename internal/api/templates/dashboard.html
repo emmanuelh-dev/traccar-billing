@@ -21,12 +21,14 @@
   data-account="{{.Account.ID}}"
   title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
 {{end}}
+{{if not .IsAdmin}}
 <button class="btn-icon danger" type="button"
   data-modal="account-delete"
   data-account="{{.Account.ID}}"
   data-name="{{.Account.Name}}"
   data-email="{{.Account.Email}}"
   title="{{$.T.DeleteAccountTtl}}" aria-label="{{$.T.DeleteAccountTtl}}">{{template "icon_delete"}}</button>
+{{end}}
 {{end}}
 
 {{define "account_table"}}
