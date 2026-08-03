@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
@@ -52,6 +53,7 @@ type expensesView struct {
 	Rows         []expenseRow
 	Sellers      []sellerOption
 	SellerTotals []groupTotal
+	Categories   []string
 	Sort         string
 	Sorts        []sortOption
 	Today        string
@@ -132,9 +134,31 @@ func (s *Server) handleExpenses(w http.ResponseWriter, r *http.Request) {
 	}
 	view.Total = formatAmount(totalCents, currency)
 	view.SellerTotals = expenseSellerTotals(view.Rows, currency)
+	view.Categories = expenseCategories(t, expenses)
 	sortExpenseRows(view.Rows, sortKey)
 
 	render(w, http.StatusOK, "expenses", view)
+}
+
+// expenseCategories offers the usual reasons money leaves the register, plus
+// whatever this tenant has already typed, so the field suggests instead of
+// forcing a taxonomy nobody agreed on.
+func expenseCategories(t uiStrings, expenses []billing.Expense) []string {
+	seen := make(map[string]bool, len(t.DefaultCategories))
+	categories := make([]string, 0, len(t.DefaultCategories)+len(expenses))
+	for _, category := range t.DefaultCategories {
+		seen[strings.ToLower(category)] = true
+		categories = append(categories, category)
+	}
+	for _, e := range expenses {
+		category := strings.TrimSpace(e.Category)
+		if category == "" || seen[strings.ToLower(category)] {
+			continue
+		}
+		seen[strings.ToLower(category)] = true
+		categories = append(categories, category)
+	}
+	return categories
 }
 
 // expenseSellerTotals answers what each seller cost in the period, which is

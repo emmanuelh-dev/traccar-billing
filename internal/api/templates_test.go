@@ -416,3 +416,62 @@ func TestRenderNavDrawer(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderAppointments(t *testing.T) {
+	view := appointmentsView{
+		T:        stringsFor("es"),
+		Title:    "Agendas",
+		Active:   "appointments",
+		Tenant:   billing.Tenant{Name: "gps.example.com"},
+		Today:    "2026-08-03",
+		Redirect: "/appointments",
+		Status:   "open",
+		Rows: []appointmentRow{
+			{
+				Appointment: billing.Appointment{
+					ID:          9,
+					ClientName:  "Gabriel gzz",
+					Phone:       "+52 81 1060 5924",
+					Unit:        "Ford 350, Estaquita",
+					Address:     "https://maps.app.goo.gl/abc",
+					DeviceCount: 2,
+					TimeWindow:  "1 o 2 pm",
+					Status:      billing.AppointmentScheduled,
+				},
+				DateDisplay:   "2026-08-01",
+				DateValue:     "2026-08-01",
+				AmountDisplay: "MXN 1000.00",
+				AmountValue:   "1000.00",
+				StatusLabel:   "Agendada",
+				Open:          true,
+				Late:          true,
+				WhatsApp:      []whatsappLink{{Phone: "+52 81 1060 5924", URL: "https://wa.me/528110605924?text=hola"}},
+			},
+		},
+		Sellers:  []sellerOption{{ID: 1, Name: "Ana"}},
+		Accounts: []chargeAccount{{ID: 4, Name: "BYSMAX"}},
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "appointments", view); err != nil {
+		t.Fatalf("render appointments: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{
+		`id="agenda-dialog"`,
+		`id="agenda-status-dialog"`,
+		`id="agenda-delete-dialog"`,
+		`https://wa.me/528110605924?text=hola`,
+		`data-modal="agenda-new"`,
+		`data-modal="agenda-edit"`,
+		`data-status="canceled"`,
+		`Gabriel gzz`,
+		`Atrasada`,
+		`1 o 2 pm`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("appointments output missing %q", want)
+		}
+	}
+}

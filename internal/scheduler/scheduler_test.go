@@ -505,3 +505,27 @@ func TestSyncTenantDoesNotArchiveOnFetchFailure(t *testing.T) {
 		t.Fatalf("archived = %v, want none when the user fetch failed", repo.archived)
 	}
 }
+
+func (r *fakeRepo) CreateAppointment(ctx context.Context, a billing.Appointment) (billing.Appointment, error) {
+	return billing.Appointment{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) UpdateAppointment(ctx context.Context, a billing.Appointment) (billing.Appointment, error) {
+	return billing.Appointment{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) GetAppointment(ctx context.Context, tenantID, appointmentID int64) (billing.Appointment, error) {
+	return billing.Appointment{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) ListAppointments(ctx context.Context, tenantID int64, filter billing.AppointmentFilter) ([]billing.Appointment, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *fakeRepo) SetAppointmentStatus(ctx context.Context, tenantID, appointmentID int64, status billing.AppointmentStatus, outcome string) (billing.Appointment, error) {
+	return billing.Appointment{}, errors.New("not implemented")
+}
+
+func (r *fakeRepo) DeleteAppointment(ctx context.Context, tenantID, appointmentID int64) error {
+	return errors.New("not implemented")
+}

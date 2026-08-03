@@ -1338,3 +1338,124 @@ body.hide-emails .account-email:hover,
 body.hide-emails small.account-email:hover {
   filter: blur(0);
 }
+
+/* Agenda (visits) */
+
+.badge-scheduled {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent-text);
+}
+
+.badge-done {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+}
+
+.agenda-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.agenda-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.agenda-card.is-closed {
+  opacity: 0.72;
+}
+
+.agenda-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.agenda-card header strong {
+  display: block;
+  font-size: 15px;
+}
+
+.agenda-card header small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.agenda-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.agenda-card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin: 0 0 14px;
+}
+
+.agenda-card dl div {
+  min-width: 0;
+}
+
+/* The address and the free-text fields need the full width; a maps link
+   truncated to half a card is a link nobody can read. */
+.agenda-card .agenda-address {
+  grid-column: 1 / -1;
+}
+
+.agenda-card dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.agenda-card dd {
+  margin: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-card dd a {
+  color: var(--color-accent-text);
+}
+
+.agenda-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wa-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: #25d366;
+  color: #05331a;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.wa-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.wa-button:hover {
+  filter: brightness(1.05);
+}

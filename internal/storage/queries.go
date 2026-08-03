@@ -1034,3 +1034,135 @@ func (r *sqlRepository) DeleteExpense(ctx context.Context, tenantID, expenseID i
 	}
 	return nil
 }
+
+const appointmentColumns = `id, tenant_id, account_id, seller_id, client_name, phone, unit, address, device_count, amount_cents, currency, scheduled_on, time_window, status, note, outcome, closed_at, created_at, updated_at`
+
+func scanAppointmentInto(sc scanner) (billing.Appointment, error) {
+	var a billing.Appointment
+	var accountID, sellerID sql.NullInt64
+	var closedAt sql.NullTime
+	var status string
+	if err := sc.Scan(&a.ID, &a.TenantID, &accountID, &sellerID, &a.ClientName, &a.Phone, &a.Unit, &a.Address,
+		&a.DeviceCount, &a.AmountCents, &a.Currency, &a.ScheduledOn, &a.TimeWindow, &status, &a.Note, &a.Outcome,
+		&closedAt, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		return billing.Appointment{}, err
+	}
+	a.AccountID = accountID.Int64
+	a.SellerID = sellerID.Int64
+	a.ClosedAt = closedAt.Time
+	a.Status = billing.AppointmentStatus(status)
+	return a, nil
+}
+
+func (r *sqlRepository) CreateAppointment(ctx context.Context, a billing.Appointment) (billing.Appointment, error) {
+	a = a.Normalized()
+	now := time.Now().UTC()
+	res, err := r.q().ExecContext(ctx,
+		`INSERT INTO appointments (tenant_id, account_id, seller_id, client_name, phone, unit, address, device_count, amount_cents, currency, scheduled_on, time_window, status, note, outcome, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.TenantID, nullInt64(a.AccountID), nullInt64(a.SellerID), a.ClientName, a.Phone, a.Unit, a.Address,
+		a.DeviceCount, a.AmountCents, a.Currency, a.ScheduledOn, a.TimeWindow, string(a.Status), a.Note, a.Outcome, now, now)
+	if err != nil {
+		return billing.Appointment{}, fmt.Errorf("storage: create appointment: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return billing.Appointment{}, fmt.Errorf("storage: create appointment: %w", err)
+	}
+	return r.GetAppointment(ctx, a.TenantID, id)
+}
+
+func (r *sqlRepository) UpdateAppointment(ctx context.Context, a billing.Appointment) (billing.Appointment, error) {
+	a = a.Normalized()
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE appointments SET account_id = ?, seller_id = ?, client_name = ?, phone = ?, unit = ?, address = ?,
+		 device_count = ?, amount_cents = ?, currency = ?, scheduled_on = ?, time_window = ?, note = ?, updated_at = ?
+		 WHERE id = ? AND tenant_id = ?`,
+		nullInt64(a.AccountID), nullInt64(a.SellerID), a.ClientName, a.Phone, a.Unit, a.Address,
+		a.DeviceCount, a.AmountCents, a.Currency, a.ScheduledOn, a.TimeWindow, a.Note, time.Now().UTC(), a.ID, a.TenantID)
+	if err != nil {
+		return billing.Appointment{}, fmt.Errorf("storage: update appointment: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.Appointment{}, billing.ErrNotFound
+	}
+	return r.GetAppointment(ctx, a.TenantID, a.ID)
+}
+
+func (r *sqlRepository) GetAppointment(ctx context.Context, tenantID, appointmentID int64) (billing.Appointment, error) {
+	a, err := scanAppointmentInto(r.q().QueryRowContext(ctx,
+		`SELECT `+appointmentColumns+` FROM appointments WHERE tenant_id = ? AND id = ?`, tenantID, appointmentID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return billing.Appointment{}, billing.ErrNotFound
+	}
+	if err != nil {
+		return billing.Appointment{}, fmt.Errorf("storage: get appointment: %w", err)
+	}
+	return a, nil
+}
+
+func (r *sqlRepository) ListAppointments(ctx context.Context, tenantID int64, filter billing.AppointmentFilter) ([]billing.Appointment, error) {
+	query := `SELECT ` + appointmentColumns + ` FROM appointments WHERE tenant_id = ?`
+	args := []any{tenantID}
+
+	if !filter.From.IsZero() {
+		query += ` AND scheduled_on >= ?`
+		args = append(args, filter.From)
+	}
+	if !filter.To.IsZero() {
+		query += ` AND scheduled_on < ?`
+		args = append(args, filter.To)
+	}
+	if filter.Status != "" {
+		query += ` AND status = ?`
+		args = append(args, string(filter.Status))
+	}
+	query += ` ORDER BY scheduled_on ASC, id ASC`
+
+	rows, err := r.q().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("storage: list appointments: %w", err)
+	}
+	defer rows.Close()
+
+	var appointments []billing.Appointment
+	for rows.Next() {
+		a, err := scanAppointmentInto(rows)
+		if err != nil {
+			return nil, fmt.Errorf("storage: scan appointment: %w", err)
+		}
+		appointments = append(appointments, a)
+	}
+	return appointments, rows.Err()
+}
+
+func (r *sqlRepository) SetAppointmentStatus(ctx context.Context, tenantID, appointmentID int64, status billing.AppointmentStatus, outcome string) (billing.Appointment, error) {
+	// Reopening a visit clears the closing stamp, so a mistaken close does not
+	// leave a date behind on a visit that is scheduled again.
+	var closedAt any
+	if status != billing.AppointmentScheduled {
+		closedAt = time.Now().UTC()
+	}
+	res, err := r.q().ExecContext(ctx,
+		`UPDATE appointments SET status = ?, outcome = ?, closed_at = ?, updated_at = ? WHERE id = ? AND tenant_id = ?`,
+		string(status), strings.TrimSpace(outcome), closedAt, time.Now().UTC(), appointmentID, tenantID)
+	if err != nil {
+		return billing.Appointment{}, fmt.Errorf("storage: set appointment status: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.Appointment{}, billing.ErrNotFound
+	}
+	return r.GetAppointment(ctx, tenantID, appointmentID)
+}
+
+func (r *sqlRepository) DeleteAppointment(ctx context.Context, tenantID, appointmentID int64) error {
+	res, err := r.q().ExecContext(ctx,
+		`DELETE FROM appointments WHERE id = ? AND tenant_id = ?`, appointmentID, tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: delete appointment: %w", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return billing.ErrNotFound
+	}
+	return nil
+}

@@ -72,6 +72,15 @@ type Repository interface {
 	// while ignoring AccountID in PaymentFilter.
 	ListExpenses(ctx context.Context, tenantID int64, filter PaymentFilter) ([]Expense, error)
 	DeleteExpense(ctx context.Context, tenantID, expenseID int64) error
+
+	CreateAppointment(ctx context.Context, a Appointment) (Appointment, error)
+	UpdateAppointment(ctx context.Context, a Appointment) (Appointment, error)
+	GetAppointment(ctx context.Context, tenantID, appointmentID int64) (Appointment, error)
+	ListAppointments(ctx context.Context, tenantID int64, filter AppointmentFilter) ([]Appointment, error)
+	// SetAppointmentStatus closes or cancels a visit, stamping ClosedAt when it
+	// leaves the scheduled state and recording why in Outcome.
+	SetAppointmentStatus(ctx context.Context, tenantID, appointmentID int64, status AppointmentStatus, outcome string) (Appointment, error)
+	DeleteAppointment(ctx context.Context, tenantID, appointmentID int64) error
 }
 
 type PaymentFilter struct {

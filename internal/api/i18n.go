@@ -15,6 +15,8 @@ const (
 	mirrorCookieName = "mirror"
 	sortCookieName   = "sort"
 
+	appointmentStatusCookieName = "agenda"
+
 	expenseSortCookieName = "esort"
 	paymentSortCookieName = "psort"
 )
@@ -270,17 +272,56 @@ type uiStrings struct {
 	OneOffChargeFmt  string
 	OneOffBadge      string
 
-	NavExpenses      string
-	ExpensesPageTtl  string
-	ExpensesEmpty    string
-	NoExpensesHere   string
-	NewExpenseButton string
-	NewExpenseTitle  string
-	EditExpenseTitle string
-	DeleteExpenseTtl string
-	CategoryLabel    string
-	TotalWithdrawn   string
-	NetTotal         string
+	NavExpenses     string
+	ExpensesPageTtl string
+
+	CategoryHint        string
+	DefaultCategories   []string
+	NavAppointments     string
+	AppointmentsPageTtl string
+	AppointmentsEmpty   string
+	NewAppointmentBtn   string
+	NewAppointmentTtl   string
+	EditAppointmentTtl  string
+	ClientLabel         string
+	ContactLabel        string
+	ContactHint         string
+	UnitLabel           string
+	AddressLabel        string
+	TimeWindowLabel     string
+	TimeWindowHint      string
+	AltasLabel          string
+	CostLabel           string
+	OutcomeLabel        string
+	VisitScheduled      string
+	VisitDone           string
+	VisitCanceled       string
+	CloseVisitBtn       string
+	CloseVisitTtl       string
+	CancelVisitBtn      string
+	CancelVisitTtl      string
+	ReopenVisitBtn      string
+	DeleteVisitTtl      string
+	WhatsAppButton      string
+	WhatsAppMsgFmt      string
+	WhatsAppUnitFmt     string
+	WhatsAppAddrFmt     string
+	LateBadge           string
+	PendingVisits       string
+	DoneVisits          string
+	PendingAmount       string
+	FilterOpen          string
+	FilterDone          string
+	FilterCanceled      string
+	ExpensesEmpty       string
+	NoExpensesHere      string
+	NewExpenseButton    string
+	NewExpenseTitle     string
+	EditExpenseTitle    string
+	DeleteExpenseTtl    string
+	CategoryLabel       string
+	TotalWithdrawn      string
+	NetTotal            string
 }
 
 var translations = map[string]uiStrings{
@@ -466,17 +507,59 @@ var translations = map[string]uiStrings{
 		DeleteAccountWarn: "Se elimina la cuenta con su suscripción y todos sus pagos, y también se borra el usuario en Traccar. Esto no se puede deshacer.",
 		DeleteAccountBtn:  "Eliminar cuenta",
 
-		NavExpenses:      "Retiros",
-		ExpensesPageTtl:  "Retiros",
-		ExpensesEmpty:    "Sin retiros registrados.",
-		NoExpensesHere:   "No hay retiros en este periodo.",
-		NewExpenseButton: "Registrar retiro",
-		NewExpenseTitle:  "Registrar retiro",
-		EditExpenseTitle: "Editar retiro",
-		DeleteExpenseTtl: "Eliminar retiro",
-		CategoryLabel:    "Categoría",
-		TotalWithdrawn:   "Total retiros",
-		NetTotal:         "Total neto",
+		NavExpenses:     "Retiros",
+		ExpensesPageTtl: "Retiros",
+
+		CategoryHint: "Ej. Pago a instalador",
+		DefaultCategories: []string{
+			"Pago a instalador", "Compra de equipo", "Comisión", "Gasolina",
+			"Renta", "Sueldos", "Herramienta", "Otro",
+		},
+		NavAppointments:     "Agendas",
+		AppointmentsPageTtl: "Agendas",
+		AppointmentsEmpty:   "Todavía no hay visitas agendadas.",
+		NewAppointmentBtn:   "Nueva agenda",
+		NewAppointmentTtl:   "Nueva agenda",
+		EditAppointmentTtl:  "Editar agenda",
+		ClientLabel:         "Cliente",
+		ContactLabel:        "Contacto",
+		ContactHint:         "Varios teléfonos separados por comas",
+		UnitLabel:           "Unidad",
+		AddressLabel:        "Dirección",
+		TimeWindowLabel:     "Horario",
+		TimeWindowHint:      "Por ejemplo: 1 o 2 pm",
+		AltasLabel:          "Altas",
+		CostLabel:           "Costo",
+		OutcomeLabel:        "Resultado",
+		VisitScheduled:      "Agendada",
+		VisitDone:           "Cerrada",
+		VisitCanceled:       "Cancelada",
+		CloseVisitBtn:       "Cerrar",
+		CloseVisitTtl:       "Cerrar agenda",
+		CancelVisitBtn:      "Cancelar visita",
+		CancelVisitTtl:      "Cancelar agenda",
+		ReopenVisitBtn:      "Reabrir",
+		DeleteVisitTtl:      "Eliminar agenda",
+		WhatsAppButton:      "WhatsApp",
+		WhatsAppMsgFmt:      "Hola %s, le confirmamos su visita el %s en el horario %s.",
+		WhatsAppUnitFmt:     "Unidad: %s.",
+		WhatsAppAddrFmt:     "Dirección: %s",
+		LateBadge:           "Atrasada",
+		PendingVisits:       "Agendadas",
+		DoneVisits:          "Cerradas",
+		PendingAmount:       "Por cobrar",
+		FilterOpen:          "Abiertas",
+		FilterDone:          "Cerradas",
+		FilterCanceled:      "Canceladas",
+		ExpensesEmpty:       "Sin retiros registrados.",
+		NoExpensesHere:      "No hay retiros en este periodo.",
+		NewExpenseButton:    "Registrar retiro",
+		NewExpenseTitle:     "Registrar retiro",
+		EditExpenseTitle:    "Editar retiro",
+		DeleteExpenseTtl:    "Eliminar retiro",
+		CategoryLabel:       "Categoría",
+		TotalWithdrawn:      "Total retiros",
+		NetTotal:            "Total neto",
 	},
 	"en": {
 		Lang:               "en",
@@ -661,17 +744,59 @@ var translations = map[string]uiStrings{
 		DeleteAccountWarn: "This deletes the account with its subscription and every payment, and removes the user in Traccar too. It cannot be undone.",
 		DeleteAccountBtn:  "Delete account",
 
-		NavExpenses:      "Expenses",
-		ExpensesPageTtl:  "Expenses",
-		ExpensesEmpty:    "No expenses recorded yet.",
-		NoExpensesHere:   "No expenses in this period.",
-		NewExpenseButton: "Record withdrawal",
-		NewExpenseTitle:  "Record withdrawal",
-		EditExpenseTitle: "Edit withdrawal",
-		DeleteExpenseTtl: "Delete withdrawal",
-		CategoryLabel:    "Category",
-		TotalWithdrawn:   "Total withdrawn",
-		NetTotal:         "Net total",
+		NavExpenses:     "Expenses",
+		ExpensesPageTtl: "Expenses",
+
+		CategoryHint: "e.g. Installer payment",
+		DefaultCategories: []string{
+			"Installer payment", "Equipment purchase", "Commission", "Fuel",
+			"Rent", "Payroll", "Tools", "Other",
+		},
+		NavAppointments:     "Appointments",
+		AppointmentsPageTtl: "Appointments",
+		AppointmentsEmpty:   "No visits scheduled yet.",
+		NewAppointmentBtn:   "New appointment",
+		NewAppointmentTtl:   "New appointment",
+		EditAppointmentTtl:  "Edit appointment",
+		ClientLabel:         "Client",
+		ContactLabel:        "Contact",
+		ContactHint:         "Several phones separated by commas",
+		UnitLabel:           "Vehicle",
+		AddressLabel:        "Address",
+		TimeWindowLabel:     "Time",
+		TimeWindowHint:      "For example: 1 to 2 pm",
+		AltasLabel:          "Installs",
+		CostLabel:           "Cost",
+		OutcomeLabel:        "Outcome",
+		VisitScheduled:      "Scheduled",
+		VisitDone:           "Closed",
+		VisitCanceled:       "Canceled",
+		CloseVisitBtn:       "Close",
+		CloseVisitTtl:       "Close appointment",
+		CancelVisitBtn:      "Cancel visit",
+		CancelVisitTtl:      "Cancel appointment",
+		ReopenVisitBtn:      "Reopen",
+		DeleteVisitTtl:      "Delete appointment",
+		WhatsAppButton:      "WhatsApp",
+		WhatsAppMsgFmt:      "Hi %s, confirming your visit on %s between %s.",
+		WhatsAppUnitFmt:     "Vehicle: %s.",
+		WhatsAppAddrFmt:     "Address: %s",
+		LateBadge:           "Late",
+		PendingVisits:       "Scheduled",
+		DoneVisits:          "Closed",
+		PendingAmount:       "To collect",
+		FilterOpen:          "Open",
+		FilterDone:          "Closed",
+		FilterCanceled:      "Canceled",
+		ExpensesEmpty:       "No expenses recorded yet.",
+		NoExpensesHere:      "No expenses in this period.",
+		NewExpenseButton:    "Record withdrawal",
+		NewExpenseTitle:     "Record withdrawal",
+		EditExpenseTitle:    "Edit withdrawal",
+		DeleteExpenseTtl:    "Delete withdrawal",
+		CategoryLabel:       "Category",
+		TotalWithdrawn:      "Total withdrawn",
+		NetTotal:            "Net total",
 	},
 }
 
@@ -688,6 +813,19 @@ func (t uiStrings) daysLeftLabel(days int) string {
 
 func (t uiStrings) voidedCountLabel(n int) string {
 	return fmt.Sprintf(t.VoidedCountFmt, n)
+}
+
+func (t uiStrings) appointmentStatusLabel(status billing.AppointmentStatus) string {
+	switch status {
+	case billing.AppointmentScheduled:
+		return t.VisitScheduled
+	case billing.AppointmentDone:
+		return t.VisitDone
+	case billing.AppointmentCanceled:
+		return t.VisitCanceled
+	default:
+		return string(status)
+	}
 }
 
 func (t uiStrings) statusLabel(status billing.SubscriptionStatus) string {

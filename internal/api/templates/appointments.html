@@ -1,0 +1,140 @@
+{{define "appointments"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.AppointmentsPageTtl}}</h1>
+      <div class="tenant-url">{{.Tenant.Name}}</div>
+    </div>
+    <div class="header-actions">
+      <button class="primary" type="button" data-modal="agenda-new">{{.T.NewAppointmentBtn}}</button>
+      <form class="logout-form" method="post" action="/logout">
+        <button type="submit">{{.T.LogoutButton}}</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  <div class="filter-bar">
+    <div class="filter-chips">
+      <a href="/appointments?agenda=open" {{if eq .Status "open"}}class="active"{{end}}>{{.T.FilterOpen}}</a>
+      <a href="/appointments?agenda=done" {{if eq .Status "done"}}class="active"{{end}}>{{.T.FilterDone}}</a>
+      <a href="/appointments?agenda=canceled" {{if eq .Status "canceled"}}class="active"{{end}}>{{.T.FilterCanceled}}</a>
+      <a href="/appointments?agenda=all" {{if eq .Status "all"}}class="active"{{end}}>{{.T.PeriodAll}}</a>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="value">{{.OpenCount}}</div>
+      <div class="label">{{.T.PendingVisits}}</div>
+    </div>
+    <div class="stat">
+      <div class="value">{{.DoneCount}}</div>
+      <div class="label">{{.T.DoneVisits}}</div>
+    </div>
+    <div class="stat">
+      <div class="value">{{.PendingTotal}}</div>
+      <div class="label">{{.T.PendingAmount}}</div>
+    </div>
+  </div>
+
+  {{if .Rows}}
+  <div class="agenda-list">
+    {{range .Rows}}
+    <article class="agenda-card {{if not .Open}}is-closed{{end}}">
+      <header>
+        <div>
+          <strong>{{.Appointment.ClientName}}</strong>
+          <small>{{.DateDisplay}}{{if .Appointment.TimeWindow}} · {{.Appointment.TimeWindow}}{{end}}</small>
+        </div>
+        <div class="agenda-badges">
+          {{if .Late}}<span class="badge badge-overdue">{{$.T.LateBadge}}</span>{{end}}
+          <span class="badge badge-{{.Appointment.Status}}">{{.StatusLabel}}</span>
+        </div>
+      </header>
+
+      <dl>
+        <div><dt>{{$.T.AltasLabel}}</dt><dd>{{.Appointment.DeviceCount}}</dd></div>
+        {{if .Appointment.Unit}}<div><dt>{{$.T.UnitLabel}}</dt><dd>{{.Appointment.Unit}}</dd></div>{{end}}
+        {{if .Appointment.Phone}}<div><dt>{{$.T.ContactLabel}}</dt><dd>{{.Appointment.Phone}}</dd></div>{{end}}
+        {{if .SellerName}}<div><dt>{{$.T.SellerLabel}}</dt><dd>{{.SellerName}}</dd></div>{{end}}
+        {{if .AccountName}}<div><dt>{{$.T.ColAccount}}</dt><dd>{{.AccountName}}</dd></div>{{end}}
+        <div><dt>{{$.T.CostLabel}}</dt><dd>{{.AmountDisplay}}</dd></div>
+        {{if .Appointment.Address}}
+        <div class="agenda-address"><dt>{{$.T.AddressLabel}}</dt><dd><a href="{{.Appointment.Address}}" target="_blank" rel="noopener noreferrer">{{.Appointment.Address}}</a></dd></div>
+        {{end}}
+        {{if .Appointment.Note}}<div class="agenda-address"><dt>{{$.T.NoteLabel}}</dt><dd>{{.Appointment.Note}}</dd></div>{{end}}
+        {{if .Appointment.Outcome}}<div class="agenda-address"><dt>{{$.T.OutcomeLabel}}</dt><dd>{{.Appointment.Outcome}}</dd></div>{{end}}
+      </dl>
+
+      <footer class="agenda-actions">
+        {{range .WhatsApp}}
+        <a class="wa-button" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{template "icon_whatsapp"}}<span>{{$.T.WhatsAppButton}} {{.Phone}}</span></a>
+        {{end}}
+
+        <button type="button"
+          data-modal="agenda-edit"
+          data-agenda="{{.Appointment.ID}}"
+          data-client="{{.Appointment.ClientName}}"
+          data-phone="{{.Appointment.Phone}}"
+          data-unit="{{.Appointment.Unit}}"
+          data-address="{{.Appointment.Address}}"
+          data-date="{{.DateValue}}"
+          data-window="{{.Appointment.TimeWindow}}"
+          data-devices="{{.Appointment.DeviceCount}}"
+          data-amount="{{.AmountValue}}"
+          data-currency="{{.Appointment.Currency}}"
+          data-seller="{{.Appointment.SellerID}}"
+          data-account="{{.Appointment.AccountID}}"
+          data-note="{{.Appointment.Note}}"
+          class="btn-icon" title="{{$.T.EditButton}}" aria-label="{{$.T.EditButton}}">{{template "icon_edit"}}</button>
+
+        {{if .Open}}
+        <button type="button"
+          data-modal="agenda-status"
+          data-agenda="{{.Appointment.ID}}"
+          data-client="{{.Appointment.ClientName}}"
+          data-status="done"
+          class="btn-icon primary" title="{{$.T.CloseVisitBtn}}" aria-label="{{$.T.CloseVisitBtn}}">{{template "icon_check"}}</button>
+        <button type="button"
+          data-modal="agenda-status"
+          data-agenda="{{.Appointment.ID}}"
+          data-client="{{.Appointment.ClientName}}"
+          data-status="canceled"
+          class="btn-icon danger" title="{{$.T.CancelVisitBtn}}" aria-label="{{$.T.CancelVisitBtn}}">{{template "icon_void"}}</button>
+        {{else}}
+        <form method="post" action="/appointments/{{.Appointment.ID}}/status">
+          <input type="hidden" name="redirect_to" value="{{$.Redirect}}">
+          <input type="hidden" name="status" value="scheduled">
+          <button class="link" type="submit">{{$.T.ReopenVisitBtn}}</button>
+        </form>
+        {{end}}
+
+        <button class="btn-icon danger-link" type="button"
+          data-modal="agenda-delete"
+          data-agenda="{{.Appointment.ID}}"
+          data-client="{{.Appointment.ClientName}}"
+          title="{{$.T.DeleteVisitTtl}}" aria-label="{{$.T.DeleteVisitTtl}}">{{template "icon_delete"}}</button>
+      </footer>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="empty-state">{{.T.AppointmentsEmpty}}</div>
+  {{end}}
+</div>
+</main>
+</div>
+{{template "agenda_dialog" .}}
+{{template "agenda_status_dialog" .}}
+{{template "agenda_delete_dialog" .}}
+{{template "modal_script" .}}
+{{template "footer" .}}
+{{end}}
