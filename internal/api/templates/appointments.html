@@ -77,6 +77,7 @@
       <footer class="agenda-actions">
         {{range .WhatsApp}}
         <a class="wa-button" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{template "icon_whatsapp"}}<span>{{$.T.WhatsAppButton}} {{.Phone}}</span></a>
+        <a class="wa-button" href="{{.WebURL}}" target="_blank" rel="noopener noreferrer">{{template "icon_whatsapp_web"}}<span>{{$.T.WhatsAppWebButton}} {{.Phone}}</span></a>
         {{end}}
 
         <button type="button"

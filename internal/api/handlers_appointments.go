@@ -15,8 +15,9 @@ import (
 // whatsappLink is one tap-to-chat target for a visit. A job can list a second
 // contact, so a row may carry more than one.
 type whatsappLink struct {
-	Phone string
-	URL   string
+	Phone  string
+	URL    string
+	WebURL string
 }
 
 type appointmentRow struct {
@@ -55,14 +56,14 @@ type appointmentsView struct {
 
 var appointmentStatuses = map[string]bool{"open": true, "done": true, "canceled": true, "all": true}
 
-// waDigits keeps only the digits of a phone so wa.me accepts it, and assumes
-// Mexico when the operator wrote a local 10-digit number.
 // stripSpaces removes whitespace pasted into contact numbers (e.g. "55 1570
 // 4658") while keeping the comma that separates a second contact.
 func stripSpaces(s string) string {
 	return strings.Join(strings.Fields(s), "")
 }
 
+// waDigits keeps only the digits of a phone so wa.me accepts it, and assumes
+// Mexico when the operator wrote a local 10-digit number.
 func waDigits(phone string) string {
 	var digits strings.Builder
 	for _, r := range phone {
@@ -94,9 +95,11 @@ func whatsappLinks(t uiStrings, a billing.Appointment, dateDisplay string) []wha
 		if number == "" {
 			continue
 		}
+		text := url.QueryEscape(message)
 		links = append(links, whatsappLink{
-			Phone: phone,
-			URL:   "https://wa.me/" + number + "?text=" + url.QueryEscape(message),
+			Phone:  phone,
+			URL:    "https://wa.me/" + number + "?text=" + text,
+			WebURL: "https://web.whatsapp.com/send?phone=" + number + "&text=" + text,
 		})
 	}
 	return links

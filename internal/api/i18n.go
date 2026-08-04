@@ -346,6 +346,7 @@ type uiStrings struct {
 	ReopenVisitBtn      string
 	DeleteVisitTtl      string
 	WhatsAppButton      string
+	WhatsAppWebButton   string
 	WhatsAppMsgFmt      string
 	WhatsAppUnitFmt     string
 	WhatsAppAddrFmt     string
@@ -628,6 +629,7 @@ var translations = map[string]uiStrings{
 		ReopenVisitBtn:      "Reabrir",
 		DeleteVisitTtl:      "Eliminar agenda",
 		WhatsAppButton:      "WhatsApp",
+		WhatsAppWebButton:   "WhatsApp Web",
 		WhatsAppMsgFmt:      "Hola %s, le confirmamos su visita el %s en el horario %s.",
 		WhatsAppUnitFmt:     "Unidad: %s.",
 		WhatsAppAddrFmt:     "Dirección: %s",
@@ -909,6 +911,7 @@ var translations = map[string]uiStrings{
 		ReopenVisitBtn:      "Reopen",
 		DeleteVisitTtl:      "Delete appointment",
 		WhatsAppButton:      "WhatsApp",
+		WhatsAppWebButton:   "WhatsApp Web",
 		WhatsAppMsgFmt:      "Hi %s, confirming your visit on %s between %s.",
 		WhatsAppUnitFmt:     "Vehicle: %s.",
 		WhatsAppAddrFmt:     "Address: %s",
