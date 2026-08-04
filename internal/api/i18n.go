@@ -105,30 +105,32 @@ type uiStrings struct {
 	LoginFailed        string
 	InternalError      string
 
-	DashboardTitle string
-	LogoutButton   string
-	SignedInAs     string
-	StatAccounts   string
-	StatActive     string
-	StatOverdue    string
-	ColAccount     string
-	ColEmail       string
-	ColDevices     string
-	ColAmount      string
-	ColStatus      string
-	ColNextDue     string
-	ColDaysLeft    string
-	EmptyState     string
-	PayButton      string
-	NoSubscription string
-	ConfigureLabel string
-	AmountLabel    string
-	CurrencyLabel  string
-	PeriodLabel    string
-	DueDateLabel   string
-	SaveButton     string
-	DaysLeftFmt    string
-	DaysOverdueFmt string
+	DashboardTitle     string
+	LogoutButton       string
+	SignedInAs         string
+	StatAccounts       string
+	StatActive         string
+	StatOverdue        string
+	ColAccount         string
+	ColEmail           string
+	ColDevices         string
+	ColAmount          string
+	ColStatus          string
+	ColNextDue         string
+	ColDaysLeft        string
+	EmptyState         string
+	PayButton          string
+	NoSubscription     string
+	ConfigureLabel     string
+	ResetPeriodLabel   string
+	ResetPeriodConfirm string
+	AmountLabel        string
+	CurrencyLabel      string
+	PeriodLabel        string
+	DueDateLabel       string
+	SaveButton         string
+	DaysLeftFmt        string
+	DaysOverdueFmt     string
 
 	PaymentsLabel    string
 	PaymentsColDate  string
@@ -382,30 +384,32 @@ var translations = map[string]uiStrings{
 		LoginFailed:        "No se pudo iniciar sesión. Revisa la URL, el correo y la contraseña.",
 		InternalError:      "Error interno.",
 
-		DashboardTitle: "Dashboard",
-		LogoutButton:   "Cerrar sesión",
-		SignedInAs:     "Sesión iniciada como",
-		StatAccounts:   "Cuentas",
-		StatActive:     "Al corriente",
-		StatOverdue:    "Vencidas",
-		ColAccount:     "Cuenta",
-		ColEmail:       "Correo",
-		ColDevices:     "Dispositivos",
-		ColAmount:      "Cobro",
-		ColStatus:      "Estado",
-		ColNextDue:     "Próximo corte",
-		ColDaysLeft:    "Faltan",
-		EmptyState:     "Aún no hay cuentas sincronizadas. Se sincronizan automáticamente cada pocos minutos.",
-		PayButton:      "Registrar pago",
-		NoSubscription: "sin configurar",
-		ConfigureLabel: "Configurar cobro",
-		AmountLabel:    "Monto",
-		CurrencyLabel:  "Moneda",
-		PeriodLabel:    "Días por período",
-		DueDateLabel:   "Próxima fecha de corte",
-		SaveButton:     "Guardar",
-		DaysLeftFmt:    "%d días",
-		DaysOverdueFmt: "vencida hace %d días",
+		DashboardTitle:     "Dashboard",
+		LogoutButton:       "Cerrar sesión",
+		SignedInAs:         "Sesión iniciada como",
+		StatAccounts:       "Cuentas",
+		StatActive:         "Al corriente",
+		StatOverdue:        "Vencidas",
+		ColAccount:         "Cuenta",
+		ColEmail:           "Correo",
+		ColDevices:         "Dispositivos",
+		ColAmount:          "Cobro",
+		ColStatus:          "Estado",
+		ColNextDue:         "Próximo corte",
+		ColDaysLeft:        "Faltan",
+		EmptyState:         "Aún no hay cuentas sincronizadas. Se sincronizan automáticamente cada pocos minutos.",
+		PayButton:          "Registrar pago",
+		NoSubscription:     "sin configurar",
+		ConfigureLabel:     "Configurar cobro",
+		ResetPeriodLabel:   "Reiniciar periodo",
+		ResetPeriodConfirm: "¿Recalcular el próximo corte de esta cuenta según su configuración de cobro?",
+		AmountLabel:        "Monto",
+		CurrencyLabel:      "Moneda",
+		PeriodLabel:        "Días por período",
+		DueDateLabel:       "Próxima fecha de corte",
+		SaveButton:         "Guardar",
+		DaysLeftFmt:        "%d días",
+		DaysOverdueFmt:     "vencida hace %d días",
 
 		PaymentsLabel:    "Historial de pagos",
 		PaymentsColDate:  "Fecha",
@@ -660,30 +664,32 @@ var translations = map[string]uiStrings{
 		LoginFailed:        "Could not sign in. Check the URL, email, and password.",
 		InternalError:      "Internal error.",
 
-		DashboardTitle: "Dashboard",
-		LogoutButton:   "Sign out",
-		SignedInAs:     "Signed in as",
-		StatAccounts:   "Accounts",
-		StatActive:     "Current",
-		StatOverdue:    "Overdue",
-		ColAccount:     "Account",
-		ColEmail:       "Email",
-		ColDevices:     "Devices",
-		ColAmount:      "Billing",
-		ColStatus:      "Status",
-		ColNextDue:     "Next due date",
-		ColDaysLeft:    "Left",
-		EmptyState:     "No accounts synced yet. They sync automatically every few minutes.",
-		PayButton:      "Record payment",
-		NoSubscription: "not set up",
-		ConfigureLabel: "Set up billing",
-		AmountLabel:    "Amount",
-		CurrencyLabel:  "Currency",
-		PeriodLabel:    "Billing period (days)",
-		DueDateLabel:   "Next due date",
-		SaveButton:     "Save",
-		DaysLeftFmt:    "%d days",
-		DaysOverdueFmt: "%d days overdue",
+		DashboardTitle:     "Dashboard",
+		LogoutButton:       "Sign out",
+		SignedInAs:         "Signed in as",
+		StatAccounts:       "Accounts",
+		StatActive:         "Current",
+		StatOverdue:        "Overdue",
+		ColAccount:         "Account",
+		ColEmail:           "Email",
+		ColDevices:         "Devices",
+		ColAmount:          "Billing",
+		ColStatus:          "Status",
+		ColNextDue:         "Next due date",
+		ColDaysLeft:        "Left",
+		EmptyState:         "No accounts synced yet. They sync automatically every few minutes.",
+		PayButton:          "Record payment",
+		NoSubscription:     "not set up",
+		ConfigureLabel:     "Set up billing",
+		ResetPeriodLabel:   "Reset period",
+		ResetPeriodConfirm: "Recalculate this account's next due date from its billing setup?",
+		AmountLabel:        "Amount",
+		CurrencyLabel:      "Currency",
+		PeriodLabel:        "Billing period (days)",
+		DueDateLabel:       "Next due date",
+		SaveButton:         "Save",
+		DaysLeftFmt:        "%d days",
+		DaysOverdueFmt:     "%d days overdue",
 
 		PaymentsLabel:    "Payment history",
 		PaymentsColDate:  "Date",

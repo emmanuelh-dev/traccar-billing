@@ -159,6 +159,69 @@ func (s *Server) syncTraccarAccess(ctx context.Context, tenant billing.Tenant, a
 	s.logger.Info("api: synced traccar user access", "account_id", account.ID, "traccar_user_id", account.TraccarUserID, "disabled", disabled)
 }
 
+// handleResetSubscriptionPeriod recalculates a subscription's next due date
+// from its own billing terms (due day for calendar mode, period days for
+// rolling mode) anchored on today, instead of a manually typed date. It
+// exists for the case where next_due_at was set to a wrong date and the
+// operator just wants it put back where it belongs.
+func (s *Server) handleResetSubscriptionPeriod(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+
+	accountID, err := parseIDParam(r, "id")
+	if err != nil {
+		redirectPageError(w, r, "invalid account id")
+		return
+	}
+
+	account, err := s.repo.GetAccount(r.Context(), tenant.ID, accountID)
+	if errors.Is(err, billing.ErrNotFound) {
+		redirectPageError(w, r, "account not found")
+		return
+	}
+	if err != nil {
+		s.logger.Error("api: get account for subscription reset", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	sub, err := s.repo.GetSubscriptionByAccountID(r.Context(), account.ID)
+	if errors.Is(err, billing.ErrNotFound) {
+		redirectPageError(w, r, "account has no subscription")
+		return
+	}
+	if err != nil {
+		s.logger.Error("api: get subscription for reset", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	now := s.now()
+	if sub.Calendar() {
+		sub.NextDueAt = billing.NextCalendarDue(now, sub.DueDay)
+	} else {
+		from := sub.LastPaidAt
+		if from.IsZero() {
+			from = now
+		}
+		sub.NextDueAt = billing.NextDueDate(from, sub.PeriodDays)
+	}
+	if billing.IsOverdue(sub, now) {
+		sub.Status = billing.StatusOverdue
+	} else {
+		sub.Status = billing.StatusActive
+	}
+
+	if _, err := s.repo.UpsertSubscription(r.Context(), sub); err != nil {
+		s.logger.Error("api: upsert subscription reset", "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+
+	s.syncTraccarAccess(r.Context(), tenant, account, sub.Status == billing.StatusOverdue)
+
+	http.Redirect(w, r, redirectTarget(r, "/dashboard"), http.StatusSeeOther)
+}
+
 func parseAmountCents(raw string) (int64, error) {
 	amount, err := strconv.ParseFloat(raw, 64)
 	if err != nil || amount < 0 {

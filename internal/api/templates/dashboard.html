@@ -20,6 +20,10 @@
   data-modal="charge"
   data-account="{{.Account.ID}}"
   title="{{$.T.PayButton}}" aria-label="{{$.T.PayButton}}">{{template "icon_pay"}}</button>
+<form method="post" action="/accounts/{{.Account.ID}}/subscription/reset"
+  onsubmit="return confirm('{{$.T.ResetPeriodConfirm}}')">
+  <button class="btn-icon" type="submit" title="{{$.T.ResetPeriodLabel}}" aria-label="{{$.T.ResetPeriodLabel}}">{{template "icon_reset"}}</button>
+</form>
 {{end}}
 {{if not .IsAdmin}}
 <button class="btn-icon danger" type="button"

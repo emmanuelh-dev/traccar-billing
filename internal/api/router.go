@@ -93,6 +93,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/accounts/{id}", s.requireTenant(s.handleGetAccount))
 	r.Post("/accounts/{id}/pay", s.requireTenant(s.handlePayAccount))
 	r.Post("/accounts/{id}/subscription", s.requireTenant(s.handleConfigureSubscription))
+	r.Post("/accounts/{id}/subscription/reset", s.requireTenant(s.handleResetSubscriptionPeriod))
 	r.Post("/accounts/{id}/seller", s.requireTenant(s.handleAssignSeller))
 	r.Post("/accounts/{id}/delete", s.requireTenant(s.handleDeleteAccount))
 
