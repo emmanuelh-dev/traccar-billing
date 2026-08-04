@@ -57,6 +57,12 @@ var appointmentStatuses = map[string]bool{"open": true, "done": true, "canceled"
 
 // waDigits keeps only the digits of a phone so wa.me accepts it, and assumes
 // Mexico when the operator wrote a local 10-digit number.
+// stripSpaces removes whitespace pasted into contact numbers (e.g. "55 1570
+// 4658") while keeping the comma that separates a second contact.
+func stripSpaces(s string) string {
+	return strings.Join(strings.Fields(s), "")
+}
+
 func waDigits(phone string) string {
 	var digits strings.Builder
 	for _, r := range phone {
@@ -253,7 +259,7 @@ func (s *Server) parseAppointmentForm(r *http.Request, tenantID int64) (billing.
 		a.AccountID = accountID
 	}
 
-	a.Phone = r.FormValue("phone")
+	a.Phone = stripSpaces(r.FormValue("phone"))
 	a.Unit = r.FormValue("unit")
 	a.Address = r.FormValue("address")
 	a.TimeWindow = r.FormValue("time_window")

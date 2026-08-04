@@ -934,6 +934,17 @@
     $("configure-mode").addEventListener("change", applyBillingMode);
   }
 
+  // Operators paste phone numbers straight from WhatsApp chats or contact
+  // cards, which come with spaces ("55 1570 4658"); strip those as they type
+  // or paste so the stored number sends WhatsApp links correctly.
+  const agendaPhone = $("agenda-phone");
+  if (agendaPhone) {
+    agendaPhone.addEventListener("input", () => {
+      const withoutSpaces = agendaPhone.value.replace(/\s+/g, "");
+      if (withoutSpaces !== agendaPhone.value) agendaPhone.value = withoutSpaces;
+    });
+  }
+
   function fillAndOpen(trigger) {
     const kind = trigger.dataset.modal;
     const data = trigger.dataset;
