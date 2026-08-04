@@ -161,9 +161,9 @@ func (s *Server) syncTraccarAccess(ctx context.Context, tenant billing.Tenant, a
 
 // handleResetSubscriptionPeriod recalculates a subscription's next due date
 // from its own billing terms (due day for calendar mode, period days for
-// rolling mode) anchored on today, instead of a manually typed date. It
-// exists for the case where next_due_at was set to a wrong date and the
-// operator just wants it put back where it belongs.
+// rolling mode), anchored on today rather than on the last payment — the
+// point of the button is a fresh full period starting now, not wherever the
+// old (possibly wrong) next_due_at or last payment happens to land.
 func (s *Server) handleResetSubscriptionPeriod(w http.ResponseWriter, r *http.Request) {
 	tenant := tenantFromContext(r.Context())
 
@@ -199,11 +199,7 @@ func (s *Server) handleResetSubscriptionPeriod(w http.ResponseWriter, r *http.Re
 	if sub.Calendar() {
 		sub.NextDueAt = billing.NextCalendarDue(now, sub.DueDay)
 	} else {
-		from := sub.LastPaidAt
-		if from.IsZero() {
-			from = now
-		}
-		sub.NextDueAt = billing.NextDueDate(from, sub.PeriodDays)
+		sub.NextDueAt = billing.NextDueDate(now, sub.PeriodDays)
 	}
 	if billing.IsOverdue(sub, now) {
 		sub.Status = billing.StatusOverdue
