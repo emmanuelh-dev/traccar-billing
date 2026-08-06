@@ -40,6 +40,7 @@
             <th class="num">{{.T.DataAllowedCol}}</th>
             <th class="num">{{.T.DataUsedCol}}</th>
             <th class="num">{{.T.DataRemainingCol}}</th>
+            <th>{{.T.UsagePeriodCol}}</th>
             <th>{{.T.SIMActionsCol}}</th>
           </tr>
         </thead>
@@ -94,8 +95,21 @@
         cell.textContent = value || "—";
         if (index === 1 || index === 2) cell.className = "mono";
         if (index >= 6) cell.classList.add("num");
+        // Same usage bar the devices table draws, so both pages read alike.
+        if (index === 7 && item.hasAllowance) {
+          cell.classList.add("usage-cell");
+          const progress = document.createElement("progress");
+          progress.max = 100;
+          progress.value = item.usagePercent;
+          progress.title = item.usagePercent + "%";
+          cell.append(progress);
+        }
+        if (index === 8 && item.derivedRemaining) cell.title = "{{.T.DataRemainingCalculated}}";
         row.append(cell);
       });
+      const periodCell = document.createElement("td");
+      periodCell.textContent = item.usagePeriod || "—";
+      row.append(periodCell);
       const actionCell = document.createElement("td");
       actionCell.className = "row-actions";
       if (!item.canChangeStatus) {
