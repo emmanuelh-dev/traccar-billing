@@ -259,6 +259,23 @@ func (c *Client) SendSMS(ctx context.Context, iccid, text string) (billing.SMSRe
 	return billing.SMSReceipt{ID: id, Detail: response.Detail}, nil
 }
 
+// Received messages come back wrapped in a concatenated-SMS user data
+// header. The provider exposes no direction field, so that prefix is the
+// only marker that a message came from the device instead of to it.
+const smsUDHPrefix = "\x05\x00\x03"
+
+func classifySMS(content string) (string, string) {
+	// The header is 6 bytes: the 3 that identify it plus 3 of reference data.
+	const udhLen = 6
+	if strings.HasPrefix(content, smsUDHPrefix) {
+		if len(content) < udhLen {
+			return "MO", ""
+		}
+		return "MO", strings.TrimSpace(content[udhLen:])
+	}
+	return "MT", strings.TrimSpace(content)
+}
+
 func (c *Client) FetchSMSHistory(ctx context.Context, iccid string, limit int) ([]billing.SMSMessage, error) {
 	iccid = strings.TrimSpace(iccid)
 	if limit < 1 || limit > 100 {
@@ -277,11 +294,12 @@ func (c *Client) FetchSMSHistory(ctx context.Context, iccid string, limit int) (
 	}
 	messages := make([]billing.SMSMessage, 0, len(statuses))
 	for _, status := range statuses {
+		direction, content := classifySMS(status.Content)
 		for _, report := range status.DeliveryReport {
 			if iccid == "" || report.ICCID == iccid {
 				messages = append(messages, billing.SMSMessage{
-					ID: status.ID, DateSubmitted: status.DateSubmitted, Content: status.Content,
-					ICCID: report.ICCID, DeliveryStatus: report.DeliveryStatus,
+					ID: status.ID, DateSubmitted: status.DateSubmitted, Content: content,
+					ICCID: report.ICCID, DeliveryStatus: report.DeliveryStatus, Direction: direction,
 				})
 			}
 		}

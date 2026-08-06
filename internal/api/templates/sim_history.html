@@ -33,6 +33,7 @@
         <tr>
           <th>{{.T.SIMHistoryDateCol}}</th>
           <th>{{.T.DeviceNameCol}}</th>
+          <th>{{.T.SIMHistoryDirCol}}</th>
           <th>ICCID</th>
           <th>{{.T.SIMHistoryMessageCol}}</th>
           <th>{{.T.ColStatus}}</th>
@@ -56,17 +57,56 @@
   const body = document.getElementById("sim-history-body");
   const search = document.getElementById("sim-history-search");
   const updated = document.getElementById("sim-history-updated");
+  const lang = document.documentElement.lang || "es";
+  const receivedLabel = "{{.T.SIMHistoryReceived}}";
+  const sentLabel = "{{.T.SIMHistorySent}}";
+  const rtf = new Intl.RelativeTimeFormat(lang, {numeric: "auto"});
   let rows = [];
+
+  function directionLabel(row) {
+    return row.direction === "MO" ? receivedLabel : sentLabel;
+  }
+
+  function relativeLabel(dateSubmitted) {
+    const then = Date.parse(dateSubmitted || "");
+    if (Number.isNaN(then)) return "";
+    const minutes = Math.round((then - Date.now()) / 60000);
+    if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+    const hours = Math.round(minutes / 60);
+    if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+    return rtf.format(Math.round(hours / 24), "day");
+  }
 
   function renderRows() {
     const query = search.value.trim().toLocaleLowerCase();
     const visible = rows.filter(row => !query || [
-      row.device, row.iccid, row.content, row.deliveryStatus
+      row.device, row.iccid, row.content, row.deliveryStatus, directionLabel(row)
     ].some(value => (value || "").toLocaleLowerCase().includes(query)));
     body.replaceChildren();
     for (const row of visible) {
       const tr = document.createElement("tr");
-      for (const value of [row.dateSubmitted, row.device, row.iccid, row.content, row.deliveryStatus || "—"]) {
+
+      const dateTd = document.createElement("td");
+      dateTd.textContent = row.dateLocal || row.dateSubmitted || "—";
+      const relative = relativeLabel(row.dateSubmitted);
+      if (relative) {
+        const span = document.createElement("span");
+        span.className = "muted";
+        span.textContent = " " + relative;
+        dateTd.append(span);
+      }
+      tr.append(dateTd);
+
+      const deviceTd = document.createElement("td");
+      deviceTd.textContent = row.device || "—";
+      tr.append(deviceTd);
+
+      const dirTd = document.createElement("td");
+      dirTd.textContent = directionLabel(row);
+      dirTd.className = row.direction === "MO" ? "dir-mo" : "dir-mt";
+      tr.append(dirTd);
+
+      for (const value of [row.iccid, row.content, row.deliveryStatus]) {
         const td = document.createElement("td");
         td.textContent = value || "—";
         tr.append(td);

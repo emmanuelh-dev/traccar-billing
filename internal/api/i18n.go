@@ -147,6 +147,9 @@ type uiStrings struct {
 	SIMHistorySearch          string
 	SIMHistorySearchHint      string
 	SIMHistoryDateCol         string
+	SIMHistoryDirCol          string
+	SIMHistoryReceived        string
+	SIMHistorySent            string
 	SIMHistoryMessageCol      string
 	SMSHistoryUnavailable     string
 	ConnectivitySection       string
@@ -496,6 +499,9 @@ var translations = map[string]uiStrings{
 		SIMHistorySearch:          "Buscar",
 		SIMHistorySearchHint:      "Dispositivo, ICCID, mensaje o estado",
 		SIMHistoryDateCol:         "Fecha",
+		SIMHistoryDirCol:          "Tipo",
+		SIMHistoryReceived:        "Recibido",
+		SIMHistorySent:            "Enviado",
 		SIMHistoryMessageCol:      "Mensaje",
 		SMSHistoryUnavailable:     "No se pudo consultar el historial de mensajes.",
 		ConnectivitySection:       "Proveedor de SIM",
@@ -846,6 +852,9 @@ var translations = map[string]uiStrings{
 		SIMHistorySearch:          "Search",
 		SIMHistorySearchHint:      "Device, ICCID, message, or status",
 		SIMHistoryDateCol:         "Date",
+		SIMHistoryDirCol:          "Type",
+		SIMHistoryReceived:        "Received",
+		SIMHistorySent:            "Sent",
 		SIMHistoryMessageCol:      "Message",
 		SMSHistoryUnavailable:     "Could not fetch message history.",
 		ConnectivitySection:       "SIM provider",

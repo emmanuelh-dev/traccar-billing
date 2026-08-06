@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
@@ -18,10 +20,12 @@ type simHistoryView struct {
 type simHistoryRow struct {
 	ID             string `json:"id"`
 	DateSubmitted  string `json:"dateSubmitted"`
+	DateLocal      string `json:"dateLocal"`
 	Device         string `json:"device"`
 	ICCID          string `json:"iccid"`
 	Content        string `json:"content"`
 	DeliveryStatus string `json:"deliveryStatus"`
+	Direction      string `json:"direction"`
 }
 
 func (s *Server) handleSIMHistory(w http.ResponseWriter, r *http.Request) {
@@ -73,17 +77,33 @@ func (s *Server) handleSIMHistoryData(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, t.SMSHistoryUnavailable, http.StatusBadGateway)
 		return
 	}
-	rows := make([]simHistoryRow, 0, len(messages))
+	type rowWithTime struct {
+		row simHistoryRow
+		at  time.Time
+	}
+	dated := make([]rowWithTime, 0, len(messages))
 	for _, message := range messages {
 		device, belongsToTenant := owned[message.ICCID]
 		if !belongsToTenant {
 			continue
 		}
-		rows = append(rows, simHistoryRow{
+		row := simHistoryRow{
 			ID: message.ID, DateSubmitted: message.DateSubmitted, Device: device,
 			ICCID: message.ICCID, Content: message.Content,
-			DeliveryStatus: message.DeliveryStatus,
-		})
+			DeliveryStatus: message.DeliveryStatus, Direction: message.Direction,
+		}
+		var at time.Time
+		if parsed, err := time.Parse(time.RFC3339, message.DateSubmitted); err == nil {
+			row.DateLocal = parsed.In(s.loc).Format("2006-01-02 15:04")
+			at = parsed
+		}
+		dated = append(dated, rowWithTime{row: row, at: at})
+	}
+	// Rows whose date failed to parse (zero time) sort last, not by provider order.
+	sort.SliceStable(dated, func(i, j int) bool { return dated[i].at.After(dated[j].at) })
+	rows := make([]simHistoryRow, len(dated))
+	for i, d := range dated {
+		rows[i] = d.row
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"rows": rows, "updated": s.now().Format("2006-01-02 15:04"),

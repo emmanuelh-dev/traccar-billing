@@ -76,6 +76,9 @@ type SMSMessage struct {
 	Content        string `json:"content"`
 	ICCID          string `json:"iccid"`
 	DeliveryStatus string `json:"deliveryStatus"`
+	// Direction is "MO" (received from the device) or "MT" (sent to it). The
+	// provider does not report it — it is inferred from the message encoding.
+	Direction string `json:"direction"`
 }
 
 type UsageRecord struct {

@@ -377,6 +377,39 @@ func TestSendSMSAndFetchHistory(t *testing.T) {
 	}
 }
 
+func TestFetchSMSHistoryClassifiesDirection(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received := smsStatusDTO{ID: "sms-mo", Content: "\x05\x00\x03\x00\x01\x01SET OK"}
+		received.DeliveryReport = append(received.DeliveryReport, struct {
+			ICCID          string `json:"iccid"`
+			DeliveryStatus string `json:"deliveryStatus"`
+		}{ICCID: "8944470000000000001", DeliveryStatus: "DELIVERED"})
+		sent := smsStatusDTO{ID: "sms-mt", Content: "TIMER,30,3600#\r\n"}
+		sent.DeliveryReport = append(sent.DeliveryReport, struct {
+			ICCID          string `json:"iccid"`
+			DeliveryStatus string `json:"deliveryStatus"`
+		}{ICCID: "8944470000000000001", DeliveryStatus: "DELIVERED"})
+		_ = json.NewEncoder(w).Encode([]smsStatusDTO{received, sent})
+	}))
+	defer srv.Close()
+
+	baseURL, _ := url.Parse(srv.URL + "/api/")
+	client := newClient(baseURL, "provider-secret", srv.Client())
+	history, err := client.FetchSMSHistory(context.Background(), "8944470000000000001", 20)
+	if err != nil {
+		t.Fatalf("FetchSMSHistory() error = %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("history = %+v", history)
+	}
+	if history[0].Direction != "MO" || history[0].Content != "SET OK" {
+		t.Errorf("received message = %+v", history[0])
+	}
+	if history[1].Direction != "MT" || history[1].Content != "TIMER,30,3600#" {
+		t.Errorf("sent message = %+v", history[1])
+	}
+}
+
 func TestFetchDeviceUsageRequiresToken(t *testing.T) {
 	client := NewClient("")
 	_, err := client.LookupDevice(context.Background(), "123")
