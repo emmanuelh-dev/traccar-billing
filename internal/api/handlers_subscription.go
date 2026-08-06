@@ -199,6 +199,10 @@ func (s *Server) handleResetSubscriptionPeriod(w http.ResponseWriter, r *http.Re
 	if sub.Calendar() {
 		sub.NextDueAt = billing.NextCalendarDue(now, sub.DueDay)
 	} else {
+		if sub.PeriodDays <= 0 {
+			redirectPageError(w, r, "invalid billing period; configure the subscription before resetting it")
+			return
+		}
 		sub.NextDueAt = billing.NextDueDate(now, sub.PeriodDays)
 	}
 	if billing.IsOverdue(sub, now) {

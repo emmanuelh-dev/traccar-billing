@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -21,17 +22,36 @@ type TenantSyncer interface {
 	SyncTenant(ctx context.Context, t billing.Tenant) error
 }
 
+type CredentialCodec interface {
+	Encrypt(string) (string, error)
+	Decrypt(string) (string, error)
+}
+
 type Server struct {
-	repo   billing.Repository
-	client billing.TraccarClient
-	signer sessionSigner
-	logger *slog.Logger
-	loc    *time.Location
-	syncer TenantSyncer
+	repo            billing.Repository
+	client          billing.TraccarClient
+	connectivity    billing.ConnectivityProviderResolver
+	signer          sessionSigner
+	logger          *slog.Logger
+	loc             *time.Location
+	syncer          TenantSyncer
+	credentialCodec CredentialCodec
+
+	deviceDataMu    sync.Mutex
+	deviceDataCache map[string]deviceDataCacheEntry
+	deviceDataLoads map[string]chan struct{}
 }
 
 func (s *Server) SetSyncer(syncer TenantSyncer) {
 	s.syncer = syncer
+}
+
+func (s *Server) SetConnectivityProviderResolver(resolver billing.ConnectivityProviderResolver) {
+	s.connectivity = resolver
+}
+
+func (s *Server) SetCredentialCodec(codec CredentialCodec) {
+	s.credentialCodec = codec
 }
 
 func NewServer(repo billing.Repository, client billing.TraccarClient, sessionSecret string, loc *time.Location, logger *slog.Logger) *Server {
@@ -39,11 +59,13 @@ func NewServer(repo billing.Repository, client billing.TraccarClient, sessionSec
 		loc = time.UTC
 	}
 	return &Server{
-		repo:   repo,
-		client: client,
-		signer: newSessionSigner(sessionSecret),
-		logger: logger,
-		loc:    loc,
+		repo:            repo,
+		client:          client,
+		signer:          newSessionSigner(sessionSecret),
+		logger:          logger,
+		loc:             loc,
+		deviceDataCache: make(map[string]deviceDataCacheEntry),
+		deviceDataLoads: make(map[string]chan struct{}),
 	}
 }
 
@@ -63,6 +85,16 @@ func (s *Server) Router() http.Handler {
 	r.Post("/logout", s.handleLogout)
 
 	r.Get("/dashboard", s.requireTenant(s.handleDashboard))
+	r.Get("/devices", s.requireTenant(s.handleDevices))
+	r.Get("/devices/list", s.requireTenant(s.handleDevicesList))
+	r.Get("/devices/data", s.requireTenant(s.handleDevicesData))
+	r.Get("/devices/{imei}/sms/history", s.requireTenant(s.handleDeviceSMSHistory))
+	r.Post("/devices/{imei}/sms", s.requireTenant(s.handleSendDeviceSMS))
+	r.Get("/sim-history", s.requireTenant(s.handleSIMHistory))
+	r.Get("/sim-history/data", s.requireTenant(s.handleSIMHistoryData))
+	r.Get("/sims", s.requireTenant(s.handleSIMs))
+	r.Get("/sims/data", s.requireTenant(s.handleSIMsData))
+	r.Post("/sims/status", s.requireTenant(s.handleSIMStatus))
 	r.Get("/payments", s.requireTenant(s.handlePayments))
 	r.Get("/expenses", s.requireTenant(s.handleExpenses))
 	r.Post("/expenses", s.requireTenant(s.handleCreateExpense))
@@ -88,6 +120,8 @@ func (s *Server) Router() http.Handler {
 	r.Post("/settings/token", s.requireTenant(s.handleSaveAPIToken))
 	r.Post("/settings/token/generate", s.requireTenant(s.handleGenerateAPIToken))
 	r.Post("/settings/token/delete", s.requireTenant(s.handleDeleteAPIToken))
+	r.Post("/settings/connectivity", s.requireTenant(s.handleSaveConnectivity))
+	r.Post("/settings/connectivity/delete", s.requireTenant(s.handleDeleteConnectivity))
 
 	r.Get("/accounts", s.requireTenant(s.handleListAccounts))
 	r.Get("/accounts/{id}", s.requireTenant(s.handleGetAccount))

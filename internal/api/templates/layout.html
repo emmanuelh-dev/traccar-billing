@@ -33,6 +33,9 @@
   {{if .Tenant.OwnerEmail}}<div class="nav-owner" title="{{.T.SignedInAs}}">{{.Tenant.OwnerEmail}}</div>{{end}}
   <nav>
     <a href="/dashboard" {{if eq .Active "dashboard"}}class="active"{{end}}>{{.T.NavDashboard}}</a>
+    <a href="/devices" {{if eq .Active "devices"}}class="active"{{end}}>{{.T.NavDevices}}</a>
+    <a href="/sims" {{if eq .Active "sims"}}class="active"{{end}}>{{.T.NavSIMs}}</a>
+    <a href="/sim-history" {{if eq .Active "sim-history"}}class="active"{{end}}>{{.T.NavSIMHistory}}</a>
     <a href="/remissions" {{if eq .Active "remissions"}}class="active"{{end}}>{{.T.NavRemissions}}</a>
     <a href="/payments" {{if eq .Active "payments"}}class="active"{{end}}>{{.T.NavPayments}}</a>
     <a href="/expenses" {{if eq .Active "expenses"}}class="active"{{end}}>{{.T.NavExpenses}}</a>

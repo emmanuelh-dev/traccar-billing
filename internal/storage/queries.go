@@ -81,12 +81,12 @@ func scanTime(nt sql.NullTime) time.Time {
 	return nt.Time
 }
 
-const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, api_token, session_expires_at, admin_traccar_user_id, created_at, updated_at`
+const tenantColumns = `id, name, base_url, traccar_user_id, owner_email, session_cookie, api_token, connectivity_provider, connectivity_token, session_expires_at, admin_traccar_user_id, created_at, updated_at`
 
 func scanTenantInto(sc scanner) (billing.Tenant, error) {
 	var t billing.Tenant
 	var sessionExpiresAt sql.NullTime
-	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &t.APIToken, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := sc.Scan(&t.ID, &t.Name, &t.BaseURL, &t.TraccarUserID, &t.OwnerEmail, &t.SessionCookie, &t.APIToken, &t.ConnectivityProvider, &t.ConnectivityToken, &sessionExpiresAt, &t.AdminTraccarUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return billing.Tenant{}, err
 	}
 	t.SessionExpiresAt = scanTime(sessionExpiresAt)
@@ -94,6 +94,16 @@ func scanTenantInto(sc scanner) (billing.Tenant, error) {
 }
 
 func (r *sqlRepository) CreateTenant(ctx context.Context, t billing.Tenant) (billing.Tenant, error) {
+	if r.tx == nil {
+		var created billing.Tenant
+		err := r.WithTx(ctx, func(tx billing.Repository) error {
+			var err error
+			created, err = tx.CreateTenant(ctx, t)
+			return err
+		})
+		return created, err
+	}
+
 	now := time.Now().UTC()
 	res, err := r.q().ExecContext(ctx,
 		`INSERT INTO tenants (name, base_url, traccar_user_id, owner_email, session_cookie, api_token, session_expires_at, admin_traccar_user_id, created_at, updated_at)
@@ -169,6 +179,16 @@ func (r *sqlRepository) UpdateTenantAPIToken(ctx context.Context, tenantID int64
 		token, time.Now().UTC(), tenantID)
 	if err != nil {
 		return fmt.Errorf("storage: update tenant api token: %w", err)
+	}
+	return nil
+}
+
+func (r *sqlRepository) UpdateTenantConnectivity(ctx context.Context, tenantID int64, providerID, encryptedToken string) error {
+	_, err := r.q().ExecContext(ctx,
+		`UPDATE tenants SET connectivity_provider = ?, connectivity_token = ?, updated_at = ? WHERE id = ?`,
+		providerID, encryptedToken, time.Now().UTC(), tenantID)
+	if err != nil {
+		return fmt.Errorf("storage: update tenant connectivity: %w", err)
 	}
 	return nil
 }

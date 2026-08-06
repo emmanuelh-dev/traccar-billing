@@ -105,32 +105,101 @@ type uiStrings struct {
 	LoginFailed        string
 	InternalError      string
 
-	DashboardTitle     string
-	LogoutButton       string
-	SignedInAs         string
-	StatAccounts       string
-	StatActive         string
-	StatOverdue        string
-	ColAccount         string
-	ColEmail           string
-	ColDevices         string
-	ColAmount          string
-	ColStatus          string
-	ColNextDue         string
-	ColDaysLeft        string
-	EmptyState         string
-	PayButton          string
-	NoSubscription     string
-	ConfigureLabel     string
-	ResetPeriodLabel   string
-	ResetPeriodConfirm string
-	AmountLabel        string
-	CurrencyLabel      string
-	PeriodLabel        string
-	DueDateLabel       string
-	SaveButton         string
-	DaysLeftFmt        string
-	DaysOverdueFmt     string
+	DashboardTitle            string
+	NavDevices                string
+	NavSIMs                   string
+	NavSIMHistory             string
+	DevicesPageTtl            string
+	DevicesLoading            string
+	DevicesLoadingUsage       string
+	DeviceSearchLabel         string
+	DeviceSearchHint          string
+	DeviceNameCol             string
+	DataAllowedCol            string
+	DataUsedCol               string
+	DataRemainingCol          string
+	DataRemainingCalculated   string
+	ServicePackCol            string
+	TimeRemainingCol          string
+	UsagePeriodCol            string
+	UsageUpdatedLabel         string
+	UsageUnavailable          string
+	UsageReportUnavailable    string
+	DevicesEmpty              string
+	DevicesFetchError         string
+	ConnectivityNotConfigured string
+	DeviceProtocolFilterWarn  string
+	SMSAction                 string
+	SMSDialogTitle            string
+	SMSTemplateLabel          string
+	SMSCustomOption           string
+	SMSInfoOption             string
+	SMSGPSOption              string
+	SMSMessageLabel           string
+	SMSHistoryTitle           string
+	SMSHistoryEmpty           string
+	SMSHistoryLoading         string
+	SMSSendButton             string
+	SMSSentNotice             string
+	SMSSendError              string
+	SIMHistoryPageTtl         string
+	SIMHistoryPageSub         string
+	SIMHistorySearch          string
+	SIMHistorySearchHint      string
+	SIMHistoryDateCol         string
+	SIMHistoryMessageCol      string
+	SMSHistoryUnavailable     string
+	ConnectivitySection       string
+	ConnectivityIntro         string
+	ConnectivityActive        string
+	ConnectivityMissing       string
+	ConnectivityProviderLabel string
+	ConnectivityTokenLabel    string
+	ConnectivityTokenHint     string
+	ConnectivitySave          string
+	ConnectivityRemove        string
+	SIMsPageTtl               string
+	SIMsPageSub               string
+	SIMsLoading               string
+	SIMsEmpty                 string
+	SIMLabelCol               string
+	SIMActivatedCol           string
+	SIMInventoryUnavailable   string
+	SIMActionsCol             string
+	SIMActivateBtn            string
+	SIMSuspendBtn             string
+	SIMActivateConfirm        string
+	SIMSuspendConfirm         string
+	SIMStatusUpdated          string
+	SIMStatusFailed           string
+	SIMStatusUnavailable      string
+	SIMStatusInvalid          string
+	GoToSettings              string
+	LogoutButton              string
+	SignedInAs                string
+	StatAccounts              string
+	StatActive                string
+	StatOverdue               string
+	ColAccount                string
+	ColEmail                  string
+	ColDevices                string
+	ColAmount                 string
+	ColStatus                 string
+	ColNextDue                string
+	ColDaysLeft               string
+	EmptyState                string
+	PayButton                 string
+	NoSubscription            string
+	ConfigureLabel            string
+	ResetPeriodLabel          string
+	ResetPeriodConfirm        string
+	AmountLabel               string
+	CurrencyLabel             string
+	PeriodLabel               string
+	DueDateLabel              string
+	SaveButton                string
+	DaysLeftFmt               string
+	DaysOverdueFmt            string
 
 	PaymentsLabel    string
 	PaymentsColDate  string
@@ -385,32 +454,101 @@ var translations = map[string]uiStrings{
 		LoginFailed:        "No se pudo iniciar sesión. Revisa la URL, el correo y la contraseña.",
 		InternalError:      "Error interno.",
 
-		DashboardTitle:     "Dashboard",
-		LogoutButton:       "Cerrar sesión",
-		SignedInAs:         "Sesión iniciada como",
-		StatAccounts:       "Cuentas",
-		StatActive:         "Al corriente",
-		StatOverdue:        "Vencidas",
-		ColAccount:         "Cuenta",
-		ColEmail:           "Correo",
-		ColDevices:         "Dispositivos",
-		ColAmount:          "Cobro",
-		ColStatus:          "Estado",
-		ColNextDue:         "Próximo corte",
-		ColDaysLeft:        "Faltan",
-		EmptyState:         "Aún no hay cuentas sincronizadas. Se sincronizan automáticamente cada pocos minutos.",
-		PayButton:          "Registrar pago",
-		NoSubscription:     "sin configurar",
-		ConfigureLabel:     "Configurar cobro",
-		ResetPeriodLabel:   "Reiniciar periodo",
-		ResetPeriodConfirm: "¿Recalcular el próximo corte de esta cuenta según su configuración de cobro?",
-		AmountLabel:        "Monto",
-		CurrencyLabel:      "Moneda",
-		PeriodLabel:        "Días por período",
-		DueDateLabel:       "Próxima fecha de corte",
-		SaveButton:         "Guardar",
-		DaysLeftFmt:        "%d días",
-		DaysOverdueFmt:     "vencida hace %d días",
+		DashboardTitle:            "Dashboard",
+		NavDevices:                "Dispositivos",
+		NavSIMs:                   "SIMs",
+		NavSIMHistory:             "Historial SIM",
+		DevicesPageTtl:            "Consumo de dispositivos",
+		DevicesLoading:            "Cargando dispositivos y consumo en segundo plano…",
+		DevicesLoadingUsage:       "Completando datos de SIM y consumo…",
+		DeviceSearchLabel:         "Buscar",
+		DeviceSearchHint:          "Nombre, IMEI o ICCID",
+		DeviceNameCol:             "Dispositivo",
+		DataAllowedCol:            "Datos incluidos",
+		DataUsedCol:               "Datos gastados",
+		DataRemainingCol:          "Datos restantes",
+		DataRemainingCalculated:   "Saldo calculado con el límite del plan y el consumo del periodo completo de esta SIM.",
+		ServicePackCol:            "Plan",
+		TimeRemainingCol:          "Tiempo restante",
+		UsagePeriodCol:            "Periodo consultado",
+		UsageUpdatedLabel:         "Consultado",
+		UsageUnavailable:          "Sin información de 1GLOBAL para este IMEI.",
+		UsageReportUnavailable:    "Se identificaron las SIM, pero 1GLOBAL no pudo generar el reporte de consumo.",
+		DevicesEmpty:              "Traccar no devolvió dispositivos.",
+		DevicesFetchError:         "No se pudieron consultar los dispositivos de Traccar.",
+		ConnectivityNotConfigured: "Configura tu proveedor y API key en Ajustes para consultar SIMs y consumo.",
+		DeviceProtocolFilterWarn:  "No se pudo consultar el protocolo; solo se ocultaron los dispositivos recovery.",
+		SMSAction:                 "Mensajes",
+		SMSDialogTitle:            "Enviar mensaje al dispositivo",
+		SMSTemplateLabel:          "Mensaje preconfigurado",
+		SMSCustomOption:           "Mensaje personalizado",
+		SMSInfoOption:             "Teltonika · consultar información",
+		SMSGPSOption:              "Teltonika · consultar posición GPS",
+		SMSMessageLabel:           "Texto del mensaje",
+		SMSHistoryTitle:           "Historial de mensajes",
+		SMSHistoryEmpty:           "No hay mensajes enviados para esta SIM.",
+		SMSHistoryLoading:         "Cargando historial…",
+		SMSSendButton:             "Enviar SMS",
+		SMSSentNotice:             "El SMS fue aceptado por 1GLOBAL.",
+		SMSSendError:              "No se pudo enviar el SMS. Revisa el mensaje y el servicio de la SIM.",
+		SIMHistoryPageTtl:         "Historial de SIM",
+		SIMHistoryPageSub:         "Mensajes enviados a las SIM asociadas con los dispositivos de este servidor.",
+		SIMHistorySearch:          "Buscar",
+		SIMHistorySearchHint:      "Dispositivo, ICCID, mensaje o estado",
+		SIMHistoryDateCol:         "Fecha",
+		SIMHistoryMessageCol:      "Mensaje",
+		SMSHistoryUnavailable:     "No se pudo consultar el historial de mensajes.",
+		ConnectivitySection:       "Proveedor de SIM",
+		ConnectivityIntro:         "Configura la cuenta de conectividad de este usuario. La credencial se valida y se almacena cifrada.",
+		ConnectivityActive:        "Proveedor configurado",
+		ConnectivityMissing:       "No hay proveedor de SIM configurado.",
+		ConnectivityProviderLabel: "Proveedor",
+		ConnectivityTokenLabel:    "API key",
+		ConnectivityTokenHint:     "La key no volverá a mostrarse después de guardarla.",
+		ConnectivitySave:          "Guardar proveedor",
+		ConnectivityRemove:        "Quitar proveedor",
+		SIMsPageTtl:               "SIMs",
+		SIMsPageSub:               "Inventario directo del proveedor, independiente de Traccar.",
+		SIMsLoading:               "Cargando inventario y consumo histórico de SIMs…",
+		SIMsEmpty:                 "El proveedor no devolvió SIMs.",
+		SIMLabelCol:               "Etiqueta",
+		SIMActivatedCol:           "Activada",
+		SIMInventoryUnavailable:   "No se pudo consultar el inventario de SIMs.",
+		SIMActionsCol:             "Acciones",
+		SIMActivateBtn:            "Activar",
+		SIMSuspendBtn:             "Suspender",
+		SIMActivateConfirm:        "¿Activar la SIM %s?",
+		SIMSuspendConfirm:         "¿Suspender la SIM %s?",
+		SIMStatusUpdated:          "Estado actualizado.",
+		SIMStatusFailed:           "No se pudo cambiar el estado de la SIM.",
+		SIMStatusUnavailable:      "El proveedor no permite cambiar el estado de las SIMs.",
+		SIMStatusInvalid:          "SIM o estado no válido.",
+		GoToSettings:              "Ir a Ajustes",
+		LogoutButton:              "Cerrar sesión",
+		SignedInAs:                "Sesión iniciada como",
+		StatAccounts:              "Cuentas",
+		StatActive:                "Al corriente",
+		StatOverdue:               "Vencidas",
+		ColAccount:                "Cuenta",
+		ColEmail:                  "Correo",
+		ColDevices:                "Dispositivos",
+		ColAmount:                 "Cobro",
+		ColStatus:                 "Estado",
+		ColNextDue:                "Próximo corte",
+		ColDaysLeft:               "Faltan",
+		EmptyState:                "Aún no hay cuentas sincronizadas. Se sincronizan automáticamente cada pocos minutos.",
+		PayButton:                 "Registrar pago",
+		NoSubscription:            "sin configurar",
+		ConfigureLabel:            "Configurar cobro",
+		ResetPeriodLabel:          "Reiniciar periodo",
+		ResetPeriodConfirm:        "¿Recalcular el próximo corte de esta cuenta? Esto no registra pagos ni liquida remisiones pendientes.",
+		AmountLabel:               "Monto",
+		CurrencyLabel:             "Moneda",
+		PeriodLabel:               "Días por período",
+		DueDateLabel:              "Próxima fecha de corte",
+		SaveButton:                "Guardar",
+		DaysLeftFmt:               "%d días",
+		DaysOverdueFmt:            "vencida hace %d días",
 
 		PaymentsLabel:    "Historial de pagos",
 		PaymentsColDate:  "Fecha",
@@ -666,32 +804,101 @@ var translations = map[string]uiStrings{
 		LoginFailed:        "Could not sign in. Check the URL, email, and password.",
 		InternalError:      "Internal error.",
 
-		DashboardTitle:     "Dashboard",
-		LogoutButton:       "Sign out",
-		SignedInAs:         "Signed in as",
-		StatAccounts:       "Accounts",
-		StatActive:         "Current",
-		StatOverdue:        "Overdue",
-		ColAccount:         "Account",
-		ColEmail:           "Email",
-		ColDevices:         "Devices",
-		ColAmount:          "Billing",
-		ColStatus:          "Status",
-		ColNextDue:         "Next due date",
-		ColDaysLeft:        "Left",
-		EmptyState:         "No accounts synced yet. They sync automatically every few minutes.",
-		PayButton:          "Record payment",
-		NoSubscription:     "not set up",
-		ConfigureLabel:     "Set up billing",
-		ResetPeriodLabel:   "Reset period",
-		ResetPeriodConfirm: "Recalculate this account's next due date from its billing setup?",
-		AmountLabel:        "Amount",
-		CurrencyLabel:      "Currency",
-		PeriodLabel:        "Billing period (days)",
-		DueDateLabel:       "Next due date",
-		SaveButton:         "Save",
-		DaysLeftFmt:        "%d days",
-		DaysOverdueFmt:     "%d days overdue",
+		DashboardTitle:            "Dashboard",
+		NavDevices:                "Devices",
+		NavSIMs:                   "SIMs",
+		NavSIMHistory:             "SIM history",
+		DevicesPageTtl:            "Device data usage",
+		DevicesLoading:            "Loading devices and usage in the background…",
+		DevicesLoadingUsage:       "Completing SIM and usage data…",
+		DeviceSearchLabel:         "Search",
+		DeviceSearchHint:          "Name, IMEI, or ICCID",
+		DeviceNameCol:             "Device",
+		DataAllowedCol:            "Data allowance",
+		DataUsedCol:               "Data used",
+		DataRemainingCol:          "Data remaining",
+		DataRemainingCalculated:   "Balance calculated from the plan limit and the SIM's complete usage period.",
+		ServicePackCol:            "Plan",
+		TimeRemainingCol:          "Time remaining",
+		UsagePeriodCol:            "Usage period",
+		UsageUpdatedLabel:         "Checked",
+		UsageUnavailable:          "No 1GLOBAL information is available for this IMEI.",
+		UsageReportUnavailable:    "SIMs were identified, but 1GLOBAL could not generate the usage report.",
+		DevicesEmpty:              "Traccar returned no devices.",
+		DevicesFetchError:         "Could not fetch devices from Traccar.",
+		ConnectivityNotConfigured: "Configure your provider and API key in Settings to fetch SIMs and usage.",
+		DeviceProtocolFilterWarn:  "Could not fetch protocols; only recovery devices were hidden.",
+		SMSAction:                 "Messages",
+		SMSDialogTitle:            "Send message to device",
+		SMSTemplateLabel:          "Preset message",
+		SMSCustomOption:           "Custom message",
+		SMSInfoOption:             "Teltonika · request information",
+		SMSGPSOption:              "Teltonika · request GPS position",
+		SMSMessageLabel:           "Message text",
+		SMSHistoryTitle:           "Message history",
+		SMSHistoryEmpty:           "No messages have been sent to this SIM.",
+		SMSHistoryLoading:         "Loading history…",
+		SMSSendButton:             "Send SMS",
+		SMSSentNotice:             "1GLOBAL accepted the SMS.",
+		SMSSendError:              "Could not send the SMS. Check the message and SIM service.",
+		SIMHistoryPageTtl:         "SIM history",
+		SIMHistoryPageSub:         "Messages sent to SIMs associated with devices on this server.",
+		SIMHistorySearch:          "Search",
+		SIMHistorySearchHint:      "Device, ICCID, message, or status",
+		SIMHistoryDateCol:         "Date",
+		SIMHistoryMessageCol:      "Message",
+		SMSHistoryUnavailable:     "Could not fetch message history.",
+		ConnectivitySection:       "SIM provider",
+		ConnectivityIntro:         "Configure this user's connectivity account. The credential is validated and stored encrypted.",
+		ConnectivityActive:        "Provider configured",
+		ConnectivityMissing:       "No SIM provider is configured.",
+		ConnectivityProviderLabel: "Provider",
+		ConnectivityTokenLabel:    "API key",
+		ConnectivityTokenHint:     "The key will not be displayed again after it is saved.",
+		ConnectivitySave:          "Save provider",
+		ConnectivityRemove:        "Remove provider",
+		SIMsPageTtl:               "SIMs",
+		SIMsPageSub:               "Direct provider inventory, independent from Traccar.",
+		SIMsLoading:               "Loading SIM inventory and lifetime usage…",
+		SIMsEmpty:                 "The provider returned no SIMs.",
+		SIMLabelCol:               "Label",
+		SIMActivatedCol:           "Activated",
+		SIMInventoryUnavailable:   "Could not fetch SIM inventory.",
+		SIMActionsCol:             "Actions",
+		SIMActivateBtn:            "Activate",
+		SIMSuspendBtn:             "Suspend",
+		SIMActivateConfirm:        "Activate SIM %s?",
+		SIMSuspendConfirm:         "Suspend SIM %s?",
+		SIMStatusUpdated:          "Status updated.",
+		SIMStatusFailed:           "Could not change the SIM status.",
+		SIMStatusUnavailable:      "The provider does not support changing SIM status.",
+		SIMStatusInvalid:          "Invalid SIM or status.",
+		GoToSettings:              "Go to Settings",
+		LogoutButton:              "Sign out",
+		SignedInAs:                "Signed in as",
+		StatAccounts:              "Accounts",
+		StatActive:                "Current",
+		StatOverdue:               "Overdue",
+		ColAccount:                "Account",
+		ColEmail:                  "Email",
+		ColDevices:                "Devices",
+		ColAmount:                 "Billing",
+		ColStatus:                 "Status",
+		ColNextDue:                "Next due date",
+		ColDaysLeft:               "Left",
+		EmptyState:                "No accounts synced yet. They sync automatically every few minutes.",
+		PayButton:                 "Record payment",
+		NoSubscription:            "not set up",
+		ConfigureLabel:            "Set up billing",
+		ResetPeriodLabel:          "Reset period",
+		ResetPeriodConfirm:        "Recalculate this account's next due date? This does not record payments or settle pending remissions.",
+		AmountLabel:               "Amount",
+		CurrencyLabel:             "Currency",
+		PeriodLabel:               "Billing period (days)",
+		DueDateLabel:              "Next due date",
+		SaveButton:                "Save",
+		DaysLeftFmt:               "%d days",
+		DaysOverdueFmt:            "%d days overdue",
 
 		PaymentsLabel:    "Payment history",
 		PaymentsColDate:  "Date",

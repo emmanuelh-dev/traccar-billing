@@ -163,6 +163,10 @@ Brings up the service with a throwaway MySQL (see `docker-compose.yml`). Change
 
 Full commented list in `.env.example`.
 
+SIM provider credentials are not environment variables. Each user configures
+their own 1GLOBAL account under **Settings → SIM provider**; the API key is
+validated and stored encrypted.
+
 ---
 
 ## What happens on startup

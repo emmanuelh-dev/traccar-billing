@@ -1,0 +1,268 @@
+{{define "devices"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard devices-page">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.DevicesPageTtl}}</h1>
+      <div class="tenant-url">{{.T.UsageUpdatedLabel}}: <span id="devices-updated">—</span></div>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+  {{if .Notice}}<div class="form-success">{{.Notice}}</div>{{end}}
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+  <div id="devices-warning" class="form-error" hidden></div>
+
+  {{if not .Error}}
+  <div class="sim-history-toolbar">
+    <label for="devices-search">{{.T.DeviceSearchLabel}}</label>
+    <input id="devices-search" type="search" placeholder="{{.T.DeviceSearchHint}}">
+    <span id="devices-progress" class="muted"></span>
+  </div>
+  <div id="devices-loading" class="async-loading">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    {{.T.DevicesLoading}}
+  </div>
+  <div id="devices-empty" class="empty-state" hidden>{{.T.DevicesEmpty}}</div>
+  <div id="devices-table" class="table-scroll" hidden>
+    <table class="accounts devices-table">
+      <thead>
+        <tr>
+          <th>{{.T.DeviceNameCol}}</th>
+          <th>IMEI</th>
+          <th>ICCID</th>
+          <th>{{.T.ColStatus}}</th>
+          <th>{{.T.ServicePackCol}}</th>
+          <th class="num">{{.T.DataAllowedCol}}</th>
+          <th class="num">{{.T.DataUsedCol}}</th>
+          <th class="num">{{.T.DataRemainingCol}}</th>
+          <th>{{.T.UsagePeriodCol}}</th>
+          {{if $.CanSMS}}<th>{{.T.SMSAction}}</th>{{end}}
+        </tr>
+      </thead>
+      <tbody id="devices-body"></tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+</main>
+</div>
+
+{{if .CanSMS}}
+<dialog id="sms-dialog" class="modal sms-dialog">
+  <form id="sms-form" class="modal-form" method="post">
+    <h2>{{.T.SMSDialogTitle}}</h2>
+    <p class="modal-account" id="sms-device"></p>
+
+    <label for="sms-template">{{.T.SMSTemplateLabel}}</label>
+    <select id="sms-template">
+      <option value="">{{.T.SMSCustomOption}}</option>
+      <option value="getinfo">{{.T.SMSInfoOption}}</option>
+      <option value="getgps">{{.T.SMSGPSOption}}</option>
+    </select>
+
+    <label for="sms-text">{{.T.SMSMessageLabel}}</label>
+    <textarea id="sms-text" name="text" maxlength="1600" required></textarea>
+
+    <section class="sms-history-panel">
+      <h3>{{.T.SMSHistoryTitle}}</h3>
+      <div id="sms-history" data-loading="{{.T.SMSHistoryLoading}}" data-empty="{{.T.SMSHistoryEmpty}}">{{.T.SMSHistoryLoading}}</div>
+    </section>
+
+    <div class="modal-actions">
+      <button type="button" id="sms-close">{{.T.CancelButton}}</button>
+      <button type="submit" class="primary">{{.T.SMSSendButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+{{if not .Error}}
+<script>
+(() => {
+  const dialog = document.getElementById("sms-dialog");
+  const form = document.getElementById("sms-form");
+  const device = document.getElementById("sms-device");
+  const template = document.getElementById("sms-template");
+  const text = document.getElementById("sms-text");
+  const history = document.getElementById("sms-history");
+  const body = document.getElementById("devices-body");
+  const loading = document.getElementById("devices-loading");
+  const empty = document.getElementById("devices-empty");
+  const table = document.getElementById("devices-table");
+  const warning = document.getElementById("devices-warning");
+  const updated = document.getElementById("devices-updated");
+  const search = document.getElementById("devices-search");
+  const progressStatus = document.getElementById("devices-progress");
+  let deviceRows = [];
+  let enrichedLoaded = false;
+
+  function appendTextCell(row, value, className = "") {
+    const cell = document.createElement("td");
+    cell.className = className;
+    if (value !== null) cell.textContent = value || "—";
+    row.append(cell);
+    return cell;
+  }
+
+  function renderRows() {
+    const query = search.value.trim().toLocaleLowerCase();
+    const rows = deviceRows.filter(item => !query || [
+      item.name, item.imei, item.providerImei, item.iccid
+    ].some(value => (value || "").toLocaleLowerCase().includes(query)));
+    body.replaceChildren();
+    for (const item of rows) {
+      const row = document.createElement("tr");
+      const name = appendTextCell(row, null, "cell-stack");
+      const strong = document.createElement("strong");
+      strong.textContent = item.name;
+      const traccar = document.createElement("small");
+      traccar.textContent = "Traccar: " + item.traccarStatus;
+      name.append(strong, traccar);
+
+      const imei = appendTextCell(row, null, "cell-stack mono");
+      const originalIMEI = document.createElement("span");
+      originalIMEI.textContent = item.imei;
+      imei.append(originalIMEI);
+      if (item.providerImei && item.providerImei !== item.imei) {
+        const providerIMEI = document.createElement("small");
+        providerIMEI.textContent = "1GLOBAL: " + item.providerImei;
+        imei.append(providerIMEI);
+      }
+
+      if (item.error) {
+        const errorCell = appendTextCell(row, item.error, "muted");
+        errorCell.colSpan = {{if .CanSMS}}8{{else}}7{{end}};
+        body.append(row);
+        continue;
+      }
+      appendTextCell(row, item.iccid, "mono");
+      const status = appendTextCell(row, null);
+      const badge = document.createElement("span");
+      badge.className = "badge badge-active";
+      badge.textContent = item.simStatus;
+      status.replaceChildren(badge);
+      appendTextCell(row, item.servicePackId);
+      appendTextCell(row, item.allowedData, "num");
+      const used = appendTextCell(row, item.hasUsedData ? item.usedData : "—", "num usage-cell");
+      if (item.hasAllowance) {
+        const progress = document.createElement("progress");
+        progress.max = 100;
+        progress.value = item.usagePercent;
+        progress.title = item.usagePercent + "%";
+        used.append(progress);
+      }
+      const remaining = appendTextCell(row, item.remainingData, "num");
+      if (item.derivedRemaining) remaining.title = "{{.T.DataRemainingCalculated}}";
+      appendTextCell(row, item.usagePeriod);
+      {{if .CanSMS}}
+      const action = appendTextCell(row, null);
+      if (item.canSms) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "sms-open";
+        button.dataset.imei = item.imei;
+        button.dataset.device = item.name;
+        button.dataset.iccid = item.iccid;
+        button.textContent = "{{.T.SMSAction}}";
+        action.replaceChildren(button);
+      }
+      {{end}}
+      body.append(row);
+    }
+    loading.hidden = true;
+    empty.hidden = rows.length !== 0;
+    table.hidden = rows.length === 0;
+  }
+
+  function setRows(rows) {
+    deviceRows = rows || [];
+    renderRows();
+  }
+
+  search.addEventListener("input", renderRows);
+
+  if (template) {
+    template.addEventListener("change", () => {
+      if (template.value) text.value = template.value;
+      text.focus();
+    });
+    document.getElementById("sms-close").addEventListener("click", () => dialog.close());
+  }
+
+  body.addEventListener("click", async event => {
+    const button = event.target.closest(".sms-open");
+    if (!button || !dialog) return;
+      const imei = encodeURIComponent(button.dataset.imei);
+      form.action = "/devices/" + imei + "/sms";
+      device.textContent = button.dataset.device + " · " + button.dataset.iccid;
+      template.value = "";
+      text.value = "";
+      history.textContent = history.dataset.loading;
+      dialog.showModal();
+      try {
+        const response = await fetch("/devices/" + imei + "/sms/history", {headers: {"Accept": "application/json"}});
+        if (!response.ok) throw new Error("history unavailable");
+        const messages = await response.json();
+        history.replaceChildren();
+        if (!messages.length) {
+          history.textContent = history.dataset.empty;
+          return;
+        }
+        const list = document.createElement("ul");
+        for (const message of messages) {
+          const item = document.createElement("li");
+          const meta = document.createElement("small");
+          meta.textContent = message.dateSubmitted + (message.deliveryStatus ? " · " + message.deliveryStatus : "");
+          const content = document.createElement("span");
+          content.textContent = message.content;
+          item.append(meta, content);
+          list.append(item);
+        }
+        history.append(list);
+      } catch (_) {
+        history.textContent = "—";
+      }
+  });
+
+  fetch("/devices/list", {headers: {"Accept": "application/json"}})
+    .then(response => {
+      if (!response.ok) return response.text().then(message => Promise.reject(new Error(message)));
+      return response.json();
+    })
+    .then(data => {
+      if (enrichedLoaded) return;
+      updated.textContent = data.updated || "—";
+      setRows(data.rows || []);
+      progressStatus.textContent = "{{.T.DevicesLoadingUsage}}";
+    })
+    .catch(() => {});
+
+  fetch("/devices/data", {headers: {"Accept": "application/json"}})
+    .then(response => {
+      if (!response.ok) return response.text().then(message => Promise.reject(new Error(message)));
+      return response.json();
+    })
+    .then(data => {
+      enrichedLoaded = true;
+      updated.textContent = data.updated || "—";
+      if (data.warning) {
+        warning.textContent = data.warning;
+        warning.hidden = false;
+      }
+      setRows(data.rows || []);
+      progressStatus.textContent = "";
+    })
+    .catch(reason => {
+      loading.hidden = true;
+      warning.textContent = reason.message || "{{.T.DevicesFetchError}}";
+      warning.hidden = false;
+      progressStatus.textContent = "";
+    });
+})();
+</script>
+{{end}}
+{{template "footer" .}}
+{{end}}

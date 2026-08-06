@@ -38,6 +38,7 @@ func (s *Server) requireTenant(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		ctx := context.WithValue(r.Context(), tenantContextKey, tenant)
+		s.warmDeviceData(tenant, stringsFor(resolveLang(w, r)))
 		next(w, r.WithContext(ctx))
 	}
 }
@@ -51,5 +52,11 @@ func (s *Server) denyUnauthenticated(w http.ResponseWriter, r *http.Request) {
 }
 
 func isJSONPath(path string) bool {
-	return strings.HasPrefix(path, "/accounts") || path == "/health"
+	return strings.HasPrefix(path, "/accounts") ||
+		path == "/devices/data" ||
+		path == "/devices/list" ||
+		strings.HasSuffix(path, "/sms/history") ||
+		path == "/sim-history/data" ||
+		path == "/sims/data" ||
+		path == "/health"
 }

@@ -1,9 +1,10 @@
 package traccar
 
 type userDTO struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Disabled bool   `json:"disabled"`
 }
 
 type deviceDTO struct {
@@ -11,6 +12,11 @@ type deviceDTO struct {
 	Name     string `json:"name"`
 	UniqueID string `json:"uniqueId"`
 	Status   string `json:"status"`
+}
+
+type positionDTO struct {
+	DeviceID int64  `json:"deviceId"`
+	Protocol string `json:"protocol"`
 }
 
 type serverDTO struct {

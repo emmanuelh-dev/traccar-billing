@@ -62,6 +62,45 @@
     </form>
   </section>
 
+  <section class="settings-form modal-form">
+    <h2>{{.T.ConnectivitySection}}</h2>
+    <p class="field-hint">{{.T.ConnectivityIntro}}</p>
+
+    {{if .HasConnectivityToken}}
+      <div class="token-state ok">
+        <strong>{{.T.ConnectivityActive}}</strong>
+        <span>{{.ConnectivityProvider}}</span>
+        <code>{{.ConnectivityTokenHint}}</code>
+      </div>
+      <form class="modal-actions" method="post" action="/settings/connectivity/delete">
+        <button class="danger" type="submit">{{.T.ConnectivityRemove}}</button>
+      </form>
+    {{else}}
+      <div class="token-state warn">
+        <strong>{{.T.ConnectivityMissing}}</strong>
+      </div>
+    {{end}}
+
+    <form method="post" action="/settings/connectivity">
+      <div class="field-row">
+        <div class="field">
+          <label for="connectivity-provider">{{.T.ConnectivityProviderLabel}}</label>
+          <select id="connectivity-provider" name="provider">
+            <option value="1global">1GLOBAL / Truphone</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="connectivity-token">{{.T.ConnectivityTokenLabel}}</label>
+          <input id="connectivity-token" name="provider_token" type="password" autocomplete="new-password" spellcheck="false" required>
+        </div>
+      </div>
+      <p class="field-hint">{{.T.ConnectivityTokenHint}}</p>
+      <div class="modal-actions">
+        <button type="submit" class="primary">{{.T.ConnectivitySave}}</button>
+      </div>
+    </form>
+  </section>
+
   <form class="settings-form modal-form" method="post" action="/settings">
     <p class="field-hint">{{.T.SettingsIntro}}</p>
 

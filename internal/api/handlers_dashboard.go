@@ -413,5 +413,9 @@ func formatAmount(cents int64, currency string) string {
 }
 
 func daysUntil(due, now time.Time) int {
-	return int(due.Sub(now).Hours() / 24)
+	dueYear, dueMonth, dueDay := due.In(now.Location()).Date()
+	nowYear, nowMonth, nowDay := now.Date()
+	dueDate := time.Date(dueYear, dueMonth, dueDay, 0, 0, 0, 0, time.UTC)
+	nowDate := time.Date(nowYear, nowMonth, nowDay, 0, 0, 0, 0, time.UTC)
+	return int(dueDate.Sub(nowDate).Hours() / 24)
 }

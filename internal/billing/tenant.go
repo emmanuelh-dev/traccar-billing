@@ -19,11 +19,13 @@ type Tenant struct {
 	// lets the scheduler keep suspending overdue accounts during the weeks
 	// nobody opens the web UI; without it, enforcement stops the moment the
 	// cookie expires and nothing says so.
-	APIToken           string
-	SessionExpiresAt   time.Time
-	AdminTraccarUserID int64
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	APIToken             string
+	ConnectivityProvider string
+	ConnectivityToken    string
+	SessionExpiresAt     time.Time
+	AdminTraccarUserID   int64
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // HasValidSession reports whether the tenant can still call Traccar. A token

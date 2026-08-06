@@ -203,6 +203,37 @@ func TestPayAccountNonRecurringConcept(t *testing.T) {
 	}
 }
 
+func TestPayAccountJSONRejectsZeroPeriod(t *testing.T) {
+	srv, repo, _ := newTestServer(t)
+	tenant, account, initialSub := setupTestTenantAndAccount(t, repo)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/accounts/"+strconv.FormatInt(account.ID, 10)+"/pay",
+		strings.NewReader(`{"period_days":0,"amount_cents":10000}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	cookieVal, err := srv.signer.encode(tenant.ID, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("encode session cookie error = %v", err)
+	}
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: cookieVal})
+
+	w := httptest.NewRecorder()
+	srv.Router().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("response status = %d, want %d; body=%s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	subAfter, err := repo.GetSubscriptionByAccountID(context.Background(), account.ID)
+	if err != nil {
+		t.Fatalf("GetSubscriptionByAccountID error = %v", err)
+	}
+	if subAfter.PeriodDays != initialSub.PeriodDays || !subAfter.NextDueAt.Equal(initialSub.NextDueAt) {
+		t.Errorf("subscription changed after rejected request: got %+v, want period=%d due=%v", subAfter, initialSub.PeriodDays, initialSub.NextDueAt)
+	}
+}
+
 func TestPayAccountRecurringConcept(t *testing.T) {
 	srv, repo, client := newTestServer(t)
 	ctx := context.Background()

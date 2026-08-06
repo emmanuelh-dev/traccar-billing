@@ -114,6 +114,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	tenant.SessionCookie = session.Cookie
 	tenant.SessionExpiresAt = session.ExpiresAt
 	s.syncNow(r.Context(), tenant)
+	s.warmDeviceData(tenant, t)
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }

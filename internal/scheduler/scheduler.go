@@ -19,10 +19,15 @@ type Scheduler struct {
 	client   billing.TraccarClient
 	interval time.Duration
 	logger   *slog.Logger
+	loc      *time.Location
 }
 
-func New(repo billing.Repository, client billing.TraccarClient, interval time.Duration, logger *slog.Logger) *Scheduler {
-	return &Scheduler{repo: repo, client: client, interval: interval, logger: logger}
+func New(repo billing.Repository, client billing.TraccarClient, interval time.Duration, logger *slog.Logger, locations ...*time.Location) *Scheduler {
+	loc := time.UTC
+	if len(locations) > 0 && locations[0] != nil {
+		loc = locations[0]
+	}
+	return &Scheduler{repo: repo, client: client, interval: interval, logger: logger, loc: loc}
 }
 
 func (s *Scheduler) Run(ctx context.Context) error {
@@ -49,17 +54,23 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	}
 
 	for _, t := range tenants {
-		tenantCtx, cancel := context.WithTimeout(ctx, tenantSyncTimeout)
-		if err := s.SyncTenant(tenantCtx, t); err != nil {
+		syncCtx, cancelSync := context.WithTimeout(ctx, tenantSyncTimeout)
+		if err := s.SyncTenant(syncCtx, t); err != nil {
 			s.logger.Error("scheduler: sync tenant failed", "tenant_id", t.ID, "error", err)
 		}
-		if _, err := s.GenerateRemissions(tenantCtx, t, time.Now()); err != nil {
+		cancelSync()
+
+		remissionCtx, cancelRemissions := context.WithTimeout(ctx, tenantSyncTimeout)
+		if _, err := s.GenerateRemissions(remissionCtx, t, time.Now().In(s.loc)); err != nil {
 			s.logger.Error("scheduler: generate remissions failed", "tenant_id", t.ID, "error", err)
 		}
-		if err := s.checkOverdue(tenantCtx, t); err != nil {
+		cancelRemissions()
+
+		overdueCtx, cancelOverdue := context.WithTimeout(ctx, tenantSyncTimeout)
+		if err := s.checkOverdue(overdueCtx, t); err != nil {
 			s.logger.Error("scheduler: check overdue failed", "tenant_id", t.ID, "error", err)
 		}
-		cancel()
+		cancelOverdue()
 	}
 }
 
@@ -150,8 +161,71 @@ func (s *Scheduler) SyncTenant(ctx context.Context, t billing.Tenant) error {
 	if err != nil {
 		return err
 	}
+	if err := s.reconcileTraccarAccess(ctx, t, users); err != nil {
+		return err
+	}
 
 	s.logger.Info("scheduler: synced tenant", "tenant_id", t.ID, "users", len(users), "devices", totalDevices, "archived", archived)
+	return nil
+}
+
+// reconcileTraccarAccess repairs drift after an API outage or a failed
+// payment/reset request. Current subscriptions must be enabled; expired,
+// overdue and suspended subscriptions must be disabled. Canceled
+// subscriptions are left alone because canceling billing deliberately does
+// not control access.
+func (s *Scheduler) reconcileTraccarAccess(ctx context.Context, t billing.Tenant, users []billing.TraccarUser) error {
+	byID := make(map[int64]billing.TraccarUser, len(users))
+	for _, user := range users {
+		byID[user.ID] = user
+	}
+
+	accounts, err := s.repo.ListAccountsByTenant(ctx, t.ID)
+	if err != nil {
+		return fmt.Errorf("list accounts to reconcile traccar access: %w", err)
+	}
+	baseURL, err := url.Parse(t.BaseURL)
+	if err != nil {
+		return fmt.Errorf("parse base url to reconcile traccar access: %w", err)
+	}
+	session := t.TraccarSession()
+
+	for _, account := range accounts {
+		user, ok := byID[account.TraccarUserID]
+		if !ok {
+			continue
+		}
+		sub, err := s.repo.GetSubscriptionByAccountID(ctx, account.ID)
+		if errors.Is(err, billing.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("get subscription to reconcile account %d: %w", account.ID, err)
+		}
+
+		var desiredDisabled bool
+		switch sub.Status {
+		case billing.StatusActive:
+			desiredDisabled = billing.IsOverdue(sub, time.Now())
+		case billing.StatusOverdue, billing.StatusSuspended:
+			desiredDisabled = true
+		default:
+			continue
+		}
+		if desiredDisabled && account.TraccarUserID == t.AdminTraccarUserID {
+			continue
+		}
+		if user.Disabled == desiredDisabled {
+			continue
+		}
+		if err := s.client.SetUserDisabled(ctx, baseURL, session, account.TraccarUserID, desiredDisabled); err != nil {
+			if errors.Is(err, traccar.ErrUnauthorized) {
+				return s.handleFetchError(ctx, t, "reconcile traccar access", err)
+			}
+			return fmt.Errorf("reconcile traccar access for account %d: %w", account.ID, err)
+		}
+		s.logger.Info("scheduler: reconciled traccar user access", "tenant_id", t.ID, "account_id", account.ID, "traccar_user_id", account.TraccarUserID, "disabled", desiredDisabled)
+	}
 	return nil
 }
 
@@ -178,13 +252,17 @@ func (s *Scheduler) archiveMissing(ctx context.Context, t billing.Tenant, seen m
 	return archived, nil
 }
 
-// handleFetchError clears the tenant's stored session on an expired/invalid
-// Traccar cookie so the next /dashboard visit forces re-login, and swallows
-// that specific case (expected steady state, not a run failure).
+// handleFetchError clears both stored Traccar credentials after either the
+// token or cookie is rejected, so the next visit can establish a fresh pair.
 func (s *Scheduler) handleFetchError(ctx context.Context, t billing.Tenant, op string, err error) error {
 	if errors.Is(err, traccar.ErrUnauthorized) {
-		s.logger.Warn("scheduler: tenant session expired, clearing", "tenant_id", t.ID)
-		return s.repo.UpdateTenantSession(ctx, t.ID, billing.Session{})
+		s.logger.Warn("scheduler: tenant traccar credentials rejected, clearing", "tenant_id", t.ID)
+		return s.repo.WithTx(ctx, func(tx billing.Repository) error {
+			if err := tx.UpdateTenantAPIToken(ctx, t.ID, ""); err != nil {
+				return err
+			}
+			return tx.UpdateTenantSession(ctx, t.ID, billing.Session{})
+		})
 	}
 	return fmt.Errorf("%s: %w", op, err)
 }

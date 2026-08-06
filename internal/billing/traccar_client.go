@@ -36,10 +36,18 @@ type TraccarClient interface {
 	DeleteUser(ctx context.Context, baseURL *url.URL, session Session, traccarUserID int64) error
 }
 
+// TraccarProtocolClient is optional because protocol metadata is only needed
+// by views that inspect the latest position. Keeping it separate avoids
+// forcing billing and test clients to fetch location data.
+type TraccarProtocolClient interface {
+	FetchDeviceProtocols(ctx context.Context, baseURL *url.URL, session Session) (map[int64]string, error)
+}
+
 type TraccarUser struct {
-	ID    int64
-	Name  string
-	Email string
+	ID       int64
+	Name     string
+	Email    string
+	Disabled bool
 }
 
 type TraccarDevice struct {

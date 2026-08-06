@@ -243,6 +243,22 @@ func (s *Server) handlePayAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.PeriodDays != nil && *req.PeriodDays <= 0 {
+		s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "invalid billing period")
+		return
+	}
+	if req.DeviceCount != nil && *req.DeviceCount < 0 {
+		s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "invalid device count")
+		return
+	}
+	if req.AmountCents != nil && *req.AmountCents < 0 {
+		s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "invalid amount")
+		return
+	}
+	if req.UnitPriceCents != nil && *req.UnitPriceCents < 0 {
+		s.respondPayFailure(w, r, isJSON, http.StatusBadRequest, "invalid unit price")
+		return
+	}
 
 	var conceptID int64
 	if req.ConceptID != nil {

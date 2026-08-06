@@ -20,6 +20,7 @@ type fakeRepo struct {
 	remissions        []billing.Remission
 	upsertAccountCall int
 	sessionUpdates    []billing.Session
+	apiTokenUpdates   []string
 	archived          []int64
 	deleted           []int64
 	settings          map[int64]billing.Settings
@@ -64,11 +65,16 @@ func (r *fakeRepo) UpdateTenantOwner(ctx context.Context, tenantID int64, tracca
 }
 
 func (r *fakeRepo) UpdateTenantAPIToken(ctx context.Context, tenantID int64, token string) error {
+	r.apiTokenUpdates = append(r.apiTokenUpdates, token)
 	for i, t := range r.tenants {
 		if t.ID == tenantID {
 			r.tenants[i].APIToken = token
 		}
 	}
+	return nil
+}
+
+func (r *fakeRepo) UpdateTenantConnectivity(context.Context, int64, string, string) error {
 	return nil
 }
 
@@ -355,6 +361,7 @@ type fakeClient struct {
 	fetchErr      error
 	fetchCalled   int
 	disabledCalls []int64
+	disabledState []bool
 	disableErr    error
 	deletedUsers  []int64
 	deleteErr     error
@@ -396,6 +403,7 @@ func (c *fakeClient) FetchServerInfo(ctx context.Context, baseURL *url.URL, sess
 
 func (c *fakeClient) SetUserDisabled(ctx context.Context, baseURL *url.URL, session billing.Session, traccarUserID int64, disabled bool) error {
 	c.disabledCalls = append(c.disabledCalls, traccarUserID)
+	c.disabledState = append(c.disabledState, disabled)
 	return c.disableErr
 }
 
@@ -451,7 +459,11 @@ func TestSyncTenantClearsSessionOnUnauthorized(t *testing.T) {
 	client := &fakeClient{fetchErr: traccar.ErrUnauthorized}
 	s := New(repo, client, time.Minute, silentLogger())
 
-	tenant := billing.Tenant{ID: 1, BaseURL: "https://acme.example.com/api", SessionCookie: "JSESSIONID=expired", SessionExpiresAt: time.Now().Add(time.Hour)}
+	tenant := billing.Tenant{
+		ID: 1, BaseURL: "https://acme.example.com/api",
+		APIToken: "revoked-token", SessionCookie: "JSESSIONID=expired",
+		SessionExpiresAt: time.Now().Add(-time.Hour),
+	}
 
 	if err := s.SyncTenant(context.Background(), tenant); err != nil {
 		t.Fatalf("syncTenant() error = %v, want nil (unauthorized is handled, not escalated)", err)
@@ -461,6 +473,68 @@ func TestSyncTenantClearsSessionOnUnauthorized(t *testing.T) {
 	}
 	if repo.sessionUpdates[0].Cookie != "" {
 		t.Errorf("expected session to be cleared, got %+v", repo.sessionUpdates[0])
+	}
+	if len(repo.apiTokenUpdates) != 1 || repo.apiTokenUpdates[0] != "" {
+		t.Errorf("expected API token to be cleared, got %v", repo.apiTokenUpdates)
+	}
+}
+
+func TestSyncTenantReenablesActiveUserAfterFailedReset(t *testing.T) {
+	repo := &fakeRepo{
+		accounts: []billing.Account{
+			{ID: 1, TenantID: 1, TraccarUserID: 101, Name: "Ada"},
+		},
+		subscriptions: []billing.Subscription{
+			{ID: 1, AccountID: 1, Status: billing.StatusActive, NextDueAt: time.Now().Add(24 * time.Hour)},
+		},
+	}
+	client := &fakeClient{
+		users: []billing.TraccarUser{
+			{ID: 101, Name: "Ada", Disabled: true},
+		},
+	}
+	s := New(repo, client, time.Minute, silentLogger())
+	tenant := billing.Tenant{
+		ID: 1, BaseURL: "https://acme.example.com/api",
+		SessionCookie: "JSESSIONID=abc", SessionExpiresAt: time.Now().Add(time.Hour),
+	}
+
+	if err := s.SyncTenant(context.Background(), tenant); err != nil {
+		t.Fatalf("SyncTenant() error = %v", err)
+	}
+	if len(client.disabledCalls) != 1 || client.disabledCalls[0] != 101 {
+		t.Fatalf("SetUserDisabled calls = %v, want [101]", client.disabledCalls)
+	}
+	if client.disabledState[0] {
+		t.Error("SetUserDisabled disabled = true, want false to restore access")
+	}
+}
+
+func TestSyncTenantDoesNotTouchMatchingAccessState(t *testing.T) {
+	repo := &fakeRepo{
+		accounts: []billing.Account{
+			{ID: 1, TenantID: 1, TraccarUserID: 101, Name: "Ada"},
+		},
+		subscriptions: []billing.Subscription{
+			{ID: 1, AccountID: 1, Status: billing.StatusActive, NextDueAt: time.Now().Add(24 * time.Hour)},
+		},
+	}
+	client := &fakeClient{
+		users: []billing.TraccarUser{
+			{ID: 101, Name: "Ada", Disabled: false},
+		},
+	}
+	s := New(repo, client, time.Minute, silentLogger())
+	tenant := billing.Tenant{
+		ID: 1, BaseURL: "https://acme.example.com/api",
+		SessionCookie: "JSESSIONID=abc", SessionExpiresAt: time.Now().Add(time.Hour),
+	}
+
+	if err := s.SyncTenant(context.Background(), tenant); err != nil {
+		t.Fatalf("SyncTenant() error = %v", err)
+	}
+	if len(client.disabledCalls) != 0 {
+		t.Errorf("SetUserDisabled calls = %v, want none", client.disabledCalls)
 	}
 }
 

@@ -16,9 +16,12 @@ import (
 	"github.com/yourusername/traccar-billing/internal/api"
 	"github.com/yourusername/traccar-billing/internal/billing"
 	"github.com/yourusername/traccar-billing/internal/config"
+	"github.com/yourusername/traccar-billing/internal/connectivity"
 	"github.com/yourusername/traccar-billing/internal/scheduler"
+	"github.com/yourusername/traccar-billing/internal/secrets"
 	"github.com/yourusername/traccar-billing/internal/storage"
 	"github.com/yourusername/traccar-billing/internal/traccar"
+	"github.com/yourusername/traccar-billing/internal/truphone"
 )
 
 func main() {
@@ -53,9 +56,21 @@ func run(logger *slog.Logger) error {
 
 	client := traccar.NewClient()
 
-	sched := scheduler.New(repo, client, cfg.SyncInterval, logger)
+	sched := scheduler.New(repo, client, cfg.SyncInterval, logger, cfg.Location)
 	server := api.NewServer(repo, client, cfg.SessionSecret, cfg.Location, logger)
 	server.SetSyncer(sched)
+	secretCodec, err := secrets.NewCodec(cfg.SessionSecret)
+	if err != nil {
+		return err
+	}
+	registry := connectivity.NewRegistry(secretCodec.Decrypt)
+	if err := registry.RegisterFactory("1global", func(token string) billing.ConnectivityProvider {
+		return truphone.NewClient(token)
+	}); err != nil {
+		return err
+	}
+	server.SetConnectivityProviderResolver(registry)
+	server.SetCredentialCodec(secretCodec)
 
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.HTTPPort,

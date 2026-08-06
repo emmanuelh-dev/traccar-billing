@@ -79,7 +79,7 @@ func (c *Client) FetchUsers(ctx context.Context, baseURL *url.URL, session billi
 
 	users := make([]billing.TraccarUser, len(dtos))
 	for i, d := range dtos {
-		users[i] = billing.TraccarUser{ID: d.ID, Name: d.Name, Email: d.Email}
+		users[i] = billing.TraccarUser{ID: d.ID, Name: d.Name, Email: d.Email, Disabled: d.Disabled}
 	}
 	return users, nil
 }
@@ -88,6 +88,19 @@ func (c *Client) FetchDevices(ctx context.Context, baseURL *url.URL, session bil
 	endpoint := baseURL.JoinPath("devices")
 	endpoint.RawQuery = url.Values{"all": {"true"}}.Encode()
 	return c.fetchDevices(ctx, endpoint, session)
+}
+
+func (c *Client) FetchDeviceProtocols(ctx context.Context, baseURL *url.URL, session billing.Session) (map[int64]string, error) {
+	var positions []positionDTO
+	if err := c.getJSON(ctx, baseURL.JoinPath("positions"), session, &positions); err != nil {
+		return nil, fmt.Errorf("traccar: fetch latest positions: %w", err)
+	}
+
+	protocols := make(map[int64]string, len(positions))
+	for _, position := range positions {
+		protocols[position.DeviceID] = position.Protocol
+	}
+	return protocols, nil
 }
 
 func (c *Client) FetchDevicesForUser(ctx context.Context, baseURL *url.URL, session billing.Session, traccarUserID int64) ([]billing.TraccarDevice, error) {

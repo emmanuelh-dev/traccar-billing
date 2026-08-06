@@ -163,6 +163,10 @@ Levanta el servicio con un MySQL de prueba (ver `docker-compose.yml`). Cambia
 
 Lista completa y comentada en `.env.example`.
 
+Las credenciales de proveedores de SIM no son variables de entorno. Cada
+usuario configura su propia cuenta de 1GLOBAL desde **Ajustes → Proveedor de
+SIM**; la API key se valida y se almacena cifrada.
+
 ---
 
 ## Qué hace al arrancar

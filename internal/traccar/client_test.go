@@ -70,7 +70,7 @@ func TestClientFetchUsers(t *testing.T) {
 		if r.Header.Get("Cookie") != "JSESSIONID=abc123" {
 			t.Fatalf("missing session cookie: %q", r.Header.Get("Cookie"))
 		}
-		_ = json.NewEncoder(w).Encode([]userDTO{{ID: 1, Name: "Ada", Email: "ada@example.com"}})
+		_ = json.NewEncoder(w).Encode([]userDTO{{ID: 1, Name: "Ada", Email: "ada@example.com", Disabled: true}})
 	}))
 	defer srv.Close()
 
@@ -84,6 +84,9 @@ func TestClientFetchUsers(t *testing.T) {
 	}
 	if len(users) != 1 || users[0].Email != "ada@example.com" {
 		t.Errorf("FetchUsers() = %+v", users)
+	}
+	if !users[0].Disabled {
+		t.Errorf("FetchUsers() Disabled = false, want true")
 	}
 }
 
@@ -106,6 +109,30 @@ func TestClientFetchDevices(t *testing.T) {
 	}
 	if len(devices) != 1 || devices[0].UniqueID != "TRK1" {
 		t.Errorf("FetchDevices() = %+v", devices)
+	}
+}
+
+func TestClientFetchDeviceProtocols(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/positions" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode([]positionDTO{
+			{DeviceID: 9, Protocol: "teltonika"},
+			{DeviceID: 10, Protocol: "osmand"},
+		})
+	}))
+	defer srv.Close()
+
+	baseURL, _ := url.Parse(srv.URL + "/api")
+	protocols, err := NewClient().FetchDeviceProtocols(
+		context.Background(), baseURL, billing.Session{Cookie: "JSESSIONID=abc123"},
+	)
+	if err != nil {
+		t.Fatalf("FetchDeviceProtocols() error = %v", err)
+	}
+	if protocols[9] != "teltonika" || protocols[10] != "osmand" {
+		t.Errorf("FetchDeviceProtocols() = %+v", protocols)
 	}
 }
 

@@ -25,8 +25,11 @@ type settingsView struct {
 	// HasAPIToken and TokenHint describe the stored Traccar token without
 	// ever putting it back on screen: it authenticates as the operator, so
 	// rendering it would leak it into browser history and screenshots.
-	HasAPIToken bool
-	TokenHint   string
+	HasAPIToken           bool
+	TokenHint             string
+	HasConnectivityToken  bool
+	ConnectivityTokenHint string
+	ConnectivityProvider  string
 
 	SessionExpired bool
 }
@@ -54,6 +57,13 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	connectivityHint := ""
+	if tenant.ConnectivityToken != "" && s.credentialCodec != nil {
+		if token, decryptErr := s.credentialCodec.Decrypt(tenant.ConnectivityToken); decryptErr == nil {
+			connectivityHint = tokenHint(token)
+		}
+	}
+
 	render(w, http.StatusOK, "settings", settingsView{
 		T:              t,
 		Title:          t.SettingsPageTtl,
@@ -66,11 +76,72 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		UnitPriceValue: centsValue(settings.UnitPriceCents),
 		FlatFeeValue:   centsValue(settings.FlatFeeCents),
 
-		HasAPIToken: tenant.APIToken != "",
-		TokenHint:   tokenHint(tenant.APIToken),
+		HasAPIToken:           tenant.APIToken != "",
+		TokenHint:             tokenHint(tenant.APIToken),
+		HasConnectivityToken:  connectivityHint != "",
+		ConnectivityTokenHint: connectivityHint,
+		ConnectivityProvider:  tenant.ConnectivityProvider,
 
 		SessionExpired: !tenant.HasValidSession(s.now()),
 	})
+}
+
+func (s *Server) handleSaveConnectivity(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+	if err := r.ParseForm(); err != nil {
+		redirectPageError(w, r, "invalid form")
+		return
+	}
+	providerID := strings.TrimSpace(r.FormValue("provider"))
+	token := strings.TrimSpace(r.FormValue("provider_token"))
+	if providerID == "" || token == "" || s.credentialCodec == nil {
+		redirectPageError(w, r, "provider and token are required")
+		return
+	}
+	configurer, ok := s.connectivity.(billing.ConnectivityProviderConfigurer)
+	if !ok {
+		redirectPageError(w, r, "provider configuration unavailable")
+		return
+	}
+	provider, ok := configurer.ProviderForCredential(providerID, token)
+	if !ok {
+		redirectPageError(w, r, "unsupported provider")
+		return
+	}
+	inventory, ok := provider.(billing.SIMInventoryProvider)
+	if !ok {
+		redirectPageError(w, r, "provider inventory unavailable")
+		return
+	}
+	if _, err := inventory.ListSIMs(r.Context()); err != nil {
+		s.logger.Warn("api: rejected connectivity credential", "tenant_id", tenant.ID, "provider", providerID, "error", err)
+		redirectPageError(w, r, "provider rejected that token")
+		return
+	}
+	encrypted, err := s.credentialCodec.Encrypt(token)
+	if err != nil {
+		s.logger.Error("api: encrypt connectivity credential", "tenant_id", tenant.ID, "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+	if err := s.repo.UpdateTenantConnectivity(r.Context(), tenant.ID, providerID, encrypted); err != nil {
+		s.logger.Error("api: save connectivity credential", "tenant_id", tenant.ID, "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+	s.clearDeviceDataCache(tenant.ID)
+	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteConnectivity(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromContext(r.Context())
+	if err := s.repo.UpdateTenantConnectivity(r.Context(), tenant.ID, "", ""); err != nil {
+		s.logger.Error("api: clear connectivity credential", "tenant_id", tenant.ID, "error", err)
+		redirectPageError(w, r, "internal error")
+		return
+	}
+	s.clearDeviceDataCache(tenant.ID)
+	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
 }
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {

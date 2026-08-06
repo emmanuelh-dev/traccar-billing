@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestParseAmountCents(t *testing.T) {
 	tests := []struct {
@@ -32,6 +35,43 @@ func TestParseAmountCents(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("parseAmountCents(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDaysUntilUsesCalendarDates(t *testing.T) {
+	loc := time.FixedZone("test", -6*60*60)
+	tests := []struct {
+		name string
+		now  time.Time
+		due  time.Time
+		want int
+	}{
+		{
+			name: "tomorrow is one day even when less than 24 hours away",
+			now:  time.Date(2026, 8, 4, 18, 0, 0, 0, loc),
+			due:  time.Date(2026, 8, 5, 0, 0, 0, 0, loc),
+			want: 1,
+		},
+		{
+			name: "today is zero",
+			now:  time.Date(2026, 8, 4, 18, 0, 0, 0, loc),
+			due:  time.Date(2026, 8, 4, 23, 59, 0, 0, loc),
+			want: 0,
+		},
+		{
+			name: "yesterday is minus one",
+			now:  time.Date(2026, 8, 4, 1, 0, 0, 0, loc),
+			due:  time.Date(2026, 8, 3, 23, 0, 0, 0, loc),
+			want: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := daysUntil(tt.due, tt.now); got != tt.want {
+				t.Errorf("daysUntil() = %d, want %d", got, tt.want)
 			}
 		})
 	}

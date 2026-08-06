@@ -1,0 +1,101 @@
+{{define "sim_history"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard sim-history-page">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.SIMHistoryPageTtl}}</h1>
+      <div class="tenant-url">{{.T.SIMHistoryPageSub}}</div>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+  {{if .Error}}<div class="form-error">{{.Error}}</div>{{end}}
+
+  {{if not .Error}}
+  <div class="sim-history-toolbar">
+    <label for="sim-history-search">{{.T.SIMHistorySearch}}</label>
+    <input id="sim-history-search" type="search" placeholder="{{.T.SIMHistorySearchHint}}">
+    <span id="sim-history-updated" class="muted"></span>
+  </div>
+
+  <div id="sim-history-error" class="form-error" hidden></div>
+  <div id="sim-history-loading" class="async-loading">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    {{.T.SMSHistoryLoading}}
+  </div>
+  <div id="sim-history-empty" class="empty-state" hidden>{{.T.SMSHistoryEmpty}}</div>
+  <div id="sim-history-table" class="table-scroll" hidden>
+    <table class="accounts">
+      <thead>
+        <tr>
+          <th>{{.T.SIMHistoryDateCol}}</th>
+          <th>{{.T.DeviceNameCol}}</th>
+          <th>ICCID</th>
+          <th>{{.T.SIMHistoryMessageCol}}</th>
+          <th>{{.T.ColStatus}}</th>
+        </tr>
+      </thead>
+      <tbody id="sim-history-body"></tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+</main>
+</div>
+
+{{if not .Error}}
+<script>
+(() => {
+  const loading = document.getElementById("sim-history-loading");
+  const error = document.getElementById("sim-history-error");
+  const empty = document.getElementById("sim-history-empty");
+  const table = document.getElementById("sim-history-table");
+  const body = document.getElementById("sim-history-body");
+  const search = document.getElementById("sim-history-search");
+  const updated = document.getElementById("sim-history-updated");
+  let rows = [];
+
+  function renderRows() {
+    const query = search.value.trim().toLocaleLowerCase();
+    const visible = rows.filter(row => !query || [
+      row.device, row.iccid, row.content, row.deliveryStatus
+    ].some(value => (value || "").toLocaleLowerCase().includes(query)));
+    body.replaceChildren();
+    for (const row of visible) {
+      const tr = document.createElement("tr");
+      for (const value of [row.dateSubmitted, row.device, row.iccid, row.content, row.deliveryStatus || "—"]) {
+        const td = document.createElement("td");
+        td.textContent = value || "—";
+        tr.append(td);
+      }
+      body.append(tr);
+    }
+    empty.hidden = visible.length !== 0;
+    table.hidden = visible.length === 0;
+  }
+
+  search.addEventListener("input", renderRows);
+  fetch("/sim-history/data", {headers: {"Accept": "application/json"}})
+    .then(response => {
+      if (!response.ok) return response.text().then(message => Promise.reject(new Error(message)));
+      return response.json();
+    })
+    .then(data => {
+      rows = data.rows || [];
+      updated.textContent = data.updated || "";
+      loading.hidden = true;
+      renderRows();
+    })
+    .catch(reason => {
+      loading.hidden = true;
+      error.textContent = reason.message || "{{.T.SMSHistoryUnavailable}}";
+      error.hidden = false;
+    });
+})();
+</script>
+{{end}}
+{{template "footer" .}}
+{{end}}

@@ -1,0 +1,160 @@
+{{define "sims"}}
+{{template "header" .}}
+<div class="app-shell">
+{{template "nav" .}}
+<main class="app-main">
+<div class="dashboard sims-page">
+  <div class="dashboard-header">
+    <div>
+      <h1>{{.T.SIMsPageTtl}}</h1>
+      <div class="tenant-url">{{.T.SIMsPageSub}}</div>
+    </div>
+  </div>
+
+  {{template "session_banner" .}}
+  {{if .Error}}
+    <div class="form-error">{{.Error}} <a href="/settings">{{.T.GoToSettings}}</a></div>
+  {{else}}
+    <div class="sim-history-toolbar">
+      <label for="sims-search">{{.T.DeviceSearchLabel}}</label>
+      <input id="sims-search" type="search" placeholder="{{.T.DeviceSearchHint}}">
+      <span id="sims-updated" class="muted"></span>
+    </div>
+    <div id="sims-warning" class="form-error" hidden></div>
+    <div id="sims-loading" class="async-loading">
+      <span class="loading-spinner" aria-hidden="true"></span>
+      {{.T.SIMsLoading}}
+    </div>
+    <div id="sims-empty" class="empty-state" hidden>{{.T.SIMsEmpty}}</div>
+    <div id="sims-table" class="table-scroll" hidden>
+      <table class="accounts devices-table">
+        <thead>
+          <tr>
+            <th>{{.T.SIMLabelCol}}</th>
+            <th>IMEI</th>
+            <th>ICCID</th>
+            <th>{{.T.ColStatus}}</th>
+            <th>{{.T.ServicePackCol}}</th>
+            <th>{{.T.SIMActivatedCol}}</th>
+            <th class="num">{{.T.DataAllowedCol}}</th>
+            <th class="num">{{.T.DataUsedCol}}</th>
+            <th class="num">{{.T.DataRemainingCol}}</th>
+            <th>{{.T.SIMActionsCol}}</th>
+          </tr>
+        </thead>
+        <tbody id="sims-body"></tbody>
+      </table>
+    </div>
+  {{end}}
+</div>
+</main>
+</div>
+
+{{if not .Error}}
+<script>
+(() => {
+  const body = document.getElementById("sims-body");
+  const loading = document.getElementById("sims-loading");
+  const empty = document.getElementById("sims-empty");
+  const table = document.getElementById("sims-table");
+  const warning = document.getElementById("sims-warning");
+  const search = document.getElementById("sims-search");
+  const updated = document.getElementById("sims-updated");
+  const activateConfirm = "{{.T.SIMActivateConfirm}}";
+  const suspendConfirm = "{{.T.SIMSuspendConfirm}}";
+  let rows = [];
+
+  function renderRows() {
+    const query = search.value.trim().toLocaleLowerCase();
+    const visible = rows.filter(item => !query || [
+      item.name, item.imei, item.iccid, item.simStatus, item.servicePackId
+    ].some(value => (value || "").toLocaleLowerCase().includes(query)));
+    body.replaceChildren();
+    for (const item of visible) {
+      const row = document.createElement("tr");
+      const values = [
+        item.name, item.imei, item.iccid, item.simStatus, item.servicePackId,
+        item.activatedAt ? item.activatedAt.slice(0, 10) : "—",
+        item.allowedData, item.hasUsedData ? item.usedData : "—", item.remainingData
+      ];
+      values.forEach((value, index) => {
+        const cell = document.createElement("td");
+        cell.textContent = value || "—";
+        if (index === 1 || index === 2) cell.className = "mono";
+        if (index >= 6) cell.classList.add("num");
+        row.append(cell);
+      });
+      const actionCell = document.createElement("td");
+      actionCell.className = "row-actions";
+      if (!item.canChangeStatus) {
+        actionCell.textContent = "—";
+      } else {
+        const active = (item.simStatus || "").toLocaleUpperCase() === "ACTIVE";
+        const nextStatus = active ? "SUSPENDED" : "ACTIVE";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "primary";
+        button.textContent = active ? "{{.T.SIMSuspendBtn}}" : "{{.T.SIMActivateBtn}}";
+        button.addEventListener("click", () => changeStatus(item, nextStatus, button));
+        actionCell.append(button);
+      }
+      row.append(actionCell);
+      body.append(row);
+    }
+    loading.hidden = true;
+    empty.hidden = visible.length !== 0;
+    table.hidden = visible.length === 0;
+  }
+
+  async function changeStatus(item, status, button) {
+    const confirmText = (status === "ACTIVE" ? activateConfirm : suspendConfirm).replace("%s", item.iccid);
+    if (!window.confirm(confirmText)) return;
+    button.disabled = true;
+    try {
+      const response = await fetch("/sims/status", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({iccid: item.iccid, status: status}),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "{{.T.SIMStatusFailed}}");
+      }
+      // The provider may take a moment to reflect the change; update the row
+      // locally instead of re-fetching the slow /sims/data endpoint.
+      item.simStatus = status;
+      warning.hidden = true;
+      updated.textContent = "{{.T.SIMStatusUpdated}}";
+      renderRows();
+    } catch (reason) {
+      warning.textContent = reason.message || "{{.T.SIMStatusFailed}}";
+      warning.hidden = false;
+      button.disabled = false;
+    }
+  }
+
+  search.addEventListener("input", renderRows);
+  fetch("/sims/data", {headers: {"Accept": "application/json"}})
+    .then(response => {
+      if (!response.ok) return response.text().then(message => Promise.reject(new Error(message)));
+      return response.json();
+    })
+    .then(data => {
+      rows = data.rows || [];
+      updated.textContent = data.updated || "";
+      if (data.warning) {
+        warning.textContent = data.warning;
+        warning.hidden = false;
+      }
+      renderRows();
+    })
+    .catch(reason => {
+      loading.hidden = true;
+      warning.textContent = reason.message || "{{.T.SIMInventoryUnavailable}}";
+      warning.hidden = false;
+    });
+})();
+</script>
+{{end}}
+{{template "footer" .}}
+{{end}}
