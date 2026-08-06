@@ -92,11 +92,12 @@ func (c *Client) ListSIMs(ctx context.Context) ([]billing.SIMInfo, error) {
 	if c.token == "" {
 		return nil, fmt.Errorf("1global: token is not configured")
 	}
-	sims, err := c.listAllSIMs(ctx, "v2.2")
+	// v2.2 is the version documented for the SIM list, but tokens are scoped
+	// per version: accounts provisioned for v2.0 get 401 there, not 404. Keep
+	// v2.0 as the working default and only reach for v2.2 if it disappears.
+	sims, err := c.listAllSIMs(ctx, "v2.0")
 	if errors.Is(err, ErrNotFound) {
-		// Some accounts are still on the older API version, which does not
-		// expose v2.2 at all.
-		sims, err = c.listAllSIMs(ctx, "v2.0")
+		sims, err = c.listAllSIMs(ctx, "v2.2")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("1global: list sims: %w", err)

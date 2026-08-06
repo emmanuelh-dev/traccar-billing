@@ -44,7 +44,7 @@ func TestFetchDeviceUsage(t *testing.T) {
 
 func TestListSIMs(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v2.2/sims/" || r.URL.Query().Get("per_page") != "500" {
+		if r.URL.Path != "/api/v2.0/sims/" || r.URL.Query().Get("per_page") != "500" {
 			t.Fatalf("unexpected request %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
 		var sim simDTO
@@ -75,7 +75,7 @@ func TestListSIMs(t *testing.T) {
 func TestListSIMsPaginatesUntilShortPage(t *testing.T) {
 	var pages []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v2.2/sims/" {
+		if r.URL.Path != "/api/v2.0/sims/" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
 		page := r.URL.Query().Get("page")
@@ -106,12 +106,12 @@ func TestListSIMsPaginatesUntilShortPage(t *testing.T) {
 	}
 }
 
-func TestListSIMsFallsBackToV20(t *testing.T) {
+func TestListSIMsFallsBackToV22(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/v2.2/sims/":
-			w.WriteHeader(http.StatusNotFound)
 		case "/api/v2.0/sims/":
+			w.WriteHeader(http.StatusNotFound)
+		case "/api/v2.2/sims/":
 			var sim simDTO
 			sim.ICCID = "8944470000000000002"
 			sim.Dates.FirstActivationDate = "2024-01-01T00:00:00Z"
