@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -115,7 +116,11 @@ func (s *Server) handleSaveConnectivity(w http.ResponseWriter, r *http.Request) 
 	}
 	if _, err := inventory.ListSIMs(r.Context()); err != nil {
 		s.logger.Warn("api: rejected connectivity credential", "tenant_id", tenant.ID, "provider", providerID, "error", err)
-		redirectPageError(w, r, "provider rejected that token")
+		if errors.Is(err, billing.ErrProviderUnauthorized) {
+			redirectPageError(w, r, "provider rejected that token")
+		} else {
+			redirectPageError(w, r, "the token was accepted but the SIM inventory could not be read; check the logs")
+		}
 		return
 	}
 	encrypted, err := s.credentialCodec.Encrypt(token)

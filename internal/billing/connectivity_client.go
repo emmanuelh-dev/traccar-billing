@@ -2,8 +2,14 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// ErrProviderUnauthorized lets callers tell a rejected credential apart from a
+// provider that answered but could not be read. Reporting every failure as a
+// bad token sends operators chasing the wrong thing.
+var ErrProviderUnauthorized = errors.New("connectivity: provider rejected the credential")
 
 // ConnectivityProvider is the provider-neutral contract used by the UI.
 // Implementations translate their own API formats into these common types.

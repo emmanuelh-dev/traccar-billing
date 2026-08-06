@@ -20,7 +20,7 @@ import (
 
 var (
 	ErrNotFound     = errors.New("1global: device not found")
-	ErrUnauthorized = errors.New("1global: unauthorized")
+	ErrUnauthorized = fmt.Errorf("1global: unauthorized: %w", billing.ErrProviderUnauthorized)
 )
 
 type Client struct {
@@ -61,11 +61,33 @@ type subscriptionDTO struct {
 	} `json:"dates"`
 }
 
+// flexString accepts a JSON value that the provider sends as either a string
+// or a number. /devices returns the IMEI quoted, /sims returns it bare.
+type flexString string
+
+func (f *flexString) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if string(data) == "null" {
+		*f = ""
+		return nil
+	}
+	if len(data) > 0 && data[0] == '"' {
+		var value string
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		*f = flexString(value)
+		return nil
+	}
+	*f = flexString(data)
+	return nil
+}
+
 type simDTO struct {
-	IMEI         string `json:"imei"`
-	ICCID        string `json:"iccid"`
-	Label        string `json:"label"`
-	Description  string `json:"description"`
+	IMEI         flexString `json:"imei"`
+	ICCID        string     `json:"iccid"`
+	Label        string     `json:"label"`
+	Description  string     `json:"description"`
 	Subscription struct {
 		ServicePackID      string `json:"servicePackId"`
 		SubscriptionStatus string `json:"subscriptionStatus"`
@@ -105,7 +127,7 @@ func (c *Client) ListSIMs(ctx context.Context) ([]billing.SIMInfo, error) {
 	result := make([]billing.SIMInfo, len(sims))
 	for i, sim := range sims {
 		result[i] = billing.SIMInfo{
-			IMEI: sim.IMEI, ICCID: sim.ICCID, Label: sim.Label, Description: sim.Description,
+			IMEI: string(sim.IMEI), ICCID: sim.ICCID, Label: sim.Label, Description: sim.Description,
 			Status: sim.Subscription.SubscriptionStatus, ServicePlan: sim.Subscription.ServicePackID,
 			ActivatedAt: sim.activatedAt(),
 		}
@@ -425,7 +447,11 @@ func (c *Client) doJSONRequest(ctx context.Context, method string, endpoint *url
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return ErrUnauthorized
+		// 401 and 403 mean different things here: a bad token versus a valid
+		// token without access to this resource. Keep the detail the provider
+		// sends, it is the only way to tell them apart.
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("%w (status %d: %s)", ErrUnauthorized, resp.StatusCode, strings.TrimSpace(string(detail)))
 	case http.StatusNotFound:
 		return ErrNotFound
 	default:

@@ -72,6 +72,30 @@ func TestListSIMs(t *testing.T) {
 	}
 }
 
+// The live API sends the IMEI quoted on /devices but bare on /sims, which used
+// to abort the whole listing with a decode error.
+func TestListSIMsAcceptsNumericIMEI(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"imei":86469506011356,"iccid":"8944474400002600658","label":"Solar",` +
+			`"subscription":{"servicePackId":"500MB","subscriptionStatus":"ACTIVE"},` +
+			`"dates":{"firstActivationDate":"2025-04-04T23:17:40+00:00"}}]`))
+	}))
+	defer srv.Close()
+
+	baseURL, _ := url.Parse(srv.URL + "/api/")
+	client := newClient(baseURL, "provider-secret", srv.Client())
+	sims, err := client.ListSIMs(context.Background())
+	if err != nil {
+		t.Fatalf("ListSIMs() error = %v", err)
+	}
+	if len(sims) != 1 || sims[0].IMEI != "86469506011356" {
+		t.Fatalf("ListSIMs() = %+v", sims)
+	}
+	if sims[0].ActivatedAt != "2025-04-04T23:17:40+00:00" {
+		t.Errorf("ActivatedAt = %q", sims[0].ActivatedAt)
+	}
+}
+
 func TestListSIMsPaginatesUntilShortPage(t *testing.T) {
 	var pages []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
