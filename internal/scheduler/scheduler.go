@@ -14,12 +14,23 @@ import (
 
 const tenantSyncTimeout = 30 * time.Second
 
+// simRefreshTimeout is generous: the provider call alone takes seconds and a
+// tenant may have many SIMs.
+const simRefreshTimeout = 3 * time.Minute
+
+// SIMRefresher is implemented by *api.Server. Pre-warming the provider
+// inventory here keeps the first /sims load of the day off the critical path.
+type SIMRefresher interface {
+	RefreshSIMInventory(ctx context.Context, t billing.Tenant) error
+}
+
 type Scheduler struct {
-	repo     billing.Repository
-	client   billing.TraccarClient
-	interval time.Duration
-	logger   *slog.Logger
-	loc      *time.Location
+	repo         billing.Repository
+	client       billing.TraccarClient
+	interval     time.Duration
+	logger       *slog.Logger
+	loc          *time.Location
+	simRefresher SIMRefresher
 }
 
 func New(repo billing.Repository, client billing.TraccarClient, interval time.Duration, logger *slog.Logger, locations ...*time.Location) *Scheduler {
@@ -28,6 +39,10 @@ func New(repo billing.Repository, client billing.TraccarClient, interval time.Du
 		loc = locations[0]
 	}
 	return &Scheduler{repo: repo, client: client, interval: interval, logger: logger, loc: loc}
+}
+
+func (s *Scheduler) SetSIMRefresher(refresher SIMRefresher) {
+	s.simRefresher = refresher
 }
 
 func (s *Scheduler) Run(ctx context.Context) error {
@@ -71,6 +86,14 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 			s.logger.Error("scheduler: check overdue failed", "tenant_id", t.ID, "error", err)
 		}
 		cancelOverdue()
+
+		if s.simRefresher != nil {
+			simCtx, cancelSIM := context.WithTimeout(ctx, simRefreshTimeout)
+			if err := s.simRefresher.RefreshSIMInventory(simCtx, t); err != nil {
+				s.logger.Error("scheduler: refresh sim inventory failed", "tenant_id", t.ID, "error", err)
+			}
+			cancelSIM()
+		}
 	}
 }
 

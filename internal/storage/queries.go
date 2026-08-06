@@ -193,6 +193,48 @@ func (r *sqlRepository) UpdateTenantConnectivity(ctx context.Context, tenantID i
 	return nil
 }
 
+func (r *sqlRepository) GetSIMInventoryCache(ctx context.Context, tenantID int64) (string, time.Time, bool, error) {
+	var payload string
+	var refreshedAt time.Time
+	err := r.q().QueryRowContext(ctx,
+		`SELECT payload, refreshed_at FROM sim_inventory_cache WHERE tenant_id = ?`, tenantID).
+		Scan(&payload, &refreshedAt)
+	if err == sql.ErrNoRows {
+		return "", time.Time{}, false, nil
+	}
+	if err != nil {
+		return "", time.Time{}, false, fmt.Errorf("storage: get sim inventory cache: %w", err)
+	}
+	return payload, refreshedAt, true, nil
+}
+
+func (r *sqlRepository) SaveSIMInventoryCache(ctx context.Context, tenantID int64, payload string, refreshedAt time.Time) error {
+	refreshedAt = refreshedAt.UTC()
+
+	var query string
+	if r.dialect == "mysql" {
+		query = `INSERT INTO sim_inventory_cache (tenant_id, payload, refreshed_at)
+			VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE payload = VALUES(payload), refreshed_at = VALUES(refreshed_at)`
+	} else {
+		query = `INSERT INTO sim_inventory_cache (tenant_id, payload, refreshed_at)
+			VALUES (?, ?, ?)
+			ON CONFLICT(tenant_id) DO UPDATE SET payload = excluded.payload, refreshed_at = excluded.refreshed_at`
+	}
+
+	if _, err := r.q().ExecContext(ctx, query, tenantID, payload, refreshedAt); err != nil {
+		return fmt.Errorf("storage: save sim inventory cache: %w", err)
+	}
+	return nil
+}
+
+func (r *sqlRepository) DeleteSIMInventoryCache(ctx context.Context, tenantID int64) error {
+	if _, err := r.q().ExecContext(ctx, `DELETE FROM sim_inventory_cache WHERE tenant_id = ?`, tenantID); err != nil {
+		return fmt.Errorf("storage: delete sim inventory cache: %w", err)
+	}
+	return nil
+}
+
 func (r *sqlRepository) ListTenants(ctx context.Context) ([]billing.Tenant, error) {
 	rows, err := r.q().QueryContext(ctx,
 		`SELECT `+tenantColumns+` FROM tenants ORDER BY id`)

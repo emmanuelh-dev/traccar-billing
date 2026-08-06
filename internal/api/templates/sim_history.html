@@ -85,6 +85,7 @@
     body.replaceChildren();
     for (const row of visible) {
       const tr = document.createElement("tr");
+      tr.className = row.direction === "MO" ? "row-mo" : "row-mt";
 
       const dateTd = document.createElement("td");
       dateTd.textContent = row.dateLocal || row.dateSubmitted || "—";

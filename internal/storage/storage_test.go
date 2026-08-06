@@ -528,6 +528,62 @@ func TestSettingsDefaultsAndSave(t *testing.T) {
 	}
 }
 
+func TestSIMInventoryCacheCRUD(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	tenant, err := repo.CreateTenant(ctx, billing.Tenant{Name: "Acme", BaseURL: "https://acme.example.com/api"})
+	if err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	// A tenant that has never been refreshed has no snapshot yet.
+	_, _, found, err := repo.GetSIMInventoryCache(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetSIMInventoryCache() error = %v", err)
+	}
+	if found {
+		t.Fatal("GetSIMInventoryCache() found = true for a tenant never refreshed")
+	}
+
+	refreshedAt := time.Now().UTC().Truncate(time.Second)
+	if err := repo.SaveSIMInventoryCache(ctx, tenant.ID, `{"sims":[]}`, refreshedAt); err != nil {
+		t.Fatalf("SaveSIMInventoryCache() error = %v", err)
+	}
+
+	payload, got, found, err := repo.GetSIMInventoryCache(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetSIMInventoryCache() after save error = %v", err)
+	}
+	if !found || payload != `{"sims":[]}` || !got.Equal(refreshedAt) {
+		t.Errorf("GetSIMInventoryCache() = %q, %v, %v", payload, got, found)
+	}
+
+	// Saving again overwrites rather than duplicating the row.
+	refreshedAt2 := refreshedAt.Add(time.Hour)
+	if err := repo.SaveSIMInventoryCache(ctx, tenant.ID, `{"sims":[{"iccid":"1"}]}`, refreshedAt2); err != nil {
+		t.Fatalf("SaveSIMInventoryCache() overwrite error = %v", err)
+	}
+	payload, got, found, err = repo.GetSIMInventoryCache(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetSIMInventoryCache() after overwrite error = %v", err)
+	}
+	if !found || payload != `{"sims":[{"iccid":"1"}]}` || !got.Equal(refreshedAt2) {
+		t.Errorf("GetSIMInventoryCache() after overwrite = %q, %v, %v", payload, got, found)
+	}
+
+	if err := repo.DeleteSIMInventoryCache(ctx, tenant.ID); err != nil {
+		t.Fatalf("DeleteSIMInventoryCache() error = %v", err)
+	}
+	_, _, found, err = repo.GetSIMInventoryCache(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetSIMInventoryCache() after delete error = %v", err)
+	}
+	if found {
+		t.Fatal("GetSIMInventoryCache() found = true after delete")
+	}
+}
+
 func TestConceptsCRUD(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

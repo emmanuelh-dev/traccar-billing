@@ -70,6 +70,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	server.SetConnectivityProviderResolver(registry)
+	sched.SetSIMRefresher(server)
 	server.SetCredentialCodec(secretCodec)
 
 	httpServer := &http.Server{

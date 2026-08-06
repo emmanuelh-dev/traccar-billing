@@ -40,6 +40,9 @@ type Server struct {
 	deviceDataMu    sync.Mutex
 	deviceDataCache map[string]deviceDataCacheEntry
 	deviceDataLoads map[string]chan struct{}
+
+	simCacheMu sync.Mutex
+	simLoads   map[int64]chan struct{}
 }
 
 func (s *Server) SetSyncer(syncer TenantSyncer) {
@@ -66,6 +69,7 @@ func NewServer(repo billing.Repository, client billing.TraccarClient, sessionSec
 		loc:             loc,
 		deviceDataCache: make(map[string]deviceDataCacheEntry),
 		deviceDataLoads: make(map[string]chan struct{}),
+		simLoads:        make(map[int64]chan struct{}),
 	}
 }
 
@@ -95,6 +99,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/sims", s.requireTenant(s.handleSIMs))
 	r.Get("/sims/data", s.requireTenant(s.handleSIMsData))
 	r.Post("/sims/status", s.requireTenant(s.handleSIMStatus))
+	r.Post("/sims/refresh", s.requireTenant(s.handleSIMsRefresh))
 	r.Get("/payments", s.requireTenant(s.handlePayments))
 	r.Get("/expenses", s.requireTenant(s.handleExpenses))
 	r.Post("/expenses", s.requireTenant(s.handleCreateExpense))

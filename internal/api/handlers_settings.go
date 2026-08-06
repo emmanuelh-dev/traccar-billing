@@ -135,6 +135,7 @@ func (s *Server) handleSaveConnectivity(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.clearDeviceDataCache(tenant.ID)
+	s.clearSIMSnapshot(r.Context(), tenant.ID)
 	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
 }
 
@@ -146,6 +147,7 @@ func (s *Server) handleDeleteConnectivity(w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.clearDeviceDataCache(tenant.ID)
+	s.clearSIMSnapshot(r.Context(), tenant.ID)
 	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
 }
 

@@ -27,6 +27,11 @@ type Repository interface {
 	// Traccar token the tenant authenticates with once its cookie is gone.
 	UpdateTenantAPIToken(ctx context.Context, tenantID int64, token string) error
 	UpdateTenantConnectivity(ctx context.Context, tenantID int64, providerID, encryptedToken string) error
+	// GetSIMInventoryCache returns the tenant's stored provider inventory
+	// snapshot. found is false when the tenant has never been refreshed.
+	GetSIMInventoryCache(ctx context.Context, tenantID int64) (payload string, refreshedAt time.Time, found bool, err error)
+	SaveSIMInventoryCache(ctx context.Context, tenantID int64, payload string, refreshedAt time.Time) error
+	DeleteSIMInventoryCache(ctx context.Context, tenantID int64) error
 	ListTenants(ctx context.Context) ([]Tenant, error)
 
 	UpsertAccount(ctx context.Context, a Account) (Account, error)

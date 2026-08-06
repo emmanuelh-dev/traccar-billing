@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/yourusername/traccar-billing/internal/billing"
@@ -58,37 +60,86 @@ func (s *Server) handleSIMHistoryData(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, t.SMSHistoryUnavailable, http.StatusNotImplemented)
 		return
 	}
-
-	deviceData, err := s.loadDeviceData(r.Context(), tenant, t)
-	if err != nil {
-		http.Error(w, t.DevicesFetchError, http.StatusBadGateway)
+	if _, ok := provider.(billing.SIMInventoryProvider); !ok {
+		http.Error(w, t.SMSHistoryUnavailable, http.StatusNotImplemented)
 		return
 	}
-	owned := make(map[string]string)
-	for _, device := range deviceData.Rows {
-		if device.ICCID != "" {
-			owned[device.ICCID] = device.Name
-		}
-	}
 
-	messages, err := smsProvider.FetchSMSHistory(r.Context(), "", 100)
-	if err != nil {
-		s.logger.Warn("api: fetch tenant sim history", "tenant_id", tenant.ID, "error", err)
+	// ListSIMs and FetchSMSHistory each take seconds and are independent, so
+	// run them concurrently instead of paying for both in series.
+	var sims []billing.SIMInfo
+	var simsErr error
+	var messages []billing.SMSMessage
+	var msgErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		sims, simsErr = s.cachedSIMs(r.Context(), tenant, t)
+	}()
+	go func() {
+		defer wg.Done()
+		messages, msgErr = smsProvider.FetchSMSHistory(r.Context(), "", 100)
+	}()
+	wg.Wait()
+
+	if msgErr != nil {
+		s.logger.Warn("api: fetch tenant sim history", "tenant_id", tenant.ID, "error", msgErr)
 		http.Error(w, t.SMSHistoryUnavailable, http.StatusBadGateway)
 		return
 	}
+
+	// Device names are a nicety for display only; a failure here should not
+	// take down the whole history page.
+	inventoryOK := simsErr == nil
+	if simsErr != nil {
+		s.logger.Warn("api: list provider sims for sim history", "tenant_id", tenant.ID, "error", simsErr)
+	}
+	devices, _, devicesErr := s.loadTraccarDevices(r.Context(), tenant, t)
+	if devicesErr != nil {
+		s.logger.Warn("api: load traccar devices for sim history", "tenant_id", tenant.ID, "error", devicesErr)
+		devices = nil
+	}
+
+	// Index Traccar devices by UniqueID, and also by its first 14 characters
+	// when it is a 15-digit IMEI: 1GLOBAL stores the 14-digit TAC+serial while
+	// Traccar stores the full 15-digit IMEI with its Luhn check digit (see
+	// LookupDevice in internal/truphone/client.go).
+	byUniqueID := make(map[string]billing.TraccarDevice, len(devices))
+	for _, device := range devices {
+		byUniqueID[device.UniqueID] = device
+		if len(device.UniqueID) == 15 {
+			byUniqueID[device.UniqueID[:14]] = device
+		}
+	}
+
+	names := make(map[string]string, len(sims))
+	iccidSet := make(map[string]bool, len(sims))
+	for _, sim := range sims {
+		iccidSet[sim.ICCID] = true
+		name := ""
+		if device, ok := byUniqueID[sim.IMEI]; ok {
+			name = device.Name
+		} else {
+			name = strings.TrimSpace(sim.Label)
+		}
+		names[sim.ICCID] = name
+	}
+
 	type rowWithTime struct {
 		row simHistoryRow
 		at  time.Time
 	}
 	dated := make([]rowWithTime, 0, len(messages))
 	for _, message := range messages {
-		device, belongsToTenant := owned[message.ICCID]
-		if !belongsToTenant {
+		// A SIM belongs to the tenant when it appears in the tenant's own
+		// provider inventory. If the inventory failed to load, skip the
+		// filter rather than dropping every row.
+		if inventoryOK && !iccidSet[message.ICCID] {
 			continue
 		}
 		row := simHistoryRow{
-			ID: message.ID, DateSubmitted: message.DateSubmitted, Device: device,
+			ID: message.ID, DateSubmitted: message.DateSubmitted, Device: names[message.ICCID],
 			ICCID: message.ICCID, Content: message.Content,
 			DeliveryStatus: message.DeliveryStatus, Direction: message.Direction,
 		}

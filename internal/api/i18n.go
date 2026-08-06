@@ -177,6 +177,9 @@ type uiStrings struct {
 	SIMStatusFailed           string
 	SIMStatusUnavailable      string
 	SIMStatusInvalid          string
+	SIMRefreshBtn             string
+	SIMRefreshing             string
+	SIMRefreshFailed          string
 	GoToSettings              string
 	LogoutButton              string
 	SignedInAs                string
@@ -460,7 +463,7 @@ var translations = map[string]uiStrings{
 		DashboardTitle:            "Dashboard",
 		NavDevices:                "Dispositivos",
 		NavSIMs:                   "SIMs",
-		NavSIMHistory:             "Historial SIM",
+		NavSIMHistory:             "SMS",
 		DevicesPageTtl:            "Consumo de dispositivos",
 		DevicesLoading:            "Cargando dispositivos y consumo en segundo plano…",
 		DevicesLoadingUsage:       "Completando datos de SIM y consumo…",
@@ -494,8 +497,8 @@ var translations = map[string]uiStrings{
 		SMSSendButton:             "Enviar SMS",
 		SMSSentNotice:             "El SMS fue aceptado por 1GLOBAL.",
 		SMSSendError:              "No se pudo enviar el SMS. Revisa el mensaje y el servicio de la SIM.",
-		SIMHistoryPageTtl:         "Historial de SIM",
-		SIMHistoryPageSub:         "Mensajes enviados a las SIM asociadas con los dispositivos de este servidor.",
+		SIMHistoryPageTtl:         "Mensajes SMS",
+		SIMHistoryPageSub:         "Mensajes enviados y recibidos por las SIM de este servidor.",
 		SIMHistorySearch:          "Buscar",
 		SIMHistorySearchHint:      "Dispositivo, ICCID, mensaje o estado",
 		SIMHistoryDateCol:         "Fecha",
@@ -529,6 +532,9 @@ var translations = map[string]uiStrings{
 		SIMStatusFailed:           "No se pudo cambiar el estado de la SIM.",
 		SIMStatusUnavailable:      "El proveedor no permite cambiar el estado de las SIMs.",
 		SIMStatusInvalid:          "SIM o estado no válido.",
+		SIMRefreshBtn:             "Actualizar ahora",
+		SIMRefreshing:             "Actualizando inventario…",
+		SIMRefreshFailed:          "No se pudo actualizar el inventario.",
 		GoToSettings:              "Ir a Ajustes",
 		LogoutButton:              "Cerrar sesión",
 		SignedInAs:                "Sesión iniciada como",
@@ -813,7 +819,7 @@ var translations = map[string]uiStrings{
 		DashboardTitle:            "Dashboard",
 		NavDevices:                "Devices",
 		NavSIMs:                   "SIMs",
-		NavSIMHistory:             "SIM history",
+		NavSIMHistory:             "SMS",
 		DevicesPageTtl:            "Device data usage",
 		DevicesLoading:            "Loading devices and usage in the background…",
 		DevicesLoadingUsage:       "Completing SIM and usage data…",
@@ -847,8 +853,8 @@ var translations = map[string]uiStrings{
 		SMSSendButton:             "Send SMS",
 		SMSSentNotice:             "1GLOBAL accepted the SMS.",
 		SMSSendError:              "Could not send the SMS. Check the message and SIM service.",
-		SIMHistoryPageTtl:         "SIM history",
-		SIMHistoryPageSub:         "Messages sent to SIMs associated with devices on this server.",
+		SIMHistoryPageTtl:         "SMS messages",
+		SIMHistoryPageSub:         "Messages sent to and received from the SIMs on this server.",
 		SIMHistorySearch:          "Search",
 		SIMHistorySearchHint:      "Device, ICCID, message, or status",
 		SIMHistoryDateCol:         "Date",
@@ -882,6 +888,9 @@ var translations = map[string]uiStrings{
 		SIMStatusFailed:           "Could not change the SIM status.",
 		SIMStatusUnavailable:      "The provider does not support changing SIM status.",
 		SIMStatusInvalid:          "Invalid SIM or status.",
+		SIMRefreshBtn:             "Refresh now",
+		SIMRefreshing:             "Refreshing inventory…",
+		SIMRefreshFailed:          "Could not refresh the inventory.",
 		GoToSettings:              "Go to Settings",
 		LogoutButton:              "Sign out",
 		SignedInAs:                "Signed in as",

@@ -78,6 +78,18 @@ func (r *fakeRepo) UpdateTenantConnectivity(context.Context, int64, string, stri
 	return nil
 }
 
+func (r *fakeRepo) GetSIMInventoryCache(context.Context, int64) (string, time.Time, bool, error) {
+	return "", time.Time{}, false, nil
+}
+
+func (r *fakeRepo) SaveSIMInventoryCache(context.Context, int64, string, time.Time) error {
+	return nil
+}
+
+func (r *fakeRepo) DeleteSIMInventoryCache(context.Context, int64) error {
+	return nil
+}
+
 func (r *fakeRepo) ListTenants(ctx context.Context) ([]billing.Tenant, error) {
 	return r.tenants, nil
 }

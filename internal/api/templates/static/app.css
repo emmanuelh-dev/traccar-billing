@@ -536,6 +536,16 @@ button.primary:active {
   margin-left: auto;
 }
 
+.sim-history-toolbar button {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
 td.dir-mo {
   color: var(--color-accent);
   font-weight: 600;
@@ -543,6 +553,16 @@ td.dir-mo {
 
 td.dir-mt {
   color: var(--color-text-muted);
+}
+
+/* Subtle full-row tint by SMS direction, distinct enough to scan a dense
+   table without fighting the accent-colored dir-mo/dir-mt cell text. */
+tr.row-mo td {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
+}
+
+tr.row-mt td {
+  background: color-mix(in srgb, var(--color-text-muted) 8%, var(--color-bg));
 }
 
 /* Dashboard */

@@ -18,6 +18,7 @@
     <div class="sim-history-toolbar">
       <label for="sims-search">{{.T.DeviceSearchLabel}}</label>
       <input id="sims-search" type="search" placeholder="{{.T.DeviceSearchHint}}">
+      <button id="sims-refresh" type="button">{{.T.SIMRefreshBtn}}</button>
       <span id="sims-updated" class="muted"></span>
     </div>
     <div id="sims-warning" class="form-error" hidden></div>
@@ -60,9 +61,20 @@
   const warning = document.getElementById("sims-warning");
   const search = document.getElementById("sims-search");
   const updated = document.getElementById("sims-updated");
+  const refreshBtn = document.getElementById("sims-refresh");
   const activateConfirm = "{{.T.SIMActivateConfirm}}";
   const suspendConfirm = "{{.T.SIMSuspendConfirm}}";
   let rows = [];
+
+  // Shared by the initial load and the refresh button: both consume the same
+  // devicesDataResponse shape.
+  function applyData(data) {
+    rows = data.rows || [];
+    updated.textContent = data.updated || "";
+    warning.hidden = !data.warning;
+    if (data.warning) warning.textContent = data.warning;
+    renderRows();
+  }
 
   function renderRows() {
     const query = search.value.trim().toLocaleLowerCase();
@@ -133,21 +145,35 @@
     }
   }
 
+  async function refresh() {
+    const previousUpdated = updated.textContent;
+    refreshBtn.disabled = true;
+    updated.textContent = "{{.T.SIMRefreshing}}";
+    try {
+      const response = await fetch("/sims/refresh", {
+        method: "POST",
+        headers: {"Accept": "application/json"},
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "{{.T.SIMRefreshFailed}}");
+      applyData(payload);
+    } catch (reason) {
+      updated.textContent = previousUpdated;
+      warning.textContent = reason.message || "{{.T.SIMRefreshFailed}}";
+      warning.hidden = false;
+    } finally {
+      refreshBtn.disabled = false;
+    }
+  }
+
   search.addEventListener("input", renderRows);
+  refreshBtn.addEventListener("click", refresh);
   fetch("/sims/data", {headers: {"Accept": "application/json"}})
     .then(response => {
       if (!response.ok) return response.text().then(message => Promise.reject(new Error(message)));
       return response.json();
     })
-    .then(data => {
-      rows = data.rows || [];
-      updated.textContent = data.updated || "";
-      if (data.warning) {
-        warning.textContent = data.warning;
-        warning.hidden = false;
-      }
-      renderRows();
-    })
+    .then(applyData)
     .catch(reason => {
       loading.hidden = true;
       warning.textContent = reason.message || "{{.T.SIMInventoryUnavailable}}";
