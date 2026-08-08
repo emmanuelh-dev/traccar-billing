@@ -100,6 +100,8 @@ func (s *Server) Router() http.Handler {
 	r.Get("/sims/data", s.requireTenant(s.handleSIMsData))
 	r.Post("/sims/status", s.requireTenant(s.handleSIMStatus))
 	r.Post("/sims/refresh", s.requireTenant(s.handleSIMsRefresh))
+	r.Get("/sims/{iccid}/sms/history", s.requireTenant(s.handleSIMSMSHistory))
+	r.Post("/sims/{iccid}/sms", s.requireTenant(s.handleSendSIMSMS))
 	r.Get("/payments", s.requireTenant(s.handlePayments))
 	r.Get("/expenses", s.requireTenant(s.handleExpenses))
 	r.Post("/expenses", s.requireTenant(s.handleCreateExpense))

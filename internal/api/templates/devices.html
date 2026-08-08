@@ -20,6 +20,11 @@
   <div class="sim-history-toolbar">
     <label for="devices-search">{{.T.DeviceSearchLabel}}</label>
     <input id="devices-search" type="search" placeholder="{{.T.DeviceSearchHint}}">
+    <label for="devices-sort">{{.T.DevicesSortLabel}}</label>
+    <select id="devices-sort">
+      <option value="provider" selected>{{.T.DevicesSortProvider}}</option>
+      <option value="name">{{.T.DevicesSortName}}</option>
+    </select>
     <span id="devices-progress" class="muted"></span>
   </div>
   <div id="devices-loading" class="async-loading">
@@ -41,6 +46,7 @@
           <th class="num">{{.T.DataRemainingCol}}</th>
           <th>{{.T.UsagePeriodCol}}</th>
           {{if $.CanSMS}}<th>{{.T.SMSAction}}</th>{{end}}
+          {{if $.CanChangeStatus}}<th>{{.T.SIMActionsCol}}</th>{{end}}
         </tr>
       </thead>
       <tbody id="devices-body"></tbody>
@@ -51,34 +57,7 @@
 </main>
 </div>
 
-{{if .CanSMS}}
-<dialog id="sms-dialog" class="modal sms-dialog">
-  <form id="sms-form" class="modal-form" method="post">
-    <h2>{{.T.SMSDialogTitle}}</h2>
-    <p class="modal-account" id="sms-device"></p>
-
-    <label for="sms-template">{{.T.SMSTemplateLabel}}</label>
-    <select id="sms-template">
-      <option value="">{{.T.SMSCustomOption}}</option>
-      <option value="getinfo">{{.T.SMSInfoOption}}</option>
-      <option value="getgps">{{.T.SMSGPSOption}}</option>
-    </select>
-
-    <label for="sms-text">{{.T.SMSMessageLabel}}</label>
-    <textarea id="sms-text" name="text" maxlength="1600" required></textarea>
-
-    <section class="sms-history-panel">
-      <h3>{{.T.SMSHistoryTitle}}</h3>
-      <div id="sms-history" data-loading="{{.T.SMSHistoryLoading}}" data-empty="{{.T.SMSHistoryEmpty}}">{{.T.SMSHistoryLoading}}</div>
-    </section>
-
-    <div class="modal-actions">
-      <button type="button" id="sms-close">{{.T.CancelButton}}</button>
-      <button type="submit" class="primary">{{.T.SMSSendButton}}</button>
-    </div>
-  </form>
-</dialog>
-{{end}}
+{{if .CanSMS}}{{template "sms_dialog" .}}{{end}}
 {{if not .Error}}
 <script>
 (() => {
@@ -95,7 +74,11 @@
   const warning = document.getElementById("devices-warning");
   const updated = document.getElementById("devices-updated");
   const search = document.getElementById("devices-search");
+  const sortSelect = document.getElementById("devices-sort");
   const progressStatus = document.getElementById("devices-progress");
+  const activateConfirm = "{{.T.SIMActivateConfirm}}";
+  const suspendConfirm = "{{.T.SIMSuspendConfirm}}";
+  const dataColumns = 7 + ({{if .CanSMS}}1{{else}}0{{end}}) + ({{if .CanChangeStatus}}1{{else}}0{{end}});
   let deviceRows = [];
   let enrichedLoaded = false;
 
@@ -112,6 +95,16 @@
     const rows = deviceRows.filter(item => !query || [
       item.name, item.imei, item.providerImei, item.iccid
     ].some(value => (value || "").toLocaleLowerCase().includes(query)));
+    if (sortSelect.value === "provider") {
+      rows.sort((a, b) => {
+        const aHas = a.iccid ? 0 : 1;
+        const bHas = b.iccid ? 0 : 1;
+        if (aHas !== bHas) return aHas - bHas;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+    } else {
+      rows.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }
     body.replaceChildren();
     for (const item of rows) {
       const row = document.createElement("tr");
@@ -134,7 +127,7 @@
 
       if (item.error) {
         const errorCell = appendTextCell(row, item.error, "muted");
-        errorCell.colSpan = {{if .CanSMS}}8{{else}}7{{end}};
+        errorCell.colSpan = dataColumns;
         body.append(row);
         continue;
       }
@@ -170,6 +163,19 @@
         action.replaceChildren(button);
       }
       {{end}}
+      {{if .CanChangeStatus}}
+      const statusCell = appendTextCell(row, item.canChangeStatus && item.iccid ? null : "—");
+      if (item.canChangeStatus && item.iccid) {
+        const active = (item.simStatus || "").toLocaleUpperCase() === "ACTIVE";
+        const nextStatus = active ? "SUSPENDED" : "ACTIVE";
+        const statusButton = document.createElement("button");
+        statusButton.type = "button";
+        statusButton.className = "primary";
+        statusButton.textContent = active ? "{{.T.SIMSuspendBtn}}" : "{{.T.SIMActivateBtn}}";
+        statusButton.addEventListener("click", () => changeStatus(item, nextStatus, statusButton));
+        statusCell.replaceChildren(statusButton);
+      }
+      {{end}}
       body.append(row);
     }
     loading.hidden = true;
@@ -177,12 +183,39 @@
     table.hidden = rows.length === 0;
   }
 
+  {{if .CanChangeStatus}}
+  async function changeStatus(item, status, button) {
+    const confirmText = (status === "ACTIVE" ? activateConfirm : suspendConfirm).replace("%s", item.iccid);
+    if (!window.confirm(confirmText)) return;
+    button.disabled = true;
+    try {
+      const response = await fetch("/sims/status", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({iccid: item.iccid, status: status}),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "{{.T.SIMStatusFailed}}");
+      }
+      item.simStatus = status;
+      warning.hidden = true;
+      renderRows();
+    } catch (reason) {
+      warning.textContent = reason.message || "{{.T.SIMStatusFailed}}";
+      warning.hidden = false;
+      button.disabled = false;
+    }
+  }
+  {{end}}
+
   function setRows(rows) {
     deviceRows = rows || [];
     renderRows();
   }
 
   search.addEventListener("input", renderRows);
+  sortSelect.addEventListener("change", renderRows);
 
   if (template) {
     template.addEventListener("change", () => {

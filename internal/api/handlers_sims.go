@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/yourusername/traccar-billing/internal/billing"
 )
 
@@ -147,6 +149,7 @@ type simsView struct {
 	Tenant         billing.Tenant
 	Error          string
 	SessionExpired bool
+	CanSMS         bool
 }
 
 func (s *Server) handleSIMs(w http.ResponseWriter, r *http.Request) {
@@ -158,8 +161,10 @@ func (s *Server) handleSIMs(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.connectivity == nil {
 		view.Error = t.ConnectivityNotConfigured
-	} else if _, ok := s.connectivity.ResolveProvider(tenant); !ok {
+	} else if provider, ok := s.connectivity.ResolveProvider(tenant); !ok {
 		view.Error = t.ConnectivityNotConfigured
+	} else {
+		_, view.CanSMS = provider.(billing.SMSProvider)
 	}
 	render(w, http.StatusOK, "sims", view)
 }
@@ -194,10 +199,12 @@ func (s *Server) handleSIMsData(w http.ResponseWriter, r *http.Request) {
 // (capability flags and localized warnings).
 func (s *Server) simsDataResponse(snapshot simSnapshot, refreshedAt time.Time, provider billing.ConnectivityProvider, t uiStrings) devicesDataResponse {
 	_, canChangeStatus := provider.(billing.SIMStatusProvider)
+	_, canSMS := provider.(billing.SMSProvider)
 	rows := make([]deviceRow, len(snapshot.Rows))
 	copy(rows, snapshot.Rows)
 	for i := range rows {
 		rows[i].CanChangeStatus = canChangeStatus
+		rows[i].CanSMS = canSMS && rows[i].ICCID != ""
 	}
 	warning := ""
 	if snapshot.UsageWarning {
@@ -205,7 +212,7 @@ func (s *Server) simsDataResponse(snapshot simSnapshot, refreshedAt time.Time, p
 	}
 	return devicesDataResponse{
 		// refreshedAt is stored in UTC; the page shows the tenant's own clock.
-		Rows: rows, Warning: warning, Updated: refreshedAt.In(s.loc).Format("2006-01-02 15:04"),
+		Rows: rows, Warning: warning, Updated: refreshedAt.In(s.loc).Format("2006-01-02 15:04"), CanSMS: canSMS,
 	}
 }
 
@@ -339,5 +346,100 @@ func (s *Server) handleSIMStatus(w http.ResponseWriter, r *http.Request) {
 		s.logger.Warn("api: save sim inventory snapshot", "tenant_id", tenant.ID, "error", err)
 	}
 
+	// /devices shows the same SIM status from its own 2-minute cache; drop it so
+	// the change is visible there right away instead of up to two minutes later.
+	s.clearDeviceDataCache(tenant.ID)
+
 	writeJSON(w, http.StatusOK, map[string]string{"iccid": iccid, "status": status})
+}
+
+// resolveTenantSIMByICCID checks the ICCID against the tenant's own cached
+// SIM snapshot before handing back an SMS-capable provider. This keeps a
+// tenant from acting on an ICCID outside its own account, the same as
+// handleSIMStatus does for status changes.
+func (s *Server) resolveTenantSIMByICCID(w http.ResponseWriter, r *http.Request) (billing.SMSProvider, string, bool) {
+	tenant := tenantFromContext(r.Context())
+	t := stringsFor(resolveLang(w, r))
+
+	if s.connectivity == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, t.ConnectivityNotConfigured)
+		return nil, "", false
+	}
+	provider, ok := s.connectivity.ResolveProvider(tenant)
+	if !ok {
+		writeJSONError(w, http.StatusServiceUnavailable, t.ConnectivityNotConfigured)
+		return nil, "", false
+	}
+	smsProvider, ok := provider.(billing.SMSProvider)
+	if !ok {
+		writeJSONError(w, http.StatusNotImplemented, t.SMSSendError)
+		return nil, "", false
+	}
+	if _, ok := provider.(billing.SIMInventoryProvider); !ok {
+		writeJSONError(w, http.StatusNotImplemented, t.SIMInventoryUnavailable)
+		return nil, "", false
+	}
+
+	snapshot, _, err := s.loadSIMSnapshot(r.Context(), tenant, t, false)
+	if err != nil {
+		s.logger.Warn("api: load sim inventory snapshot", "tenant_id", tenant.ID, "error", err)
+		writeJSONError(w, http.StatusBadGateway, t.SIMInventoryUnavailable)
+		return nil, "", false
+	}
+	iccid := strings.TrimSpace(chi.URLParam(r, "iccid"))
+	owned := false
+	for i := range snapshot.SIMs {
+		if snapshot.SIMs[i].ICCID == iccid {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		writeJSONError(w, http.StatusNotFound, t.SIMStatusInvalid)
+		return nil, "", false
+	}
+	return smsProvider, iccid, true
+}
+
+func (s *Server) handleSIMSMSHistory(w http.ResponseWriter, r *http.Request) {
+	smsProvider, iccid, ok := s.resolveTenantSIMByICCID(w, r)
+	if !ok {
+		return
+	}
+	messages, err := smsProvider.FetchSMSHistory(r.Context(), iccid, 20)
+	if err != nil {
+		s.logger.Warn("api: fetch sim sms history", "iccid", iccid, "error", err)
+		writeJSONError(w, http.StatusBadGateway, stringsFor(resolveLang(w, r)).SMSSendError)
+		return
+	}
+	writeJSON(w, http.StatusOK, messages)
+}
+
+type simSMSRequest struct {
+	Text string `json:"text"`
+}
+
+func (s *Server) handleSendSIMSMS(w http.ResponseWriter, r *http.Request) {
+	smsProvider, iccid, ok := s.resolveTenantSIMByICCID(w, r)
+	if !ok {
+		return
+	}
+	t := stringsFor(resolveLang(w, r))
+
+	var request simSMSRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeJSONError(w, http.StatusBadRequest, t.SMSSendError)
+		return
+	}
+	text := strings.TrimSpace(request.Text)
+	if text == "" || len([]rune(text)) > 1600 {
+		writeJSONError(w, http.StatusBadRequest, t.SMSSendError)
+		return
+	}
+	if _, err := smsProvider.SendSMS(r.Context(), iccid, text); err != nil {
+		s.logger.Error("api: send sim sms", "iccid", iccid, "error", err)
+		writeJSONError(w, http.StatusBadGateway, t.SMSSendError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

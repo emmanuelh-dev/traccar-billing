@@ -114,6 +114,9 @@ type uiStrings struct {
 	DevicesLoadingUsage       string
 	DeviceSearchLabel         string
 	DeviceSearchHint          string
+	DevicesSortLabel          string
+	DevicesSortProvider       string
+	DevicesSortName           string
 	DeviceNameCol             string
 	DataAllowedCol            string
 	DataUsedCol               string
@@ -469,6 +472,9 @@ var translations = map[string]uiStrings{
 		DevicesLoadingUsage:       "Completando datos de SIM y consumo…",
 		DeviceSearchLabel:         "Buscar",
 		DeviceSearchHint:          "Nombre, IMEI o ICCID",
+		DevicesSortLabel:          "Ordenar",
+		DevicesSortProvider:       "Con SIM primero",
+		DevicesSortName:           "Nombre",
 		DeviceNameCol:             "Dispositivo",
 		DataAllowedCol:            "Datos incluidos",
 		DataUsedCol:               "Datos gastados",
@@ -825,6 +831,9 @@ var translations = map[string]uiStrings{
 		DevicesLoadingUsage:       "Completing SIM and usage data…",
 		DeviceSearchLabel:         "Search",
 		DeviceSearchHint:          "Name, IMEI, or ICCID",
+		DevicesSortLabel:          "Sort",
+		DevicesSortProvider:       "With SIM first",
+		DevicesSortName:           "Name",
 		DeviceNameCol:             "Device",
 		DataAllowedCol:            "Data allowance",
 		DataUsedCol:               "Data used",

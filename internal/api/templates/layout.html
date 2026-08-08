@@ -61,3 +61,32 @@
 </div>
 {{end}}
 {{end}}
+
+{{define "sms_dialog"}}
+<dialog id="sms-dialog" class="modal sms-dialog">
+  <form id="sms-form" class="modal-form" method="post">
+    <h2>{{.T.SMSDialogTitle}}</h2>
+    <p class="modal-account" id="sms-device"></p>
+
+    <label for="sms-template">{{.T.SMSTemplateLabel}}</label>
+    <select id="sms-template">
+      <option value="">{{.T.SMSCustomOption}}</option>
+      <option value="getinfo">{{.T.SMSInfoOption}}</option>
+      <option value="getgps">{{.T.SMSGPSOption}}</option>
+    </select>
+
+    <label for="sms-text">{{.T.SMSMessageLabel}}</label>
+    <textarea id="sms-text" name="text" maxlength="1600" required></textarea>
+
+    <section class="sms-history-panel">
+      <h3>{{.T.SMSHistoryTitle}}</h3>
+      <div id="sms-history" data-loading="{{.T.SMSHistoryLoading}}" data-empty="{{.T.SMSHistoryEmpty}}">{{.T.SMSHistoryLoading}}</div>
+    </section>
+
+    <div class="modal-actions">
+      <button type="button" id="sms-close">{{.T.CancelButton}}</button>
+      <button type="submit" class="primary">{{.T.SMSSendButton}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

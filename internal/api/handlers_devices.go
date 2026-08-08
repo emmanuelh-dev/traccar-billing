@@ -49,16 +49,17 @@ type deviceRow struct {
 }
 
 type devicesView struct {
-	T       uiStrings
-	Title   string
-	Active  string
-	Tenant  billing.Tenant
-	Rows    []deviceRow
-	Error   string
-	Warning string
-	Notice  string
-	Updated string
-	CanSMS  bool
+	T               uiStrings
+	Title           string
+	Active          string
+	Tenant          billing.Tenant
+	Rows            []deviceRow
+	Error           string
+	Warning         string
+	Notice          string
+	Updated         string
+	CanSMS          bool
+	CanChangeStatus bool
 
 	SessionExpired bool
 }
@@ -87,6 +88,7 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, view.CanSMS = provider.(billing.SMSProvider)
+	_, view.CanChangeStatus = provider.(billing.SIMStatusProvider)
 	switch r.URL.Query().Get("sms") {
 	case "sent":
 		view.Notice = t.SMSSentNotice
@@ -98,10 +100,11 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 type devicesDataResponse struct {
-	Rows    []deviceRow `json:"rows"`
-	Warning string      `json:"warning,omitempty"`
-	Updated string      `json:"updated"`
-	CanSMS  bool        `json:"canSms"`
+	Rows            []deviceRow `json:"rows"`
+	Warning         string      `json:"warning,omitempty"`
+	Updated         string      `json:"updated"`
+	CanSMS          bool        `json:"canSms"`
+	CanChangeStatus bool        `json:"canChangeStatus"`
 }
 
 type deviceDataCacheEntry struct {
@@ -215,8 +218,10 @@ func (s *Server) fetchDeviceData(ctx context.Context, tenant billing.Tenant, t u
 		return devicesDataResponse{}, err
 	}
 	_, canSMS := provider.(billing.SMSProvider)
+	_, canChangeStatus := provider.(billing.SIMStatusProvider)
 	return devicesDataResponse{
-		Rows: rows, Warning: warning, Updated: s.now().Format("2006-01-02 15:04"), CanSMS: canSMS,
+		Rows: rows, Warning: warning, Updated: s.now().Format("2006-01-02 15:04"),
+		CanSMS: canSMS, CanChangeStatus: canChangeStatus,
 	}, nil
 }
 
@@ -241,6 +246,7 @@ func (s *Server) loadDeviceRows(ctx context.Context, tenant billing.Tenant, t ui
 		return nil, "", err
 	}
 	_, canSMS := provider.(billing.SMSProvider)
+	_, canChangeStatus := provider.(billing.SIMStatusProvider)
 	rows := make([]deviceRow, len(devices))
 	for i, device := range devices {
 		rows[i] = deviceRow{Name: device.Name, IMEI: device.UniqueID, TraccarStatus: device.Status}
@@ -276,6 +282,7 @@ func (s *Server) loadDeviceRows(ctx context.Context, tenant billing.Tenant, t ui
 			row.AllowedData = displayDataQuantity(usage.AllowedData)
 			row.RemainingData = displayDataQuantity(usage.RemainingData)
 			row.CanSMS = canSMS
+			row.CanChangeStatus = canChangeStatus
 
 			allowed, allowedOK := parseDataBytes(usage.AllowedData)
 			remaining, remainingOK := parseDataBytes(usage.RemainingData)
