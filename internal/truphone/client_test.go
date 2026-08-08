@@ -185,6 +185,21 @@ func TestChangeSIMStatus(t *testing.T) {
 	}
 }
 
+// The provider applies the change asynchronously and answers 202 with no body.
+// That used to surface as a failure on a call that had actually worked.
+func TestChangeSIMStatusAcceptedWithoutBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	baseURL, _ := url.Parse(srv.URL + "/api/")
+	client := newClient(baseURL, "provider-secret", srv.Client())
+	if err := client.ChangeSIMStatus(context.Background(), []string{"8944470000000000001"}, "SUSPENDED"); err != nil {
+		t.Fatalf("ChangeSIMStatus() error = %v", err)
+	}
+}
+
 func TestFetchDataUsage(t *testing.T) {
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

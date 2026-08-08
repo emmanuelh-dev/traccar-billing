@@ -462,22 +462,29 @@ func (c *Client) doJSONRequest(ctx context.Context, method string, endpoint *url
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusUnauthorized, http.StatusForbidden:
+	switch {
+	// change_status answers 202 Accepted (the provider applies it asynchronously)
+	// and some endpoints answer 204, so accept the whole 2xx family instead of
+	// reporting a failure for a call that actually worked.
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+	case resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden:
 		// 401 and 403 mean different things here: a bad token versus a valid
 		// token without access to this resource. Keep the detail the provider
 		// sends, it is the only way to tell them apart.
 		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("%w (status %d: %s)", ErrUnauthorized, resp.StatusCode, strings.TrimSpace(string(detail)))
-	case http.StatusNotFound:
+	case resp.StatusCode == http.StatusNotFound:
 		return ErrNotFound
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
+	// A 202/204 may carry no body at all; that is a success, not a decode error.
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
 		return fmt.Errorf("decode response: %w", err)
 	}
 	return nil
