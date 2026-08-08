@@ -238,23 +238,7 @@
       try {
         const response = await fetch("/devices/" + imei + "/sms/history", {headers: {"Accept": "application/json"}});
         if (!response.ok) throw new Error("history unavailable");
-        const messages = await response.json();
-        history.replaceChildren();
-        if (!messages.length) {
-          history.textContent = history.dataset.empty;
-          return;
-        }
-        const list = document.createElement("ul");
-        for (const message of messages) {
-          const item = document.createElement("li");
-          const meta = document.createElement("small");
-          meta.textContent = message.dateSubmitted + (message.deliveryStatus ? " · " + message.deliveryStatus : "");
-          const content = document.createElement("span");
-          content.textContent = message.content;
-          item.append(meta, content);
-          list.append(item);
-        }
-        history.append(list);
+        window.renderSMSHistory(history, await response.json());
       } catch (_) {
         history.textContent = "—";
       }

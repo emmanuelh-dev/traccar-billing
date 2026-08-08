@@ -89,4 +89,46 @@
     </div>
   </form>
 </dialog>
+<script>
+// Shared by every page that opens the dialog. Devices are configured by
+// re-sending the same handful of commands, so the raw history is mostly the
+// same text over and over; collapse repeats into one entry with a count.
+window.renderSMSHistory = (container, messages) => {
+  const lang = document.documentElement.lang || "es";
+  container.replaceChildren();
+  if (!messages.length) {
+    container.textContent = container.dataset.empty;
+    return;
+  }
+  const unique = new Map();
+  for (const message of messages) {
+    const key = (message.content || "").trim();
+    const seen = unique.get(key);
+    if (seen) {
+      seen.count++;
+      continue;
+    }
+    unique.set(key, {message: message, count: 1});
+  }
+  const list = document.createElement("ul");
+  for (const entry of unique.values()) {
+    const item = document.createElement("li");
+    const when = Date.parse(entry.message.dateSubmitted || "");
+    const parts = [
+      Number.isNaN(when)
+        ? entry.message.dateSubmitted
+        : new Date(when).toLocaleString(lang, {dateStyle: "short", timeStyle: "short"}),
+      entry.message.deliveryStatus,
+      entry.count > 1 ? "×" + entry.count : "",
+    ];
+    const meta = document.createElement("small");
+    meta.textContent = parts.filter(Boolean).join(" · ");
+    const content = document.createElement("span");
+    content.textContent = entry.message.content;
+    item.append(meta, content);
+    list.append(item);
+  }
+  container.append(list);
+};
+</script>
 {{end}}
