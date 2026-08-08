@@ -22,6 +22,7 @@
   </div>
 
   <div id="sim-history-error" class="form-error" hidden></div>
+  <div id="sim-history-notice" class="form-success" hidden></div>
   <div id="sim-history-loading" class="async-loading">
     <span class="loading-spinner" aria-hidden="true"></span>
     {{.T.SMSHistoryLoading}}
@@ -35,8 +36,8 @@
           <th>{{.T.DeviceNameCol}}</th>
           <th>{{.T.SIMHistoryDirCol}}</th>
           <th>ICCID</th>
-          <th>{{.T.SIMHistoryMessageCol}}</th>
           <th>{{.T.ColStatus}}</th>
+          <th>{{.T.SIMHistoryMessageCol}}</th>
         </tr>
       </thead>
       <tbody id="sim-history-body"></tbody>
@@ -46,6 +47,8 @@
 </div>
 </main>
 </div>
+
+{{if .CanSMS}}{{template "sms_dialog" .}}{{end}}
 
 {{if not .Error}}
 <script>
@@ -107,7 +110,23 @@
       dirTd.className = row.direction === "MO" ? "dir-mo" : "dir-mt";
       tr.append(dirTd);
 
-      for (const value of [row.iccid, row.content, row.deliveryStatus]) {
+      const iccidTd = document.createElement("td");
+      iccidTd.textContent = row.iccid || "—";
+      {{if .CanSMS}}
+      if (row.iccid) {
+        const resend = document.createElement("button");
+        resend.type = "button";
+        resend.className = "sms-resend";
+        resend.dataset.iccid = row.iccid;
+        resend.dataset.device = row.device || "";
+        resend.dataset.text = row.content || "";
+        resend.textContent = "{{.T.SMSResendBtn}}";
+        iccidTd.append(resend);
+      }
+      {{end}}
+      tr.append(iccidTd);
+
+      for (const value of [row.deliveryStatus, row.content]) {
         const td = document.createElement("td");
         td.textContent = value || "—";
         tr.append(td);
@@ -117,6 +136,82 @@
     empty.hidden = visible.length !== 0;
     table.hidden = visible.length === 0;
   }
+
+  {{if .CanSMS}}
+  const notice = document.getElementById("sim-history-notice");
+  const dialog = document.getElementById("sms-dialog");
+  const form = document.getElementById("sms-form");
+  const device = document.getElementById("sms-device");
+  const template = document.getElementById("sms-template");
+  const text = document.getElementById("sms-text");
+  const history = document.getElementById("sms-history");
+  let currentICCID = "";
+
+  body.addEventListener("click", async event => {
+    const button = event.target.closest(".sms-resend");
+    if (!button || !dialog) return;
+    currentICCID = button.dataset.iccid;
+    device.textContent = button.dataset.device + " · " + button.dataset.iccid;
+    template.value = "";
+    text.value = button.dataset.text;
+    history.textContent = history.dataset.loading;
+    dialog.showModal();
+    try {
+      const response = await fetch("/sims/" + encodeURIComponent(currentICCID) + "/sms/history", {headers: {"Accept": "application/json"}});
+      if (!response.ok) throw new Error("history unavailable");
+      const messages = await response.json();
+      history.replaceChildren();
+      if (!messages.length) {
+        history.textContent = history.dataset.empty;
+        return;
+      }
+      const list = document.createElement("ul");
+      for (const message of messages) {
+        const item = document.createElement("li");
+        const meta = document.createElement("small");
+        meta.textContent = message.dateSubmitted + (message.deliveryStatus ? " · " + message.deliveryStatus : "");
+        const content = document.createElement("span");
+        content.textContent = message.content;
+        item.append(meta, content);
+        list.append(item);
+      }
+      history.append(list);
+    } catch (_) {
+      history.textContent = "—";
+    }
+  });
+
+  template.addEventListener("change", () => {
+    if (template.value) text.value = template.value;
+    text.focus();
+  });
+  document.getElementById("sms-close").addEventListener("click", () => dialog.close());
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const submitButton = form.querySelector("button[type=submit]");
+    submitButton.disabled = true;
+    notice.hidden = true;
+    try {
+      const response = await fetch("/sims/" + encodeURIComponent(currentICCID) + "/sms", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text: text.value}),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "{{.T.SMSSendError}}");
+      dialog.close();
+      notice.textContent = "{{.T.SMSSentNotice}}";
+      notice.hidden = false;
+      error.hidden = true;
+    } catch (reason) {
+      error.textContent = reason.message || "{{.T.SMSSendError}}";
+      error.hidden = false;
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+  {{end}}
 
   search.addEventListener("input", renderRows);
   fetch("/sim-history/data", {headers: {"Accept": "application/json"}})

@@ -154,6 +154,7 @@ type uiStrings struct {
 	SIMHistoryReceived        string
 	SIMHistorySent            string
 	SIMHistoryMessageCol      string
+	SMSResendBtn              string
 	SMSHistoryUnavailable     string
 	ConnectivitySection       string
 	ConnectivityIntro         string
@@ -512,6 +513,7 @@ var translations = map[string]uiStrings{
 		SIMHistoryReceived:        "Recibido",
 		SIMHistorySent:            "Enviado",
 		SIMHistoryMessageCol:      "Mensaje",
+		SMSResendBtn:              "Reenviar",
 		SMSHistoryUnavailable:     "No se pudo consultar el historial de mensajes.",
 		ConnectivitySection:       "Proveedor de SIM",
 		ConnectivityIntro:         "Configura la cuenta de conectividad de este usuario. La credencial se valida y se almacena cifrada.",
@@ -871,6 +873,7 @@ var translations = map[string]uiStrings{
 		SIMHistoryReceived:        "Received",
 		SIMHistorySent:            "Sent",
 		SIMHistoryMessageCol:      "Message",
+		SMSResendBtn:              "Resend",
 		SMSHistoryUnavailable:     "Could not fetch message history.",
 		ConnectivitySection:       "SIM provider",
 		ConnectivityIntro:         "Configure this user's connectivity account. The credential is validated and stored encrypted.",

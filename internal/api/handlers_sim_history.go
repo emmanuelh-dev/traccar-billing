@@ -17,6 +17,7 @@ type simHistoryView struct {
 	Tenant         billing.Tenant
 	Error          string
 	SessionExpired bool
+	CanSMS         bool
 }
 
 type simHistoryRow struct {
@@ -39,6 +40,8 @@ func (s *Server) handleSIMHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.connectivity == nil {
 		view.Error = t.ConnectivityNotConfigured
+	} else if provider, ok := s.connectivity.ResolveProvider(tenant); ok {
+		_, view.CanSMS = provider.(billing.SMSProvider)
 	}
 	render(w, http.StatusOK, "sim_history", view)
 }

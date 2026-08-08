@@ -434,7 +434,8 @@ button.primary:active {
   color: var(--color-success);
 }
 
-.sms-open {
+.sms-open,
+.sms-resend {
   padding: 7px 10px;
   border: 1px solid var(--color-border);
   border-radius: 7px;
@@ -442,6 +443,14 @@ button.primary:active {
   color: var(--color-text);
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Sits inline after the ICCID inside its cell, so it has to be smaller than
+   the standalone .sms-open button and keep the text from touching it. */
+.sms-resend {
+  margin-left: 8px;
+  padding: 2px 7px;
+  font-size: 12px;
 }
 
 .sms-dialog {
@@ -555,14 +564,15 @@ td.dir-mt {
   color: var(--color-text-muted);
 }
 
-/* Subtle full-row tint by SMS direction, distinct enough to scan a dense
-   table without fighting the accent-colored dir-mo/dir-mt cell text. */
+/* Received messages (row-mo) are the ones easy to miss in a dense table, so
+   they get a visible accent tint and edge; sent messages stay the plain
+   default row so the received ones are what stands out. */
 tr.row-mo td {
-  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg));
 }
 
-tr.row-mt td {
-  background: color-mix(in srgb, var(--color-text-muted) 8%, var(--color-bg));
+tr.row-mo td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 /* Dashboard */
